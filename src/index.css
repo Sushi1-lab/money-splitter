@@ -1,1 +1,109 @@
 @import "tailwindcss";
+
+/* =========================================
+   GLOBAL MOBILE / SCROLL FIX
+========================================= */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  width: 100%;
+  min-width: 0;
+  overflow-x: hidden;
+  scroll-behavior: smooth;
+
+  /*
+    Helps mobile browsers scroll naturally.
+  */
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+
+  width: 100%;
+  min-width: 0;
+  min-height: 100%;
+
+  overflow-x: hidden;
+  overflow-y: auto;
+
+  /*
+    Better scrolling on iPhone / mobile browsers.
+  */
+  -webkit-overflow-scrolling: touch;
+
+  touch-action: pan-y;
+
+  background: #020617;
+}
+
+#root {
+  width: 100%;
+  min-width: 0;
+  min-height: 100%;
+
+  overflow-x: hidden;
+}
+
+/* =========================================
+   PREVENT ELEMENTS FROM BREAKING MOBILE WIDTH
+========================================= */
+
+img,
+video,
+canvas,
+svg {
+  max-width: 100%;
+  height: auto;
+}
+
+input,
+textarea,
+select,
+button {
+  max-width: 100%;
+}
+
+/*
+  16px prevents iPhone Safari from
+  automatically zooming when an input
+  receives focus.
+*/
+input,
+textarea,
+select {
+  font-size: 16px;
+}
+
+/* Better button tapping on mobile */
+
+button,
+a {
+  touch-action: manipulation;
+}
+
+/* =========================================
+   SCROLLBAR
+========================================= */
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.25);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.4);
+}

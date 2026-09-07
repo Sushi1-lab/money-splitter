@@ -1,6 +1,4 @@
-import {
-  useState,
-} from "react";
+import { useState } from "react";
 
 import {
   addDoc,
@@ -20,34 +18,30 @@ import {
 function ServerSelector({
   user,
   servers,
-  activeServer,
   onSelectServer,
   onRefreshServers,
+  onManageServer,
 }) {
-  const [
-    creating,
-    setCreating,
-  ] = useState(false);
+  const [creating, setCreating] =
+    useState(false);
 
-  const [
-    serverName,
-    setServerName,
-  ] = useState("");
+  const [serverName, setServerName] =
+    useState("");
 
-  const [
-    memberEmail,
-    setMemberEmail,
-  ] = useState("");
+  const [memberEmail, setMemberEmail] =
+    useState("");
 
-  const [
-    memberEmails,
-    setMemberEmails,
-  ] = useState([]);
+  const [memberEmails, setMemberEmails] =
+    useState([]);
 
   const normalizedUserEmail =
     user?.email
       ?.trim()
       .toLowerCase();
+
+  // =========================================================
+  // ADD MEMBER
+  // =========================================================
 
   const addMember = () => {
     const email =
@@ -72,18 +66,17 @@ function ServerSelector({
       normalizedUserEmail
     ) {
       alert(
-        "You are already automatically included."
+        "You are already included automatically."
       );
 
       return;
     }
 
-    const exists =
+    if (
       memberEmails.includes(
         email
-      );
-
-    if (exists) {
+      )
+    ) {
       alert(
         "That email is already included."
       );
@@ -101,6 +94,10 @@ function ServerSelector({
     setMemberEmail("");
   };
 
+  // =========================================================
+  // REMOVE MEMBER BEFORE CREATION
+  // =========================================================
+
   const removeMember = (
     email
   ) => {
@@ -112,6 +109,10 @@ function ServerSelector({
         )
     );
   };
+
+  // =========================================================
+  // CREATE SERVER
+  // =========================================================
 
   const createServer =
     async () => {
@@ -186,15 +187,19 @@ function ServerSelector({
     };
 
   return (
-    <div className="min-h-screen bg-slate-950 px-4 py-8 text-white sm:px-6">
+    <div className="relative min-h-screen overflow-hidden bg-slate-950 px-4 py-8 text-white sm:px-6">
 
-      <div className="mx-auto max-w-5xl">
+      <div className="pointer-events-none absolute -left-32 -top-32 h-96 w-96 rounded-full bg-purple-500/20 blur-3xl" />
+
+      <div className="pointer-events-none absolute -bottom-32 -right-32 h-96 w-96 rounded-full bg-cyan-500/20 blur-3xl" />
+
+      <div className="relative z-10 mx-auto max-w-5xl">
 
         {/* HEADER */}
 
         <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
 
-          <div>
+          <div className="min-w-0">
 
             <p className="text-xs font-semibold uppercase tracking-[0.25em] text-cyan-300">
               Money Splitter
@@ -204,7 +209,7 @@ function ServerSelector({
               Your Servers
             </h1>
 
-            <p className="mt-2 text-sm text-slate-400">
+            <p className="mt-2 truncate text-sm text-slate-400">
               Signed in as{" "}
               {user.email}
             </p>
@@ -225,23 +230,19 @@ function ServerSelector({
 
         <div className="grid gap-6 lg:grid-cols-2">
 
-          {/* EXISTING SERVERS */}
+          {/* SERVERS */}
 
-          <section className="rounded-3xl border border-white/10 bg-white/[0.06] p-4 sm:p-6">
+          <section className="rounded-3xl border border-white/10 bg-white/[0.06] p-4 backdrop-blur-xl sm:p-6">
 
             <h2 className="text-xl font-bold">
               Your Servers
             </h2>
 
             <p className="mt-1 text-sm text-slate-500">
-              Only servers where your
-              email is a member appear
-              here.
+              Each server has its own expenses, payments and history.
             </p>
 
-            {servers.length ===
-            0 ? (
-
+            {servers.length === 0 ? (
               <div className="mt-6 rounded-2xl border border-dashed border-white/10 p-8 text-center">
 
                 <div className="mb-3 text-3xl">
@@ -253,68 +254,92 @@ function ServerSelector({
                 </p>
 
               </div>
-
             ) : (
-
               <div className="mt-6 space-y-3">
 
                 {servers.map(
-                  (server) => (
+                  (server) => {
+                    const isOwner =
+                      server.ownerEmail
+                        ?.toLowerCase() ===
+                      normalizedUserEmail;
 
-                    <button
-                      type="button"
-                      key={
-                        server.id
-                      }
-                      onClick={() =>
-                        onSelectServer(
-                          server
-                        )
-                      }
-                      className={`flex min-h-16 w-full items-center justify-between gap-3 rounded-2xl border p-4 text-left transition ${
-                        activeServer
-                          ?.id ===
-                        server.id
-                          ? "border-cyan-400/40 bg-cyan-400/10"
-                          : "border-white/10 bg-white/5 hover:bg-white/10"
-                      }`}
-                    >
+                    return (
+                      <div
+                        key={server.id}
+                        className="overflow-hidden rounded-2xl border border-white/10 bg-white/5"
+                      >
 
-                      <div className="flex min-w-0 items-center gap-3">
-
-                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-400 to-purple-500 text-xl">
-                          👥
-                        </div>
-
-                        <div className="min-w-0">
-
-                          <p className="truncate font-semibold">
-                            {
-                              server.name
-                            }
-                          </p>
-
-                          <p className="text-xs text-slate-500">
-                            {
+                        <button
+                          type="button"
+                          onClick={() =>
+                            onSelectServer(
                               server
-                                .members
-                                ?.length ||
-                              0
-                            }{" "}
-                            members
-                          </p>
+                            )
+                          }
+                          className="flex min-h-16 w-full items-center justify-between gap-3 p-4 text-left transition hover:bg-white/5"
+                        >
 
-                        </div>
+                          <div className="flex min-w-0 items-center gap-3">
+
+                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-400 to-purple-500 text-xl">
+                              👥
+                            </div>
+
+                            <div className="min-w-0">
+
+                              <div className="flex flex-wrap items-center gap-2">
+
+                                <p className="truncate font-semibold">
+                                  {server.name}
+                                </p>
+
+                                {isOwner && (
+                                  <span className="rounded-full bg-purple-400/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-purple-300">
+                                    Owner
+                                  </span>
+                                )}
+
+                              </div>
+
+                              <p className="mt-1 text-xs text-slate-500">
+                                {server.members?.length || 0}{" "}
+                                {(server.members?.length || 0) === 1
+                                  ? "member"
+                                  : "members"}
+                              </p>
+
+                            </div>
+
+                          </div>
+
+                          <span className="shrink-0 text-slate-500">
+                            →
+                          </span>
+
+                        </button>
+
+                        {isOwner && (
+                          <div className="border-t border-white/5 p-2">
+
+                            <button
+                              type="button"
+                              onClick={() =>
+                                onManageServer(
+                                  server
+                                )
+                              }
+                              className="min-h-11 w-full rounded-xl bg-white/5 px-4 text-sm font-medium text-cyan-300 transition hover:bg-white/10"
+                            >
+                              ⚙️ Manage Server
+                            </button>
+
+                          </div>
+                        )}
 
                       </div>
-
-                      <span className="shrink-0 text-slate-500">
-                        →
-                      </span>
-
-                    </button>
-
-                  )
+                    );
+                  }
                 )}
 
               </div>
@@ -324,16 +349,14 @@ function ServerSelector({
 
           {/* CREATE SERVER */}
 
-          <section className="rounded-3xl border border-white/10 bg-white/[0.06] p-4 sm:p-6">
+          <section className="rounded-3xl border border-white/10 bg-white/[0.06] p-4 backdrop-blur-xl sm:p-6">
 
             <h2 className="text-xl font-bold">
               Create Server
             </h2>
 
             <p className="mt-1 text-sm text-slate-500">
-              Add the Google email
-              addresses of people who
-              should have access.
+              Create a private expense group with your friends.
             </p>
 
             <div className="mt-6">
@@ -343,15 +366,10 @@ function ServerSelector({
               </label>
 
               <input
-                value={
-                  serverName
-                }
-                onChange={(
-                  event
-                ) =>
+                value={serverName}
+                onChange={(event) =>
                   setServerName(
-                    event.target
-                      .value
+                    event.target.value
                   )
                 }
                 placeholder="Example: Marl, Ron & Justin"
@@ -370,26 +388,18 @@ function ServerSelector({
 
                 <input
                   type="email"
-                  value={
-                    memberEmail
-                  }
-                  onChange={(
-                    event
-                  ) =>
+                  value={memberEmail}
+                  onChange={(event) =>
                     setMemberEmail(
-                      event.target
-                        .value
+                      event.target.value
                     )
                   }
-                  onKeyDown={(
-                    event
-                  ) => {
+                  onKeyDown={(event) => {
                     if (
                       event.key ===
                       "Enter"
                     ) {
                       event.preventDefault();
-
                       addMember();
                     }
                   }}
@@ -399,9 +409,7 @@ function ServerSelector({
 
                 <button
                   type="button"
-                  onClick={
-                    addMember
-                  }
+                  onClick={addMember}
                   className="min-h-12 rounded-xl bg-white/10 px-5 font-semibold"
                 >
                   Add
@@ -411,7 +419,7 @@ function ServerSelector({
 
             </div>
 
-            {/* CREATOR */}
+            {/* MEMBER LIST */}
 
             <div className="mt-5">
 
@@ -428,14 +436,13 @@ function ServerSelector({
                   </span>
 
                   <span className="shrink-0 text-xs text-cyan-300">
-                    You
+                    Owner
                   </span>
 
                 </div>
 
                 {memberEmails.map(
                   (email) => (
-
                     <div
                       key={email}
                       className="flex items-center justify-between gap-3 rounded-xl bg-white/5 px-3 py-3"
@@ -458,7 +465,6 @@ function ServerSelector({
                       </button>
 
                     </div>
-
                   )
                 )}
 
@@ -469,9 +475,7 @@ function ServerSelector({
             <button
               type="button"
               disabled={creating}
-              onClick={
-                createServer
-              }
+              onClick={createServer}
               className="mt-6 min-h-14 w-full rounded-2xl bg-gradient-to-r from-cyan-400 to-purple-500 px-5 font-bold text-slate-950 disabled:opacity-50"
             >
               {creating
