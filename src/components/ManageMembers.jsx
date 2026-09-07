@@ -13,6 +13,7 @@ import { db } from "../firebase.js";
 function ManageMembers({
   user,
   server,
+  isSuperAdmin,
   onClose,
   onServerUpdated,
   onServerDeleted,
@@ -45,101 +46,96 @@ function ManageMembers({
     currentUserEmail ===
     ownerEmail;
 
+  const canManage =
+    isOwner ||
+    isSuperAdmin;
+
   // =========================================================
   // ADD MEMBER
   // =========================================================
 
-  const addMember = async () => {
-    if (!isOwner) {
-      alert(
-        "Only the server owner can add members."
-      );
+  const addMember =
+    async () => {
+      if (!canManage) {
+        alert(
+          "You do not have permission to manage this server."
+        );
+        return;
+      }
 
-      return;
-    }
+      const email =
+        memberEmail
+          .trim()
+          .toLowerCase();
 
-    const email =
-      memberEmail
-        .trim()
-        .toLowerCase();
+      if (!email) {
+        alert(
+          "Please enter an email address."
+        );
+        return;
+      }
 
-    if (!email) {
-      alert(
-        "Please enter an email address."
-      );
+      if (!email.includes("@")) {
+        alert(
+          "Please enter a valid email address."
+        );
+        return;
+      }
 
-      return;
-    }
+      const alreadyExists =
+        members.some(
+          (member) =>
+            member.toLowerCase() ===
+            email
+        );
 
-    if (
-      !email.includes("@")
-    ) {
-      alert(
-        "Please enter a valid email address."
-      );
+      if (alreadyExists) {
+        alert(
+          "This person is already a member."
+        );
+        return;
+      }
 
-      return;
-    }
+      try {
+        setSaving(true);
 
-    const alreadyExists =
-      members.some(
-        (member) =>
-          member.toLowerCase() ===
-          email
-      );
+        const updatedMembers = [
+          ...members,
+          email,
+        ];
 
-    if (alreadyExists) {
-      alert(
-        "This person is already a member."
-      );
+        await updateDoc(
+          doc(
+            db,
+            "servers",
+            server.id
+          ),
+          {
+            members:
+              updatedMembers,
+          }
+        );
 
-      return;
-    }
-
-    try {
-      setSaving(true);
-
-      const updatedMembers = [
-        ...members,
-        email,
-      ];
-
-      await updateDoc(
-        doc(
-          db,
-          "servers",
-          server.id
-        ),
-        {
+        onServerUpdated({
+          ...server,
           members:
             updatedMembers,
-        }
-      );
+        });
 
-      const updatedServer = {
-        ...server,
-        members:
-          updatedMembers,
-      };
+        setMemberEmail("");
+      } catch (error) {
+        console.error(
+          "Add member error:",
+          error
+        );
 
-      setMemberEmail("");
-
-      onServerUpdated(
-        updatedServer
-      );
-    } catch (error) {
-      console.error(
-        "Add member error:",
-        error
-      );
-
-      alert(
-        "Unable to add member."
-      );
-    } finally {
-      setSaving(false);
-    }
-  };
+        alert(
+          "Unable to add member."
+        );
+      } finally {
+        setSaving(false);
+      }
+    };
 
   // =========================================================
   // REMOVE MEMBER
@@ -147,11 +143,7 @@ function ManageMembers({
 
   const removeMember =
     async (email) => {
-      if (!isOwner) {
-        alert(
-          "Only the server owner can remove members."
-        );
-
+      if (!canManage) {
         return;
       }
 
@@ -167,7 +159,6 @@ function ManageMembers({
         alert(
           "The server owner cannot be removed."
         );
-
         return;
       }
 
@@ -200,15 +191,11 @@ function ManageMembers({
           }
         );
 
-        const updatedServer = {
+        onServerUpdated({
           ...server,
           members:
             updatedMembers,
-        };
-
-        onServerUpdated(
-          updatedServer
-        );
+        });
       } catch (error) {
         console.error(
           "Remove member error:",
@@ -244,7 +231,9 @@ function ManageMembers({
       await Promise.all(
         snapshot.docs.map(
           (item) =>
-            deleteDoc(item.ref)
+            deleteDoc(
+              item.ref
+            )
         )
       );
     };
@@ -255,11 +244,10 @@ function ManageMembers({
 
   const deleteServer =
     async () => {
-      if (!isOwner) {
+      if (!canManage) {
         alert(
-          "Only the server owner can delete this server."
+          "You do not have permission to delete this server."
         );
-
         return;
       }
 
@@ -282,9 +270,10 @@ function ManageMembers({
       }
 
       try {
-        setDeletingServer(true);
+        setDeletingServer(
+          true
+        );
 
-        // Delete all server data first
         await Promise.all([
           deleteSubcollection(
             "splits"
@@ -294,7 +283,6 @@ function ManageMembers({
           ),
         ]);
 
-        // Delete server document
         await deleteDoc(
           doc(
             db,
@@ -327,13 +315,13 @@ function ManageMembers({
     };
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-slate-950 px-4 py-8 text-white sm:px-6">
+    <div className="relative min-h-screen w-full min-w-0 overflow-x-hidden bg-slate-950 px-3 py-5 text-white sm:px-6 sm:py-8">
 
       <div className="pointer-events-none absolute -left-32 -top-32 h-96 w-96 rounded-full bg-purple-500/20 blur-3xl" />
 
       <div className="pointer-events-none absolute -bottom-32 -right-32 h-96 w-96 rounded-full bg-cyan-500/20 blur-3xl" />
 
-      <div className="relative z-10 mx-auto max-w-2xl">
+      <div className="relative z-10 mx-auto w-full max-w-2xl">
 
         {/* HEADER */}
 
@@ -341,13 +329,28 @@ function ManageMembers({
 
           <div className="min-w-0">
 
-            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-cyan-300">
-              Server Settings
-            </p>
+            <div className="flex flex-wrap items-center gap-2">
+
+              <p className="text-xs font-semibold uppercase tracking-[0.25em] text-cyan-300">
+                Server Settings
+              </p>
+
+              {isSuperAdmin && (
+                <span className="rounded-full bg-purple-400/10 px-2 py-1 text-[9px] font-bold uppercase text-purple-300">
+                  Super Admin
+                </span>
+              )}
+
+            </div>
 
             <h1 className="mt-1 break-words text-2xl font-bold sm:text-3xl">
               {server.name}
             </h1>
+
+            <p className="mt-2 break-all text-xs text-slate-500">
+              Owner:{" "}
+              {server.ownerEmail}
+            </p>
 
           </div>
 
@@ -361,9 +364,26 @@ function ManageMembers({
 
         </div>
 
+        {/* ADMIN NOTICE */}
+
+        {isSuperAdmin &&
+          !isOwner && (
+            <div className="mb-5 rounded-2xl border border-purple-400/20 bg-purple-400/[0.06] p-4">
+
+              <p className="font-semibold text-purple-300">
+                👑 Super Admin Access
+              </p>
+
+              <p className="mt-1 text-xs leading-relaxed text-slate-400">
+                You are not a member or owner of this server, but you can manage it because you are a super admin.
+              </p>
+
+            </div>
+          )}
+
         {/* MEMBERS */}
 
-        <section className="rounded-3xl border border-white/10 bg-white/[0.06] p-4 backdrop-blur-xl sm:p-6">
+        <section className="min-w-0 rounded-3xl border border-white/10 bg-white/[0.06] p-4 backdrop-blur-xl sm:p-6">
 
           <div className="mb-6">
 
@@ -375,20 +395,16 @@ function ManageMembers({
               Manage Members
             </h2>
 
-            <p className="mt-2 text-sm leading-relaxed text-slate-500">
-              Anyone whose Google email is listed here can access this server's expenses and history.
-            </p>
-
           </div>
 
-          {isOwner && (
+          {canManage && (
             <div className="mb-6">
 
-              <label className="mb-2 block text-sm font-medium text-slate-300">
+              <label className="mb-2 block text-sm text-slate-300">
                 Add Member
               </label>
 
-              <div className="flex flex-col gap-2 sm:flex-row">
+              <div className="flex min-w-0 flex-col gap-2 sm:flex-row">
 
                 <input
                   type="email"
@@ -408,7 +424,7 @@ function ManageMembers({
                     }
                   }}
                   placeholder="friend@gmail.com"
-                  className="min-h-12 min-w-0 flex-1 rounded-xl border border-white/10 bg-white/5 px-4 text-base outline-none placeholder:text-slate-600 focus:border-cyan-400/50"
+                  className="min-h-12 min-w-0 flex-1 rounded-xl border border-white/10 bg-white/5 px-4 text-base outline-none"
                 />
 
                 <button
@@ -418,7 +434,7 @@ function ManageMembers({
                     saving ||
                     deletingServer
                   }
-                  className="min-h-12 rounded-xl bg-cyan-400 px-5 font-bold text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="min-h-12 rounded-xl bg-cyan-400 px-5 font-bold text-slate-950 disabled:opacity-50"
                 >
                   {saving
                     ? "Saving..."
@@ -460,10 +476,10 @@ function ManageMembers({
                 return (
                   <div
                     key={email}
-                    className="flex min-w-0 items-center justify-between gap-3 rounded-2xl border border-white/5 bg-white/5 p-3 sm:p-4"
+                    className="flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/5 bg-white/5 p-3 sm:p-4"
                   >
 
-                    <div className="flex min-w-0 items-center gap-3">
+                    <div className="flex min-w-0 flex-1 items-center gap-3">
 
                       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-cyan-400 to-purple-500 font-bold text-slate-950">
                         {email
@@ -473,7 +489,7 @@ function ManageMembers({
 
                       <div className="min-w-0">
 
-                        <p className="truncate text-sm font-medium text-slate-200">
+                        <p className="break-all text-sm font-medium text-slate-200">
                           {email}
                         </p>
 
@@ -497,7 +513,7 @@ function ManageMembers({
 
                     </div>
 
-                    {isOwner &&
+                    {canManage &&
                       !memberIsOwner && (
                         <button
                           type="button"
@@ -523,17 +539,11 @@ function ManageMembers({
 
           </div>
 
-          {!isOwner && (
-            <div className="mt-5 rounded-xl border border-white/5 bg-white/[0.03] p-3 text-sm text-slate-500">
-              Only the owner of this server can change its members.
-            </div>
-          )}
-
         </section>
 
         {/* DANGER ZONE */}
 
-        {isOwner && (
+        {canManage && (
           <section className="mt-6 rounded-3xl border border-red-500/20 bg-red-500/[0.05] p-4 sm:p-6">
 
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-red-300">
@@ -545,16 +555,25 @@ function ManageMembers({
             </h2>
 
             <p className="mt-2 text-sm leading-relaxed text-slate-400">
-              This permanently deletes this server, all split history and all payment records.
+              This permanently deletes the server, its split history and payment records.
             </p>
+
+            {isSuperAdmin &&
+              !isOwner && (
+                <p className="mt-2 text-xs text-purple-300">
+                  You can delete this server using your Super Admin privileges.
+                </p>
+              )}
 
             <button
               type="button"
-              onClick={deleteServer}
+              onClick={
+                deleteServer
+              }
               disabled={
                 deletingServer
               }
-              className="mt-5 min-h-12 w-full rounded-xl bg-red-500 px-5 font-bold text-white transition hover:bg-red-400 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+              className="mt-5 min-h-12 w-full rounded-xl bg-red-500 px-5 font-bold text-white disabled:opacity-50 sm:w-auto"
             >
               {deletingServer
                 ? "Deleting Server..."
