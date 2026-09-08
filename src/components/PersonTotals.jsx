@@ -1,118 +1,313 @@
+import {
+  ArrowRight,
+  CheckCircle2,
+  QrCode,
+  RotateCcw,
+  WalletCards,
+} from "lucide-react";
+
 function PersonTotals({
-  savedSplits,
-  settlements,
+  savedSplits = [],
+  people = [],
+  settlements = {},
   onMarkPaid,
   onRestorePayment,
+  onViewWallet,
   paymentLoading,
   getSettlementId,
 }) {
-  const debts = {};
+  // =========================================
+  // NORMALIZE
+  // =========================================
 
-  // =========================================================
-  // CREATE DEBT LIST
-  // =========================================================
+  const normalizeName = (
+    name = ""
+  ) =>
+    String(name)
+      .trim()
+      .replace(/\s+/g, " ")
+      .toLowerCase();
+
+  // =========================================
+  // FIND SAVED PERSON
+  // =========================================
+
+  const findSavedPerson = (
+    name
+  ) => {
+    const key =
+      normalizeName(name);
+
+    return people.find(
+      (person) =>
+        normalizeName(
+          person.name
+        ) === key
+    );
+  };
+
+  // =========================================
+  // BUILD DEBTS
+  // =========================================
+
+  const debts = {};
 
   savedSplits.forEach(
     (split) => {
-      const people =
-        split.people || [];
+      let payer;
+      let participants;
+
+      // NEW FORMAT
+      if (
+        split.payer?.name &&
+        Array.isArray(
+          split.participants
+        )
+      ) {
+        payer =
+          split.payer;
+
+        participants =
+          split.participants;
+      }
+
+      // OLD FORMAT
+      else {
+        payer = {
+          id: null,
+
+          name:
+            split.addedBy ||
+            "Unknown",
+
+          linkedUid:
+            null,
+
+          linkedEmail:
+            null,
+
+          username:
+            "",
+        };
+
+        participants = (
+          split.people || []
+        ).map((name) => ({
+          id: null,
+
+          name,
+
+          linkedUid:
+            null,
+
+          linkedEmail:
+            null,
+
+          username:
+            "",
+        }));
+      }
+
+      if (!payer?.name) {
+        return;
+      }
+
+      const payerName =
+        String(
+          payer.name
+        )
+          .trim()
+          .replace(
+            /\s+/g,
+            " "
+          );
+
+      const payerKey =
+        normalizeName(
+          payerName
+        );
+
+      if (!payerKey) {
+        return;
+      }
 
       const amountPerPerson =
         Number(
           split.amountPerPerson
         ) || 0;
 
-      const addedBy =
-        split.addedBy?.trim();
-
-      if (!addedBy) return;
-
-      const creditorKey =
-        addedBy.toLowerCase();
-
-      people.forEach(
-        (person) => {
+      participants.forEach(
+        (participant) => {
           if (
-            typeof person !==
-            "string"
+            !participant?.name
           ) {
             return;
           }
 
-          const personName =
-            person.trim();
+          const participantName =
+            String(
+              participant.name
+            )
+              .trim()
+              .replace(
+                /\s+/g,
+                " "
+              );
 
-          if (!personName) {
-            return;
-          }
-
-          const personKey =
-            personName.toLowerCase();
+          const participantKey =
+            normalizeName(
+              participantName
+            );
 
           if (
-            personKey ===
-            creditorKey
+            !participantKey
           ) {
             return;
           }
+
+          // Don't owe yourself.
+          if (
+            participantKey ===
+            payerKey
+          ) {
+            return;
+          }
+
+          // ===================================
+          // DEBTOR
+          // ===================================
 
           if (
             !debts[
-              personKey
+              participantKey
             ]
           ) {
+            const savedDebtor =
+              findSavedPerson(
+                participantName
+              );
+
             debts[
-              personKey
+              participantKey
             ] = {
-              name:
-                personName,
+              key:
+                participantKey,
+
+              person: {
+                id:
+                  savedDebtor?.id ||
+                  participant.id ||
+                  null,
+
+                name:
+                  savedDebtor?.name ||
+                  participantName,
+
+                linkedUid:
+                  savedDebtor
+                    ?.linkedUid ||
+                  participant
+                    .linkedUid ||
+                  null,
+
+                linkedEmail:
+                  savedDebtor
+                    ?.linkedEmail ||
+                  participant
+                    .linkedEmail ||
+                  null,
+
+                username:
+                  savedDebtor
+                    ?.username ||
+                  participant
+                    .username ||
+                  "",
+              },
+
               creditors: {},
             };
           }
 
+          // ===================================
+          // CREDITOR / PERSON WHO COVERED
+          // ===================================
+
           if (
             !debts[
-              personKey
+              participantKey
             ].creditors[
-              creditorKey
+              payerKey
             ]
           ) {
+            const savedCreditor =
+              findSavedPerson(
+                payerName
+              );
+
             debts[
-              personKey
+              participantKey
             ].creditors[
-              creditorKey
+              payerKey
             ] = {
-              name:
-                addedBy,
+              key:
+                payerKey,
+
+              person: {
+                id:
+                  savedCreditor?.id ||
+                  payer.id ||
+                  null,
+
+                name:
+                  savedCreditor?.name ||
+                  payerName,
+
+                linkedUid:
+                  savedCreditor
+                    ?.linkedUid ||
+                  payer
+                    .linkedUid ||
+                  null,
+
+                linkedEmail:
+                  savedCreditor
+                    ?.linkedEmail ||
+                  payer
+                    .linkedEmail ||
+                  null,
+
+                username:
+                  savedCreditor
+                    ?.username ||
+                  payer
+                    .username ||
+                  "",
+              },
 
               amount: 0,
-
-              splitCount:
-                0,
 
               splits: [],
             };
           }
 
-          const creditor =
+          const row =
             debts[
-              personKey
+              participantKey
             ].creditors[
-              creditorKey
+              payerKey
             ];
 
-          creditor.amount +=
+          row.amount +=
             amountPerPerson;
 
-          creditor.splitCount +=
-            1;
-
-          creditor.splits.push({
-            id: split.id,
+          row.splits.push({
+            id:
+              split.id,
 
             description:
               split.description ||
-              "Untitled Split",
+              "Expense",
 
             amount:
               amountPerPerson,
@@ -122,22 +317,114 @@ function PersonTotals({
     }
   );
 
-  // =========================================================
-  // APPLY PAYMENTS
-  // =========================================================
+  // =========================================
+  // FINAL DATA
+  // =========================================
 
-  const peopleDebts =
+  const debtPeople =
     Object.values(debts)
-      .map((person) => {
+      .map((entry) => {
+        // Always refresh debtor
+        // from current Saved People.
+        const latestDebtor =
+          findSavedPerson(
+            entry.person.name
+          );
+
+        const debtorPerson = {
+          ...entry.person,
+
+          id:
+            latestDebtor?.id ||
+            entry.person.id ||
+            null,
+
+          name:
+            latestDebtor?.name ||
+            entry.person.name,
+
+          linkedUid:
+            latestDebtor
+              ?.linkedUid ||
+            entry.person
+              .linkedUid ||
+            null,
+
+          linkedEmail:
+            latestDebtor
+              ?.linkedEmail ||
+            entry.person
+              .linkedEmail ||
+            null,
+
+          username:
+            latestDebtor
+              ?.username ||
+            entry.person
+              .username ||
+            "",
+        };
+
         const creditors =
           Object.values(
-            person.creditors
+            entry.creditors
           ).map(
             (creditor) => {
+              // IMPORTANT:
+              // Refresh the creditor from
+              // current Saved People.
+              //
+              // This makes the Wallet button
+              // receive the latest linkedUid.
+              const latestCreditor =
+                findSavedPerson(
+                  creditor.person
+                    .name
+                );
+
+              const creditorPerson =
+                {
+                  ...creditor.person,
+
+                  id:
+                    latestCreditor
+                      ?.id ||
+                    creditor.person
+                      .id ||
+                    null,
+
+                  name:
+                    latestCreditor
+                      ?.name ||
+                    creditor.person
+                      .name,
+
+                  linkedUid:
+                    latestCreditor
+                      ?.linkedUid ||
+                    creditor.person
+                      .linkedUid ||
+                    null,
+
+                  linkedEmail:
+                    latestCreditor
+                      ?.linkedEmail ||
+                    creditor.person
+                      .linkedEmail ||
+                    null,
+
+                  username:
+                    latestCreditor
+                      ?.username ||
+                    creditor.person
+                      .username ||
+                    "",
+                };
+
               const settlementId =
                 getSettlementId(
-                  person.name,
-                  creditor.name
+                  entry.key,
+                  creditor.key
                 );
 
               const settlement =
@@ -145,57 +432,62 @@ function PersonTotals({
                   settlementId
                 ];
 
-              const settledAmount =
+              const total =
+                Number(
+                  creditor.amount
+                ) || 0;
+
+              const settled =
                 Number(
                   settlement
                     ?.settledAmount
                 ) || 0;
 
-              const totalDebt =
-                creditor.amount;
-
-              const outstandingAmount =
+              const outstanding =
                 Math.max(
-                  totalDebt -
-                    settledAmount,
+                  total -
+                    settled,
                   0
                 );
-
-              const isPaid =
-                totalDebt > 0 &&
-                outstandingAmount <=
-                  0.009;
 
               return {
                 ...creditor,
 
-                settlementId,
-                settledAmount,
-                totalDebt,
-                outstandingAmount,
-                isPaid,
+                person:
+                  creditorPerson,
 
-                hasPreviousPayment:
-                  settledAmount > 0,
+                total,
+                settled,
+                outstanding,
+
+                settlementId,
+
+                isPaid:
+                  total > 0 &&
+                  outstanding <=
+                    0.009,
               };
             }
           );
 
-        const totalOwed =
-          creditors.reduce(
-            (
-              total,
-              creditor
-            ) =>
-              total +
-              creditor.outstandingAmount,
-            0
-          );
-
         return {
-          ...person,
+          ...entry,
+
+          person:
+            debtorPerson,
+
           creditors,
-          totalOwed,
+
+          totalOwed:
+            creditors.reduce(
+              (
+                total,
+                creditor
+              ) =>
+                total +
+                creditor.outstanding,
+              0
+            ),
         };
       })
       .sort(
@@ -204,290 +496,348 @@ function PersonTotals({
           a.totalOwed
       );
 
+  // =========================================
+  // UI
+  // =========================================
+
   return (
-    <section className="min-w-0 rounded-3xl border border-white/10 bg-white/[0.08] p-4 shadow-2xl backdrop-blur-2xl sm:p-5 md:p-7">
+    <section className="app-card w-full min-w-0 overflow-hidden">
+      {/* HEADER */}
 
-      <div className="mb-6">
-
-        <p className="text-sm text-slate-400">
-          Current server
-        </p>
-
-        <h2 className="text-xl font-bold sm:text-2xl">
-          Person Totals
-        </h2>
-
-        <p className="mt-2 text-sm text-slate-500">
-          Track who still needs to pay.
-        </p>
-
-      </div>
-
-      {peopleDebts.length ===
-      0 ? (
-        <div className="rounded-2xl border border-dashed border-white/10 p-8 text-center">
-
-          <div className="mb-3 text-3xl">
-            💸
+      <div className="bg-gradient-to-r from-[#10245f] to-[#294aad] p-5 text-white sm:p-6">
+        <div className="flex items-center gap-3">
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/15">
+            <WalletCards
+              size={22}
+            />
           </div>
 
-          <p className="text-sm text-slate-500">
-            No totals yet.
-          </p>
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-blue-100/70">
+              Balances
+            </p>
 
+            <h2 className="text-xl font-extrabold">
+              Person Totals
+            </h2>
+          </div>
         </div>
-      ) : (
-        <div className="space-y-4">
+      </div>
 
-          {peopleDebts.map(
-            (person) => (
-              <div
-                key={person.name}
-                className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04]"
-              >
+      <div className="p-4 sm:p-6">
+        {debtPeople.length ===
+        0 ? (
+          <div className="rounded-2xl bg-[#eaf0fa] p-8 text-center">
+            <WalletCards
+              size={30}
+              className="mx-auto text-[#9da9bb]"
+            />
 
-                <div className="flex flex-wrap items-center justify-between gap-3 p-4">
+            <p className="mt-3 text-sm font-bold text-[#71809a]">
+              No balances yet.
+            </p>
 
-                  <div className="flex min-w-0 items-center gap-3">
+            <p className="mt-1 text-xs text-[#9ba6b9]">
+              Add an expense to
+              start calculating
+              balances.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {debtPeople.map(
+              (entry) => (
+                <div
+                  key={entry.key}
+                  className="rounded-[20px] border border-[#dce3ef] bg-[#eef2f8] p-4"
+                >
+                  {/* PERSON TOTAL */}
 
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-cyan-400 to-purple-500 font-bold text-slate-950">
-                      {person.name
-                        .charAt(0)
-                        .toUpperCase()}
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="font-extrabold text-[#182442]">
+                        {
+                          entry.person
+                            .name
+                        }
+                      </p>
+
+                      <p className="mt-1 text-xs text-[#8995aa]">
+                        Total unpaid
+                      </p>
                     </div>
 
-                    <p className="truncate font-semibold">
-                      {person.name}
-                    </p>
-
-                  </div>
-
-                  <div className="text-right">
-
-                    <p className="text-xs text-slate-500">
-                      Total to pay
-                    </p>
-
-                    <p
-                      className={`text-xl font-bold ${
-                        person.totalOwed <=
-                        0
-                          ? "text-emerald-300"
-                          : ""
-                      }`}
-                    >
+                    <p className="text-xl font-extrabold text-[#142a76]">
                       ₱
-                      {person.totalOwed.toFixed(
-                        2
+                      {entry.totalOwed.toLocaleString(
+                        "en-PH",
+                        {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        }
                       )}
                     </p>
-
                   </div>
 
-                </div>
+                  {/* CREDITORS */}
 
-                <div className="border-t border-white/10 p-3 sm:p-4">
+                  <div className="mt-4 space-y-3">
+                    {entry.creditors.map(
+                      (creditor) => (
+                        <div
+                          key={
+                            creditor.key
+                          }
+                          className="rounded-2xl border border-[#e0e6f0] bg-[#f8faff] p-4"
+                        >
+                          {/* WHO OWES WHO */}
 
-                  <div className="space-y-3">
+                          <div className="flex min-w-0 items-center justify-between gap-3">
+                            <div className="flex min-w-0 items-center gap-2">
+                              <span className="truncate font-bold text-[#52617d]">
+                                {
+                                  entry
+                                    .person
+                                    .name
+                                }
+                              </span>
 
-                    {person.creditors.map(
-                      (
-                        creditor
-                      ) => {
-                        const isLoading =
-                          paymentLoading ===
-                          creditor.settlementId;
+                              <ArrowRight
+                                size={16}
+                                className="shrink-0 text-[#8995aa]"
+                              />
 
-                        return (
-                          <div
-                            key={
-                              creditor.name
-                            }
-                            className={`rounded-2xl border p-3 sm:p-4 ${
-                              creditor.isPaid
-                                ? "border-emerald-400/20 bg-emerald-400/[0.05]"
-                                : "border-white/5 bg-white/5"
-                            }`}
-                          >
+                              <span className="truncate font-extrabold text-[#142a76]">
+                                {
+                                  creditor
+                                    .person
+                                    .name
+                                }
+                              </span>
+                            </div>
 
-                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-
-                              <div>
-
-                                <div className="flex flex-wrap items-center gap-2">
-
-                                  <p className="text-sm">
-
-                                    <span className="text-slate-400">
-                                      Pay{" "}
-                                    </span>
-
-                                    <span className="font-semibold text-cyan-300">
-                                      {creditor.name}
-                                    </span>
-
-                                  </p>
-
-                                  {creditor.isPaid && (
-                                    <span className="rounded-full bg-emerald-400/10 px-2 py-1 text-[10px] font-bold text-emerald-300">
-                                      ✓ PAID
-                                    </span>
-                                  )}
-
-                                </div>
-
-                                <p className="mt-1 text-xs text-slate-500">
-                                  {creditor.splitCount}{" "}
-                                  {creditor.splitCount === 1
-                                    ? "split"
-                                    : "splits"}
-                                </p>
-
-                              </div>
-
-                              <div className="flex items-center justify-between gap-3 sm:justify-end">
-
-                                <div className="text-right">
-
-                                  <p
-                                    className={`font-bold ${
-                                      creditor.isPaid
-                                        ? "text-emerald-300"
-                                        : ""
-                                    }`}
-                                  >
-                                    ₱
-                                    {(creditor.isPaid
-                                      ? creditor.totalDebt
-                                      : creditor.outstandingAmount
-                                    ).toFixed(
-                                      2
-                                    )}
-                                  </p>
-
-                                </div>
-
-                                {creditor.isPaid ? (
-                                  <button
-                                    type="button"
-                                    disabled={
-                                      isLoading
-                                    }
-                                    onClick={() =>
-                                      onRestorePayment(
-                                        person.name,
-                                        creditor.name
-                                      )
-                                    }
-                                    className="min-h-11 rounded-xl bg-white/10 px-4 text-xs font-semibold disabled:opacity-50"
-                                  >
-                                    {isLoading
-                                      ? "..."
-                                      : "Restore"}
-                                  </button>
-                                ) : (
-                                  <button
-                                    type="button"
-                                    disabled={
-                                      isLoading
-                                    }
-                                    onClick={() =>
-                                      onMarkPaid(
-                                        person.name,
-                                        creditor.name,
-                                        creditor.totalDebt
-                                      )
-                                    }
-                                    className="min-h-11 rounded-xl bg-emerald-400 px-4 text-xs font-bold text-slate-950 disabled:opacity-50"
-                                  >
-                                    {isLoading
-                                      ? "Saving..."
-                                      : "Paid"}
-                                  </button>
+                            {creditor.isPaid ? (
+                              <span className="shrink-0 text-sm font-extrabold text-[#18845c]">
+                                Paid
+                              </span>
+                            ) : (
+                              <span className="shrink-0 font-extrabold text-[#142a76]">
+                                ₱
+                                {creditor.outstanding.toLocaleString(
+                                  "en-PH",
+                                  {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                  }
                                 )}
-
-                              </div>
-
-                            </div>
-
-                            <div className="mt-3 border-t border-white/5 pt-3">
-
-                              {creditor.splits.map(
-                                (
-                                  split,
-                                  index
-                                ) => (
-                                  <div
-                                    key={`${split.id}-${index}`}
-                                    className="flex justify-between gap-3 py-1 text-xs"
-                                  >
-
-                                    <span
-                                      className={`min-w-0 flex-1 truncate ${
-                                        creditor.isPaid
-                                          ? "text-slate-600 line-through"
-                                          : "text-slate-500"
-                                      }`}
-                                    >
-                                      {split.description}
-                                    </span>
-
-                                    <span className="shrink-0 text-slate-300">
-                                      ₱
-                                      {split.amount.toFixed(
-                                        2
-                                      )}
-                                    </span>
-
-                                  </div>
-                                )
-                              )}
-
-                            </div>
-
-                            {!creditor.isPaid &&
-                              creditor.hasPreviousPayment && (
-                                <div className="mt-3 rounded-xl bg-white/[0.04] p-3 text-xs">
-
-                                  <p className="text-slate-400">
-                                    Previously paid:{" "}
-                                    <span className="text-emerald-300">
-                                      ₱
-                                      {Math.min(
-                                        creditor.settledAmount,
-                                        creditor.totalDebt
-                                      ).toFixed(
-                                        2
-                                      )}
-                                    </span>
-                                  </p>
-
-                                  <p className="mt-1 text-slate-500">
-                                    Remaining: ₱
-                                    {creditor.outstandingAmount.toFixed(
-                                      2
-                                    )}
-                                  </p>
-
-                                </div>
-                              )}
-
+                              </span>
+                            )}
                           </div>
-                        );
-                      }
+
+                          {/* EXPENSE COUNT */}
+
+                          <p className="mt-2 text-xs text-[#8995aa]">
+                            {
+                              creditor
+                                .splits
+                                .length
+                            }{" "}
+                            {creditor
+                              .splits
+                              .length ===
+                            1
+                              ? "expense"
+                              : "expenses"}
+                          </p>
+
+                          {/* EXPENSE LIST */}
+
+                          <div className="mt-3 space-y-2">
+                            {creditor.splits.map(
+                              (
+                                split,
+                                index
+                              ) => (
+                                <div
+                                  key={`${split.id || "split"}-${index}`}
+                                  className="flex justify-between gap-3 text-xs text-[#71809a]"
+                                >
+                                  <span className="min-w-0 break-words">
+                                    {
+                                      split.description
+                                    }
+                                  </span>
+
+                                  <span className="shrink-0">
+                                    ₱
+                                    {Number(
+                                      split.amount
+                                    ).toLocaleString(
+                                      "en-PH",
+                                      {
+                                        minimumFractionDigits: 2,
+                                        maximumFractionDigits: 2,
+                                      }
+                                    )}
+                                  </span>
+                                </div>
+                              )
+                            )}
+                          </div>
+
+                          {/* PREVIOUSLY PAID */}
+
+                          {creditor.settled >
+                            0 &&
+                            !creditor.isPaid && (
+                              <div className="mt-3 rounded-xl bg-[#e7f6ef] px-3 py-2 text-xs font-bold text-[#18845c]">
+                                Previously
+                                paid: ₱
+                                {creditor.settled.toLocaleString(
+                                  "en-PH",
+                                  {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                  }
+                                )}
+                              </div>
+                            )}
+
+                          {/* =================================
+                              WALLET BUTTON
+                          ================================== */}
+
+                          {creditor
+                            .person
+                            .linkedUid ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                console.log(
+                                  "Opening wallet for:",
+                                  creditor.person
+                                );
+
+                                onViewWallet({
+                                  id:
+                                    creditor
+                                      .person
+                                      .id ||
+                                    null,
+
+                                  name:
+                                    creditor
+                                      .person
+                                      .name,
+
+                                  linkedUid:
+                                    creditor
+                                      .person
+                                      .linkedUid,
+
+                                  linkedEmail:
+                                    creditor
+                                      .person
+                                      .linkedEmail ||
+                                    null,
+
+                                  username:
+                                    creditor
+                                      .person
+                                      .username ||
+                                    "",
+                                });
+                              }}
+                              className="mt-4 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#142a76] text-sm font-bold text-white transition hover:bg-[#10245f]"
+                            >
+                              <QrCode
+                                size={17}
+                              />
+
+                              View{" "}
+                              {
+                                creditor
+                                  .person
+                                  .name
+                              }
+                              's Wallet
+                            </button>
+                          ) : (
+                            <div className="mt-4 rounded-xl bg-[#eef2f8] px-3 py-3 text-center text-xs font-bold text-[#8995aa]">
+                              {
+                                creditor
+                                  .person
+                                  .name
+                              }
+                              's account is
+                              not linked yet
+                            </div>
+                          )}
+
+                          {/* PAYMENT */}
+
+                          {creditor.isPaid ? (
+                            <button
+                              type="button"
+                              disabled={
+                                paymentLoading ===
+                                creditor.settlementId
+                              }
+                              onClick={() =>
+                                onRestorePayment(
+                                  entry.key,
+                                  creditor.key
+                                )
+                              }
+                              className="mt-2 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#e7ebf2] text-sm font-bold text-[#52617d] disabled:opacity-50"
+                            >
+                              <RotateCcw
+                                size={16}
+                              />
+
+                              Restore Payment
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              disabled={
+                                paymentLoading ===
+                                creditor.settlementId
+                              }
+                              onClick={() =>
+                                onMarkPaid(
+                                  entry.key,
+
+                                  creditor.key,
+
+                                  creditor.total,
+
+                                  entry.person
+                                    .name,
+
+                                  creditor.person
+                                    .name
+                                )
+                              }
+                              className="mt-2 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#e4ebff] text-sm font-bold text-[#142a76] disabled:opacity-50"
+                            >
+                              <CheckCircle2
+                                size={17}
+                              />
+
+                              Mark Paid
+                            </button>
+                          )}
+                        </div>
+                      )
                     )}
-
                   </div>
-
                 </div>
-
-              </div>
-            )
-          )}
-
-        </div>
-      )}
-
+              )
+            )}
+          </div>
+        )}
+      </div>
     </section>
   );
 }

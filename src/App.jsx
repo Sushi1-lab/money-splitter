@@ -1,4 +1,7 @@
-import { useEffect, useState } from "react";
+import {
+  useEffect,
+  useState,
+} from "react";
 
 import {
   addDoc,
@@ -11,6 +14,7 @@ import {
   query,
   serverTimestamp,
   setDoc,
+  updateDoc,
   where,
 } from "firebase/firestore";
 
@@ -20,78 +24,274 @@ import {
 } from "firebase/auth";
 
 import {
+  CircleDollarSign,
+  History,
+  LayoutDashboard,
+  LogOut,
+  PlusCircle,
+  Server,
+  Settings,
+  ShieldCheck,
+  UserCog,
+  UserRound,
+  WalletCards,
+} from "lucide-react";
+
+import {
   auth,
   db,
 } from "./firebase.js";
 
 import AuthScreen from "./components/AuthScreen.jsx";
+import Dashboard from "./components/Dashboard.jsx";
 import ManageMembers from "./components/ManageMembers.jsx";
 import PersonTotals from "./components/PersonTotals.jsx";
+import ProfileSetup from "./components/ProfileSetup.jsx";
+import ProfileSettings from "./components/ProfileSettings.jsx";
 import ServerSelector from "./components/ServerSelector.jsx";
 import SplitCalculator from "./components/SplitCalculator.jsx";
 import SplitHistory from "./components/SplitHistory.jsx";
+import WalletViewer from "./components/WalletViewer.jsx";
+
+import useAppDialog from "./hooks/useAppDialog.jsx";
 
 function App() {
-  const [user, setUser] = useState(null);
-  const [authLoading, setAuthLoading] = useState(true);
+  const [
+    user,
+    setUser,
+  ] = useState(
+    null
+  );
 
-  const [isSuperAdmin, setIsSuperAdmin] =
-    useState(false);
+  const [
+    profile,
+    setProfile,
+  ] = useState(
+    null
+  );
 
-  const [adminLoading, setAdminLoading] =
-    useState(true);
+  const [
+    authLoading,
+    setAuthLoading,
+  ] = useState(
+    true
+  );
 
-  const [servers, setServers] = useState([]);
-  const [activeServer, setActiveServer] = useState(null);
+  const [
+    profileLoading,
+    setProfileLoading,
+  ] = useState(
+    true
+  );
 
-  const [serverToManage, setServerToManage] =
-    useState(null);
+  const [
+    isSuperAdmin,
+    setIsSuperAdmin,
+  ] = useState(
+    false
+  );
 
-  const [savedSplits, setSavedSplits] =
-    useState([]);
+  const [
+    adminLoading,
+    setAdminLoading,
+  ] = useState(
+    true
+  );
 
-  const [settlements, setSettlements] =
-    useState({});
+  const [
+    servers,
+    setServers,
+  ] = useState(
+    []
+  );
 
-  const [loading, setLoading] =
-    useState(true);
+  const [
+    activeServer,
+    setActiveServer,
+  ] = useState(
+    null
+  );
 
-  const [saving, setSaving] =
-    useState(false);
+  const [
+    serverToManage,
+    setServerToManage,
+  ] = useState(
+    null
+  );
 
-  const [paymentLoading, setPaymentLoading] =
-    useState(null);
+  const [
+    serverPeople,
+    setServerPeople,
+  ] = useState(
+    []
+  );
 
-  const [openSplitId, setOpenSplitId] =
-    useState(null);
+  const [
+    savedSplits,
+    setSavedSplits,
+  ] = useState(
+    []
+  );
 
-  const [mobileMenuOpen, setMobileMenuOpen] =
-    useState(false);
+  const [
+    settlements,
+    setSettlements,
+  ] = useState(
+    {}
+  );
 
-  const [activeMobilePage, setActiveMobilePage] =
-    useState("calculator");
+  const [
+    walletPerson,
+    setWalletPerson,
+  ] = useState(
+    null
+  );
 
-  // =========================================================
-  // AUTHENTICATION
-  // =========================================================
+  const [
+    loading,
+    setLoading,
+  ] = useState(
+    false
+  );
+
+  const [
+    saving,
+    setSaving,
+  ] = useState(
+    false
+  );
+
+  const [
+    paymentLoading,
+    setPaymentLoading,
+  ] = useState(
+    null
+  );
+
+  const [
+    openSplitId,
+    setOpenSplitId,
+  ] = useState(
+    null
+  );
+
+  const [
+    page,
+    setPage,
+  ] = useState(
+    "dashboard"
+  );
+
+  const {
+    Dialog,
+    error,
+    confirm,
+  } = useAppDialog();
+
+  // =========================================
+  // NORMALIZERS
+  // =========================================
+
+  const normalizeName = (
+    name = ""
+  ) =>
+    String(name)
+      .trim()
+      .replace(
+        /\s+/g,
+        " "
+      )
+      .toLowerCase();
+
+  const normalizeEmail = (
+    email = ""
+  ) =>
+    String(email)
+      .trim()
+      .toLowerCase();
+
+  const normalizeUsername = (
+    username = ""
+  ) =>
+    String(
+      username
+    )
+      .trim()
+      .replace(
+        /^@/,
+        ""
+      )
+      .toLowerCase();
+
+  // =========================================
+  // AUTH
+  // =========================================
 
   useEffect(() => {
     const unsubscribe =
       onAuthStateChanged(
         auth,
-        (firebaseUser) => {
-          setUser(firebaseUser);
-          setAuthLoading(false);
+        (
+          firebaseUser
+        ) => {
+          setUser(
+            firebaseUser
+          );
 
-          if (!firebaseUser) {
-            setIsSuperAdmin(false);
-            setAdminLoading(false);
+          setAuthLoading(
+            false
+          );
 
-            setServers([]);
-            setActiveServer(null);
-            setServerToManage(null);
-            setSavedSplits([]);
-            setSettlements({});
+          if (
+            !firebaseUser
+          ) {
+            setProfile(
+              null
+            );
+
+            setProfileLoading(
+              false
+            );
+
+            setIsSuperAdmin(
+              false
+            );
+
+            setAdminLoading(
+              false
+            );
+
+            setServers(
+              []
+            );
+
+            setActiveServer(
+              null
+            );
+
+            setServerToManage(
+              null
+            );
+
+            setServerPeople(
+              []
+            );
+
+            setSavedSplits(
+              []
+            );
+
+            setSettlements(
+              {}
+            );
+
+            setWalletPerson(
+              null
+            );
+
+            setPage(
+              "dashboard"
+            );
           }
         }
       );
@@ -99,348 +299,933 @@ function App() {
     return unsubscribe;
   }, []);
 
-  // =========================================================
-  // CHECK SUPER ADMIN
-  // =========================================================
+  // =========================================
+  // PROFILE
+  // =========================================
 
   useEffect(() => {
-    const checkSuperAdmin =
+    const loadProfile =
       async () => {
-        if (!user?.email) {
-          setIsSuperAdmin(false);
-          setAdminLoading(false);
+        if (
+          !user
+        ) {
           return;
         }
 
         try {
-          setAdminLoading(true);
-
-          const email =
-            user.email
-              .trim()
-              .toLowerCase();
-
-          const adminRef =
-            doc(
-              db,
-              "admins",
-              email
-            );
-
-          const adminSnapshot =
-            await getDoc(adminRef);
-
-          if (
-            adminSnapshot.exists() &&
-            adminSnapshot.data().role ===
-              "superadmin"
-          ) {
-            setIsSuperAdmin(true);
-          } else {
-            setIsSuperAdmin(false);
-          }
-        } catch (error) {
-          console.error(
-            "Admin check error:",
-            error
+          setProfileLoading(
+            true
           );
 
-          setIsSuperAdmin(false);
+          const snapshot =
+            await getDoc(
+              doc(
+                db,
+                "users",
+                user.uid
+              )
+            );
+
+          if (
+            snapshot.exists()
+          ) {
+            setProfile({
+              id:
+                snapshot.id,
+
+              ...snapshot.data(),
+            });
+          } else {
+            setProfile(
+              null
+            );
+          }
+        } catch (err) {
+          console.error(
+            "Profile loading error:",
+            err
+          );
+
+          setProfile(
+            null
+          );
         } finally {
-          setAdminLoading(false);
+          setProfileLoading(
+            false
+          );
         }
       };
 
-    checkSuperAdmin();
-  }, [user]);
+    loadProfile();
+  }, [
+    user,
+  ]);
 
-  // =========================================================
-  // LOAD SERVERS
-  // =========================================================
+  // =========================================
+  // ADMIN
+  // =========================================
 
-  const fetchServers = async (
-    selectServerId = null
-  ) => {
-    if (!user?.email) return;
-
-    try {
-      const email =
-        user.email
-          .trim()
-          .toLowerCase();
-
-      let snapshot;
-
-      // SUPER ADMIN:
-      // load every server
-      if (isSuperAdmin) {
-        snapshot =
-          await getDocs(
-            collection(
-              db,
-              "servers"
-            )
+  useEffect(() => {
+    const checkAdmin =
+      async () => {
+        if (
+          !user?.email
+        ) {
+          setIsSuperAdmin(
+            false
           );
+
+          setAdminLoading(
+            false
+          );
+
+          return;
+        }
+
+        try {
+          setAdminLoading(
+            true
+          );
+
+          const email =
+            normalizeEmail(
+              user.email
+            );
+
+          const snapshot =
+            await getDoc(
+              doc(
+                db,
+                "admins",
+                email
+              )
+            );
+
+          setIsSuperAdmin(
+            snapshot.exists() &&
+              snapshot.data()
+                ?.role ===
+                "superadmin"
+          );
+        } catch (err) {
+          console.error(
+            "Admin check error:",
+            err
+          );
+
+          setIsSuperAdmin(
+            false
+          );
+        } finally {
+          setAdminLoading(
+            false
+          );
+        }
+      };
+
+    checkAdmin();
+  }, [
+    user,
+  ]);
+
+  // =========================================
+  // SERVERS
+  // =========================================
+
+  const fetchServers =
+    async (
+      selectServerId =
+        null
+    ) => {
+      if (
+        !user?.email
+      ) {
+        return;
       }
 
-      // NORMAL USER:
-      // only load servers where they are a member
-      else {
-        const serversQuery =
-          query(
-            collection(
-              db,
-              "servers"
-            ),
-            where(
-              "members",
-              "array-contains",
-              email
-            )
+      try {
+        const email =
+          normalizeEmail(
+            user.email
           );
 
-        snapshot =
-          await getDocs(
-            serversQuery
-          );
-      }
+        let snapshot;
 
-      const serverData =
-        snapshot.docs.map(
-          (serverDoc) => ({
-            id: serverDoc.id,
-            ...serverDoc.data(),
-          })
+        if (
+          isSuperAdmin
+        ) {
+          snapshot =
+            await getDocs(
+              collection(
+                db,
+                "servers"
+              )
+            );
+        } else {
+          snapshot =
+            await getDocs(
+              query(
+                collection(
+                  db,
+                  "servers"
+                ),
+                where(
+                  "members",
+                  "array-contains",
+                  email
+                )
+              )
+            );
+        }
+
+        const data =
+          snapshot.docs.map(
+            (
+              item
+            ) => ({
+              id:
+                item.id,
+
+              ...item.data(),
+            })
+          );
+
+        data.sort(
+          (
+            a,
+            b
+          ) =>
+            (b.createdAt
+              ?.seconds ||
+              0) -
+            (a.createdAt
+              ?.seconds ||
+              0)
         );
 
-      // Newest servers first
-      serverData.sort(
-        (a, b) => {
-          const aTime =
-            a.createdAt?.seconds || 0;
+        setServers(
+          data
+        );
 
-          const bTime =
-            b.createdAt?.seconds || 0;
+        if (
+          selectServerId
+        ) {
+          const selected =
+            data.find(
+              (
+                server
+              ) =>
+                server.id ===
+                selectServerId
+            );
 
-          return bTime - aTime;
-        }
-      );
-
-      setServers(serverData);
-
-      // Automatically select newly created server
-      if (selectServerId) {
-        const selected =
-          serverData.find(
-            (server) =>
-              server.id ===
-              selectServerId
-          );
-
-        if (selected) {
-          setActiveServer(
+          if (
             selected
-          );
+          ) {
+            setActiveServer(
+              selected
+            );
+          }
         }
-      }
 
-      // Refresh active server
-      if (activeServer) {
-        const refreshed =
-          serverData.find(
-            (server) =>
-              server.id ===
-              activeServer.id
-          );
+        if (
+          activeServer
+        ) {
+          const refreshed =
+            data.find(
+              (
+                server
+              ) =>
+                server.id ===
+                activeServer.id
+            );
 
-        if (refreshed) {
-          setActiveServer(
+          if (
             refreshed
-          );
+          ) {
+            setActiveServer(
+              refreshed
+            );
+          }
         }
+      } catch (err) {
+        console.error(
+          "Server loading error:",
+          err
+        );
       }
-
-      // Refresh manage screen
-      if (serverToManage) {
-        const refreshed =
-          serverData.find(
-            (server) =>
-              server.id ===
-              serverToManage.id
-          );
-
-        if (refreshed) {
-          setServerToManage(
-            refreshed
-          );
-        }
-      }
-    } catch (error) {
-      console.error(
-        "Server loading error:",
-        error
-      );
-    }
-  };
+    };
 
   useEffect(() => {
     if (
       user &&
+      profile &&
       !adminLoading
     ) {
       fetchServers();
     }
   }, [
     user,
+    profile,
     isSuperAdmin,
     adminLoading,
   ]);
 
-  // =========================================================
-  // SERVER UPDATED
-  // =========================================================
+  // =========================================
+  // LINK ACCOUNT TO SAVED PERSON
+  // =========================================
 
-  const handleServerUpdated = (
-    updatedServer
-  ) => {
-    setServers(
-      (currentServers) =>
-        currentServers.map(
-          (server) =>
-            server.id ===
-            updatedServer.id
-              ? updatedServer
-              : server
-        )
-    );
+  const linkLoggedInPerson =
+    async (
+      people
+    ) => {
+      if (
+        !user?.uid ||
+        !user?.email ||
+        !activeServer?.id
+      ) {
+        return people;
+      }
 
-    setServerToManage(
-      updatedServer
-    );
+      const currentUid =
+        user.uid;
 
-    if (
-      activeServer?.id ===
-      updatedServer.id
-    ) {
-      setActiveServer(
-        updatedServer
-      );
-    }
-  };
+      const currentEmail =
+        normalizeEmail(
+          user.email
+        );
 
-  // =========================================================
-  // SERVER DELETED
-  // =========================================================
+      const currentUsername =
+        normalizeUsername(
+          profile?.username ||
+            ""
+        );
 
-  const handleServerDeleted = (
-    serverId
-  ) => {
-    setServers(
-      (currentServers) =>
-        currentServers.filter(
-          (server) =>
-            server.id !==
-            serverId
-        )
-    );
+      const currentDisplayName =
+        normalizeName(
+          profile?.displayName ||
+            user?.displayName ||
+            ""
+        );
 
-    if (
-      activeServer?.id ===
-      serverId
-    ) {
-      setActiveServer(null);
-    }
+      let matchingPerson =
+        null;
 
-    setServerToManage(null);
-    setSavedSplits([]);
-    setSettlements({});
-    setOpenSplitId(null);
-  };
+      // UID
+      matchingPerson =
+        people.find(
+          (
+            person
+          ) =>
+            person.linkedUid ===
+            currentUid
+        );
 
-  // =========================================================
-  // SETTLEMENT ID
-  // =========================================================
+      // EMAIL
+      if (
+        !matchingPerson
+      ) {
+        matchingPerson =
+          people.find(
+            (
+              person
+            ) =>
+              person.linkedEmail &&
+              normalizeEmail(
+                person.linkedEmail
+              ) ===
+                currentEmail
+          );
+      }
 
-  const getSettlementId = (
-    debtor,
-    creditor
-  ) => {
-    const debtorKey =
-      encodeURIComponent(
-        debtor
-          .trim()
-          .toLowerCase()
-      );
+      // USERNAME
+      if (
+        !matchingPerson &&
+        currentUsername
+      ) {
+        matchingPerson =
+          people.find(
+            (
+              person
+            ) =>
+              person.username &&
+              normalizeUsername(
+                person.username
+              ) ===
+                currentUsername
+          );
+      }
 
-    const creditorKey =
-      encodeURIComponent(
-        creditor
-          .trim()
-          .toLowerCase()
-      );
+      // PERSON NAME = USERNAME
+      if (
+        !matchingPerson &&
+        currentUsername
+      ) {
+        matchingPerson =
+          people.find(
+            (
+              person
+            ) =>
+              normalizeName(
+                person.name
+              ) ===
+                normalizeName(
+                  currentUsername
+                )
+          );
+      }
 
-    return `${debtorKey}__${creditorKey}`;
-  };
+      // PERSON NAME = DISPLAY NAME
+      if (
+        !matchingPerson &&
+        currentDisplayName
+      ) {
+        matchingPerson =
+          people.find(
+            (
+              person
+            ) =>
+              normalizeName(
+                person.name
+              ) ===
+                currentDisplayName
+          );
+      }
 
-  // =========================================================
-  // LOAD SPLITS
-  // =========================================================
+      if (
+        !matchingPerson
+      ) {
+        return people;
+      }
 
-  const fetchSplits =
+      if (
+        matchingPerson.linkedUid &&
+        matchingPerson.linkedUid !==
+          currentUid
+      ) {
+        return people;
+      }
+
+      const linkedData =
+        {
+          linkedUid:
+            currentUid,
+
+          linkedEmail:
+            currentEmail,
+
+          username:
+            profile?.username ||
+            "",
+        };
+
+      try {
+        await updateDoc(
+          doc(
+            db,
+            "servers",
+            activeServer.id,
+            "people",
+            matchingPerson.id
+          ),
+          linkedData
+        );
+
+        return people.map(
+          (
+            person
+          ) =>
+            person.id ===
+            matchingPerson.id
+              ? {
+                  ...person,
+                  ...linkedData,
+                }
+              : person
+        );
+      } catch (err) {
+        console.error(
+          "Person linking error:",
+          err
+        );
+
+        return people;
+      }
+    };
+
+  // =========================================
+  // PEOPLE
+  // =========================================
+
+  const fetchServerPeople =
     async () => {
-      if (!activeServer?.id) {
-        setSavedSplits([]);
+      if (
+        !activeServer?.id
+      ) {
+        setServerPeople(
+          []
+        );
+
         return;
       }
 
       try {
-        const splitsQuery =
-          query(
+        const snapshot =
+          await getDocs(
             collection(
               db,
               "servers",
               activeServer.id,
-              "splits"
-            ),
-            orderBy(
-              "createdAt",
-              "desc"
+              "people"
             )
           );
 
-        const snapshot =
-          await getDocs(
-            splitsQuery
-          );
-
-        const data =
+        const raw =
           snapshot.docs.map(
-            (splitDoc) => ({
+            (
+              item
+            ) => ({
               id:
-                splitDoc.id,
-              ...splitDoc.data(),
+                item.id,
+
+              ...item.data(),
             })
           );
 
-        setSavedSplits(
-          data
+        const map =
+          new Map();
+
+        raw.forEach(
+          (
+            person
+          ) => {
+            const key =
+              normalizeName(
+                person.name
+              );
+
+            if (
+              !key
+            ) {
+              return;
+            }
+
+            const existing =
+              map.get(
+                key
+              );
+
+            if (
+              !existing
+            ) {
+              map.set(
+                key,
+                person
+              );
+
+              return;
+            }
+
+            if (
+              !existing.linkedUid &&
+              person.linkedUid
+            ) {
+              map.set(
+                key,
+                person
+              );
+
+              return;
+            }
+
+            if (
+              !existing.linkedEmail &&
+              person.linkedEmail
+            ) {
+              map.set(
+                key,
+                person
+              );
+            }
+          }
         );
-      } catch (error) {
+
+        let unique =
+          Array.from(
+            map.values()
+          );
+
+        unique.sort(
+          (
+            a,
+            b
+          ) =>
+            String(
+              a.name ||
+                ""
+            ).localeCompare(
+              String(
+                b.name ||
+                  ""
+              )
+            )
+        );
+
+        unique =
+          await linkLoggedInPerson(
+            unique
+          );
+
+        setServerPeople(
+          unique
+        );
+      } catch (err) {
         console.error(
-          "Error loading splits:",
-          error
+          "People loading error:",
+          err
+        );
+
+        setServerPeople(
+          []
         );
       }
     };
 
-  // =========================================================
-  // LOAD SETTLEMENTS
-  // =========================================================
+  // =========================================
+  // ADD PERSON
+  // =========================================
+
+  const addServerPerson =
+    async (
+      name
+    ) => {
+      if (
+        !activeServer?.id
+      ) {
+        return null;
+      }
+
+      const cleanName =
+        String(
+          name
+        )
+          .trim()
+          .replace(
+            /\s+/g,
+            " "
+          );
+
+      if (
+        !cleanName
+      ) {
+        return null;
+      }
+
+      const key =
+        normalizeName(
+          cleanName
+        );
+
+      const existing =
+        serverPeople.find(
+          (
+            person
+          ) =>
+            normalizeName(
+              person.name
+            ) ===
+            key
+        );
+
+      if (
+        existing
+      ) {
+        return existing;
+      }
+
+      try {
+        const reference =
+          await addDoc(
+            collection(
+              db,
+              "servers",
+              activeServer.id,
+              "people"
+            ),
+            {
+              name:
+                cleanName,
+
+              normalizedName:
+                key,
+
+              linkedUid:
+                null,
+
+              linkedEmail:
+                null,
+
+              username:
+                "",
+
+              createdByUid:
+                user.uid,
+
+              createdByEmail:
+                user.email ||
+                "",
+
+              createdAt:
+                serverTimestamp(),
+            }
+          );
+
+        let newPerson =
+          {
+            id:
+              reference.id,
+
+            name:
+              cleanName,
+
+            normalizedName:
+              key,
+
+            linkedUid:
+              null,
+
+            linkedEmail:
+              null,
+
+            username:
+              "",
+          };
+
+        const displayName =
+          normalizeName(
+            profile?.displayName ||
+              user?.displayName ||
+              ""
+          );
+
+        const username =
+          normalizeUsername(
+            profile?.username ||
+              ""
+          );
+
+        const isMe =
+          key ===
+            displayName ||
+          (
+            username &&
+            key ===
+              normalizeName(
+                username
+              )
+          );
+
+        if (
+          isMe
+        ) {
+          const linkedData =
+            {
+              linkedUid:
+                user.uid,
+
+              linkedEmail:
+                normalizeEmail(
+                  user.email
+                ),
+
+              username:
+                profile?.username ||
+                "",
+            };
+
+          await updateDoc(
+            doc(
+              db,
+              "servers",
+              activeServer.id,
+              "people",
+              reference.id
+            ),
+            linkedData
+          );
+
+          newPerson =
+            {
+              ...newPerson,
+              ...linkedData,
+            };
+        }
+
+        setServerPeople(
+          (
+            current
+          ) =>
+            [
+              ...current,
+              newPerson,
+            ].sort(
+              (
+                a,
+                b
+              ) =>
+                a.name.localeCompare(
+                  b.name
+                )
+            )
+        );
+
+        return newPerson;
+      } catch (err) {
+        console.error(
+          "Add person error:",
+          err
+        );
+
+        await error(
+          "Unable to Add Person",
+          `${cleanName} couldn't be saved.`
+        );
+
+        return null;
+      }
+    };
+
+  // =========================================
+  // DELETE PERSON
+  // =========================================
+
+  const deleteServerPerson =
+    async (
+      person
+    ) => {
+      const approved =
+        await confirm({
+          type:
+            "danger",
+
+          title:
+            `Remove ${person.name}?`,
+
+          message:
+            "Their previous expenses will remain in your history.",
+
+          confirmText:
+            "Remove Person",
+        });
+
+      if (
+        !approved
+      ) {
+        return;
+      }
+
+      try {
+        await deleteDoc(
+          doc(
+            db,
+            "servers",
+            activeServer.id,
+            "people",
+            person.id
+          )
+        );
+
+        setServerPeople(
+          (
+            current
+          ) =>
+            current.filter(
+              (
+                item
+              ) =>
+                item.id !==
+                person.id
+            )
+        );
+      } catch (err) {
+        console.error(
+          "Delete person error:",
+          err
+        );
+
+        await error(
+          "Unable to Remove Person",
+          "Please try again."
+        );
+      }
+    };
+
+  // =========================================
+  // SPLITS
+  // =========================================
+
+  const fetchSplits =
+    async () => {
+      if (
+        !activeServer?.id
+      ) {
+        setSavedSplits(
+          []
+        );
+
+        return;
+      }
+
+      try {
+        const snapshot =
+          await getDocs(
+            query(
+              collection(
+                db,
+                "servers",
+                activeServer.id,
+                "splits"
+              ),
+              orderBy(
+                "createdAt",
+                "desc"
+              )
+            )
+          );
+
+        setSavedSplits(
+          snapshot.docs.map(
+            (
+              item
+            ) => ({
+              id:
+                item.id,
+
+              ...item.data(),
+            })
+          )
+        );
+      } catch (err) {
+        console.error(
+          "Split loading error:",
+          err
+        );
+      }
+    };
+
+  // =========================================
+  // SETTLEMENTS
+  // =========================================
 
   const fetchSettlements =
     async () => {
-      if (!activeServer?.id) {
-        setSettlements({});
+      if (
+        !activeServer?.id
+      ) {
+        setSettlements(
+          {}
+        );
+
         return;
       }
 
@@ -455,16 +1240,20 @@ function App() {
             )
           );
 
-        const data = {};
+        const data =
+          {};
 
         snapshot.docs.forEach(
-          (settlementDoc) => {
+          (
+            item
+          ) => {
             data[
-              settlementDoc.id
+              item.id
             ] = {
               id:
-                settlementDoc.id,
-              ...settlementDoc.data(),
+                item.id,
+
+              ...item.data(),
             };
           }
         );
@@ -472,59 +1261,95 @@ function App() {
         setSettlements(
           data
         );
-      } catch (error) {
+      } catch (err) {
         console.error(
           "Settlement loading error:",
-          error
+          err
         );
       }
     };
 
-  // =========================================================
-  // LOAD ACTIVE SERVER DATA
-  // =========================================================
+  // =========================================
+  // LOAD ACTIVE SERVER
+  // =========================================
 
   useEffect(() => {
-    if (!activeServer?.id) {
+    if (
+      !activeServer?.id
+    ) {
       return;
     }
 
-    const loadServerData =
+    const load =
       async () => {
         try {
-          setLoading(true);
+          setLoading(
+            true
+          );
 
           await Promise.all([
+            fetchServerPeople(),
             fetchSplits(),
             fetchSettlements(),
           ]);
         } finally {
-          setLoading(false);
+          setLoading(
+            false
+          );
         }
       };
 
-    loadServerData();
-  }, [activeServer?.id]);
+    load();
 
-  // =========================================================
+    setPage(
+      "dashboard"
+    );
+
+    setOpenSplitId(
+      null
+    );
+
+    setWalletPerson(
+      null
+    );
+  }, [
+    activeServer?.id,
+  ]);
+
+  // =========================================
+  // PROFILE CHANGE
+  // =========================================
+
+  useEffect(() => {
+    if (
+      activeServer?.id &&
+      profile
+    ) {
+      fetchServerPeople();
+    }
+  }, [
+    profile?.displayName,
+    profile?.username,
+  ]);
+
+  // =========================================
   // SAVE SPLIT
-  // =========================================================
+  // =========================================
 
   const saveSplit =
-    async ({
-      totalAmount,
-      amountPerPerson,
-      people,
-      addedBy,
-      description,
-      receiptBase64,
-    }) => {
-      if (!activeServer?.id) {
+    async (
+      data
+    ) => {
+      if (
+        !activeServer?.id
+      ) {
         return false;
       }
 
       try {
-        setSaving(true);
+        setSaving(
+          true
+        );
 
         await addDoc(
           collection(
@@ -534,18 +1359,18 @@ function App() {
             "splits"
           ),
           {
-            totalAmount,
-            amountPerPerson,
-            people,
-            addedBy,
-            description,
+            ...data,
 
-            receiptBase64:
-              receiptBase64 ||
-              null,
+            createdByUid:
+              user.uid,
 
-            createdBy:
-              user.email,
+            createdByEmail:
+              user.email ||
+              "",
+
+            createdByUsername:
+              profile?.username ||
+              "",
 
             createdAt:
               serverTimestamp(),
@@ -554,43 +1379,54 @@ function App() {
 
         await fetchSplits();
 
-        alert(
-          "Split saved successfully!"
-        );
-
         return true;
-      } catch (error) {
+      } catch (err) {
         console.error(
           "Save split error:",
-          error
+          err
         );
 
-        alert(
-          "Unable to save split."
+        await error(
+          "Unable to Save Expense",
+          "Please try again."
         );
 
         return false;
       } finally {
-        setSaving(false);
+        setSaving(
+          false
+        );
       }
     };
 
-  // =========================================================
+  // =========================================
   // DELETE SPLIT
-  // =========================================================
+  // =========================================
 
   const deleteSplit =
-    async (id) => {
-      if (!activeServer?.id) {
+    async (
+      id
+    ) => {
+      const approved =
+        await confirm({
+          type:
+            "danger",
+
+          title:
+            "Delete Expense?",
+
+          message:
+            "This expense will be permanently removed.",
+
+          confirmText:
+            "Delete Expense",
+        });
+
+      if (
+        !approved
+      ) {
         return;
       }
-
-      const confirmed =
-        window.confirm(
-          "Are you sure you want to delete this split?"
-        );
-
-      if (!confirmed) return;
 
       try {
         await deleteDoc(
@@ -604,66 +1440,102 @@ function App() {
         );
 
         setSavedSplits(
-          (current) =>
+          (
+            current
+          ) =>
             current.filter(
-              (split) =>
-                split.id !== id
+              (
+                item
+              ) =>
+                item.id !==
+                id
             )
         );
-
-        if (
-          openSplitId === id
-        ) {
-          setOpenSplitId(
-            null
-          );
-        }
-      } catch (error) {
+      } catch (err) {
         console.error(
           "Delete split error:",
-          error
+          err
         );
 
-        alert(
-          "Unable to delete split."
+        await error(
+          "Delete Failed",
+          "We couldn't delete this expense."
         );
       }
     };
 
-  // =========================================================
-  // MARK PAID
-  // =========================================================
+  // =========================================
+  // SETTLEMENT ID
+  // =========================================
 
-  const markAsPaid =
-    async (
+  const getSettlementId =
+    (
       debtor,
-      creditor,
-      totalDebt
+      creditor
+    ) =>
+      `${encodeURIComponent(
+        normalizeName(
+          debtor
+        )
+      )}__${encodeURIComponent(
+        normalizeName(
+          creditor
+        )
+      )}`;
+
+  // =========================================
+  // MARK PAID
+  // =========================================
+
+  const markPaid =
+    async (
+      debtorKey,
+      creditorKey,
+      amount,
+      debtorName,
+      creditorName
     ) => {
-      if (!activeServer?.id) {
+      const id =
+        getSettlementId(
+          debtorKey,
+          creditorKey
+        );
+
+      const approved =
+        await confirm({
+          type:
+            "info",
+
+          title:
+            "Mark as Paid?",
+
+          message:
+            `${debtorName} paid ${creditorName} ₱${Number(
+              amount
+            ).toLocaleString(
+              "en-PH",
+              {
+                minimumFractionDigits:
+                  2,
+
+                maximumFractionDigits:
+                  2,
+              }
+            )}.`,
+
+          confirmText:
+            "Mark Paid",
+        });
+
+      if (
+        !approved
+      ) {
         return;
       }
 
-      const settlementId =
-        getSettlementId(
-          debtor,
-          creditor
-        );
-
-      const confirmed =
-        window.confirm(
-          `Mark ₱${Number(
-            totalDebt
-          ).toFixed(
-            2
-          )} from ${debtor} to ${creditor} as paid?`
-        );
-
-      if (!confirmed) return;
-
       try {
         setPaymentLoading(
-          settlementId
+          id
         );
 
         await setDoc(
@@ -672,48 +1544,52 @@ function App() {
             "servers",
             activeServer.id,
             "settlements",
-            settlementId
+            id
           ),
           {
-            debtor,
-            creditor,
+            debtorKey:
+              normalizeName(
+                debtorKey
+              ),
+
+            creditorKey:
+              normalizeName(
+                creditorKey
+              ),
+
+            debtor:
+              debtorName,
+
+            creditor:
+              creditorName,
 
             settledAmount:
               Number(
-                totalDebt
+                amount
               ),
 
-            updatedBy:
-              user.email,
+            updatedByUid:
+              user.uid,
+
+            updatedByEmail:
+              user.email ||
+              "",
 
             updatedAt:
               serverTimestamp(),
           }
         );
 
-        setSettlements(
-          (current) => ({
-            ...current,
-
-            [settlementId]: {
-              debtor,
-              creditor,
-
-              settledAmount:
-                Number(
-                  totalDebt
-                ),
-            },
-          })
-        );
-      } catch (error) {
+        await fetchSettlements();
+      } catch (err) {
         console.error(
-          "Payment error:",
-          error
+          "Mark paid error:",
+          err
         );
 
-        alert(
-          "Unable to mark this payment as paid."
+        await error(
+          "Payment Update Failed",
+          "We couldn't update this payment."
         );
       } finally {
         setPaymentLoading(
@@ -722,35 +1598,45 @@ function App() {
       }
     };
 
-  // =========================================================
+  // =========================================
   // RESTORE PAYMENT
-  // =========================================================
+  // =========================================
 
   const restorePayment =
     async (
       debtor,
       creditor
     ) => {
-      if (!activeServer?.id) {
-        return;
-      }
-
-      const settlementId =
+      const id =
         getSettlementId(
           debtor,
           creditor
         );
 
-      const confirmed =
-        window.confirm(
-          `Restore the debt from ${debtor} to ${creditor}?`
-        );
+      const approved =
+        await confirm({
+          type:
+            "warning",
 
-      if (!confirmed) return;
+          title:
+            "Restore Balance?",
+
+          message:
+            "This payment will become unpaid again.",
+
+          confirmText:
+            "Restore Balance",
+        });
+
+      if (
+        !approved
+      ) {
+        return;
+      }
 
       try {
         setPaymentLoading(
-          settlementId
+          id
         );
 
         await deleteDoc(
@@ -759,31 +1645,20 @@ function App() {
             "servers",
             activeServer.id,
             "settlements",
-            settlementId
+            id
           )
         );
 
-        setSettlements(
-          (current) => {
-            const updated = {
-              ...current,
-            };
-
-            delete updated[
-              settlementId
-            ];
-
-            return updated;
-          }
-        );
-      } catch (error) {
+        await fetchSettlements();
+      } catch (err) {
         console.error(
-          "Restore payment error:",
-          error
+          "Restore error:",
+          err
         );
 
-        alert(
-          "Unable to restore this payment."
+        await error(
+          "Unable to Restore Balance",
+          "Please try again."
         );
       } finally {
         setPaymentLoading(
@@ -792,491 +1667,932 @@ function App() {
       }
     };
 
-  // =========================================================
-  // HELPERS
-  // =========================================================
+  // =========================================
+  // SERVER MANAGEMENT
+  // =========================================
 
-  const toggleSplit = (id) => {
-    setOpenSplitId(
-      (currentId) =>
-        currentId === id
-          ? null
-          : id
-    );
-  };
-
-  const formatDate = (
-    timestamp
-  ) => {
-    if (!timestamp) {
-      return "Just now";
-    }
-
-    if (
-      typeof timestamp.toDate !==
-      "function"
-    ) {
-      return "Unknown date";
-    }
-
-    return timestamp
-      .toDate()
-      .toLocaleString(
-        "en-PH",
-        {
-          year: "numeric",
-          month: "long",
-          day: "numeric",
-          hour: "numeric",
-          minute: "2-digit",
-        }
-      );
-  };
-
-  const openMobilePage =
-    (page) => {
-      setActiveMobilePage(
-        page
+  const updateServer =
+    (
+      updated
+    ) => {
+      setServers(
+        (
+          current
+        ) =>
+          current.map(
+            (
+              server
+            ) =>
+              server.id ===
+              updated.id
+                ? updated
+                : server
+          )
       );
 
-      setMobileMenuOpen(
-        false
+      if (
+        activeServer?.id ===
+        updated.id
+      ) {
+        setActiveServer(
+          updated
+        );
+      }
+
+      setServerToManage(
+        updated
+      );
+    };
+
+  const serverDeleted =
+    (
+      id
+    ) => {
+      setServers(
+        (
+          current
+        ) =>
+          current.filter(
+            (
+              server
+            ) =>
+              server.id !==
+              id
+          )
+      );
+
+      setActiveServer(
+        null
+      );
+
+      setServerToManage(
+        null
+      );
+
+      setServerPeople(
+        []
+      );
+
+      setSavedSplits(
+        []
+      );
+
+      setSettlements(
+        {}
+      );
+
+      setWalletPerson(
+        null
+      );
+
+      setPage(
+        "dashboard"
+      );
+    };
+
+  // =========================================
+  // DATE
+  // =========================================
+
+  const formatDate =
+    (
+      timestamp
+    ) => {
+      if (
+        !timestamp ||
+        typeof timestamp.toDate !==
+          "function"
+      ) {
+        return "Just now";
+      }
+
+      return timestamp
+        .toDate()
+        .toLocaleString(
+          "en-PH",
+          {
+            year:
+              "numeric",
+
+            month:
+              "long",
+
+            day:
+              "numeric",
+
+            hour:
+              "numeric",
+
+            minute:
+              "2-digit",
+          }
+        );
+    };
+
+  // =========================================
+  // PAGE
+  // =========================================
+
+  const changePage =
+    (
+      nextPage
+    ) => {
+      setPage(
+        nextPage
       );
 
       window.scrollTo({
-        top: 0,
-        behavior: "smooth",
+        top:
+          0,
+
+        behavior:
+          "smooth",
       });
     };
 
-  // =========================================================
+  // =========================================
+  // CHANGE SERVER
+  // =========================================
+
+  const changeServer =
+    () => {
+      setActiveServer(
+        null
+      );
+
+      setServerPeople(
+        []
+      );
+
+      setSavedSplits(
+        []
+      );
+
+      setSettlements(
+        {}
+      );
+
+      setWalletPerson(
+        null
+      );
+
+      setOpenSplitId(
+        null
+      );
+
+      setPage(
+        "dashboard"
+      );
+    };
+
+  // =========================================
+  // SIGN OUT
+  // =========================================
+
+  const handleSignOut =
+    async () => {
+      const approved =
+        await confirm({
+          type:
+            "info",
+
+          title:
+            "Sign Out?",
+
+          message:
+            "You can sign back in anytime.",
+
+          confirmText:
+            "Sign Out",
+        });
+
+      if (
+        !approved
+      ) {
+        return;
+      }
+
+      try {
+        await signOut(
+          auth
+        );
+      } catch (err) {
+        console.error(
+          "Sign out error:",
+          err
+        );
+
+        await error(
+          "Unable to Sign Out",
+          "Please try again."
+        );
+      }
+    };
+
+  // =========================================
   // LOADING
-  // =========================================================
+  // =========================================
 
   if (
     authLoading ||
-    (user && adminLoading)
+    (
+      user &&
+      (
+        profileLoading ||
+        adminLoading
+      )
+    )
   ) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-950 text-white">
-        <p className="text-slate-400">
-          Loading...
-        </p>
+      <div className="flex min-h-[100dvh] items-center justify-center bg-[#eaf0fa]">
+        <div className="text-center">
+          <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-[#cfd9ed] border-t-[#142a76]" />
+
+          <p className="mt-4 text-sm font-bold text-[#8995aa]">
+            Loading Money
+            Splitter...
+          </p>
+        </div>
       </div>
     );
   }
 
-  // =========================================================
+  // =========================================
   // LOGIN
-  // =========================================================
+  // =========================================
 
-  if (!user) {
-    return <AuthScreen />;
+  if (
+    !user
+  ) {
+    return (
+      <AuthScreen />
+    );
   }
 
-  // =========================================================
+  // =========================================
+  // PROFILE SETUP
+  // =========================================
+
+  if (
+    !profile
+  ) {
+    return (
+      <ProfileSetup
+        user={
+          user
+        }
+        onProfileCreated={
+          setProfile
+        }
+      />
+    );
+  }
+
+  // =========================================
   // MANAGE SERVER
-  // =========================================================
+  // =========================================
 
-  if (serverToManage) {
+  if (
+    serverToManage
+  ) {
     return (
-      <ManageMembers
-        user={user}
-        server={serverToManage}
-        isSuperAdmin={
-          isSuperAdmin
-        }
-        onClose={() =>
-          setServerToManage(
-            null
-          )
-        }
-        onServerUpdated={
-          handleServerUpdated
-        }
-        onServerDeleted={
-          handleServerDeleted
-        }
-      />
+      <>
+        <ManageMembers
+          user={
+            user
+          }
+          server={
+            serverToManage
+          }
+          isSuperAdmin={
+            isSuperAdmin
+          }
+          onClose={() =>
+            setServerToManage(
+              null
+            )
+          }
+          onServerUpdated={
+            updateServer
+          }
+          onServerDeleted={
+            serverDeleted
+          }
+        />
+
+        <Dialog />
+      </>
     );
   }
 
-  // =========================================================
-  // SERVER SELECTION
-  // =========================================================
+  // =========================================
+  // SERVER SELECTOR
+  // =========================================
 
-  if (!activeServer) {
+  if (
+    !activeServer
+  ) {
     return (
-      <ServerSelector
-        user={user}
-        servers={servers}
-        isSuperAdmin={
-          isSuperAdmin
-        }
-        onSelectServer={
-          setActiveServer
-        }
-        onRefreshServers={
-          fetchServers
-        }
-        onManageServer={
-          setServerToManage
-        }
-      />
+      <>
+        <ServerSelector
+          user={
+            user
+          }
+          profile={
+            profile
+          }
+          servers={
+            servers
+          }
+          isSuperAdmin={
+            isSuperAdmin
+          }
+          onSelectServer={
+            setActiveServer
+          }
+          onRefreshServers={
+            fetchServers
+          }
+          onManageServer={
+            setServerToManage
+          }
+        />
+
+        <Dialog />
+      </>
     );
   }
 
-  const userIsServerOwner =
-    activeServer.ownerEmail
-      ?.toLowerCase() ===
-    user.email?.toLowerCase();
+  const userEmail =
+    normalizeEmail(
+      user.email
+    );
 
-  const canManageServer =
-    userIsServerOwner ||
+  const ownerEmail =
+    normalizeEmail(
+      activeServer.ownerEmail
+    );
+
+  const canManage =
+    userEmail ===
+      ownerEmail ||
     isSuperAdmin;
 
-  // =========================================================
-  // MAIN APP
-  // =========================================================
+  // =========================================
+  // NAV
+  //
+  // WALLET REMOVED.
+  // IT NOW LIVES INSIDE PROFILE.
+  // =========================================
+
+  const navItems =
+    [
+      {
+        id:
+          "dashboard",
+
+        mobile:
+          "Home",
+
+        desktop:
+          "Dashboard",
+
+        icon:
+          LayoutDashboard,
+      },
+
+      {
+        id:
+          "split",
+
+        mobile:
+          "Split",
+
+        desktop:
+          "New Expense",
+
+        icon:
+          PlusCircle,
+      },
+
+      {
+        id:
+          "balances",
+
+        mobile:
+          "Balances",
+
+        desktop:
+          "Balances",
+
+        icon:
+          WalletCards,
+      },
+
+      {
+        id:
+          "history",
+
+        mobile:
+          "History",
+
+        desktop:
+          "History",
+
+        icon:
+          History,
+      },
+    ];
+
+  // =========================================
+  // RENDER PAGE
+  // =========================================
+
+  const renderPage =
+    () => {
+      if (
+        page ===
+        "dashboard"
+      ) {
+        return (
+          <Dashboard
+            profile={
+              profile
+            }
+            activeServer={
+              activeServer
+            }
+            savedSplits={
+              savedSplits
+            }
+          />
+        );
+      }
+
+      if (
+        page ===
+        "split"
+      ) {
+        return (
+          <SplitCalculator
+            people={
+              serverPeople
+            }
+            onAddPerson={
+              addServerPerson
+            }
+            onDeletePerson={
+              deleteServerPerson
+            }
+            onSave={
+              saveSplit
+            }
+            saving={
+              saving
+            }
+          />
+        );
+      }
+
+      if (
+        page ===
+        "balances"
+      ) {
+        return (
+          <PersonTotals
+            people={
+              serverPeople
+            }
+            savedSplits={
+              savedSplits
+            }
+            settlements={
+              settlements
+            }
+            onMarkPaid={
+              markPaid
+            }
+            onRestorePayment={
+              restorePayment
+            }
+            onViewWallet={
+              setWalletPerson
+            }
+            paymentLoading={
+              paymentLoading
+            }
+            getSettlementId={
+              getSettlementId
+            }
+          />
+        );
+      }
+
+      if (
+        page ===
+        "history"
+      ) {
+        return (
+          <SplitHistory
+            savedSplits={
+              savedSplits
+            }
+            loading={
+              loading
+            }
+            openSplitId={
+              openSplitId
+            }
+            onToggle={(
+              id
+            ) =>
+              setOpenSplitId(
+                (
+                  current
+                ) =>
+                  current ===
+                  id
+                    ? null
+                    : id
+              )
+            }
+            onDelete={
+              deleteSplit
+            }
+            formatDate={
+              formatDate
+            }
+          />
+        );
+      }
+
+      if (
+        page ===
+        "profile"
+      ) {
+        return (
+          <ProfileSettings
+            user={
+              user
+            }
+            profile={
+              profile
+            }
+            onProfileUpdated={
+              setProfile
+            }
+          />
+        );
+      }
+
+      return null;
+    };
+
+  // =========================================
+  // UI
+  // =========================================
 
   return (
-    <div className="relative min-h-screen w-full min-w-0 overflow-x-hidden bg-slate-950 text-white">
+    <div className="relative min-h-[100dvh] w-full min-w-0 bg-[#eaf0fa]">
+      {/* =====================================
+          DESKTOP SIDEBAR
+      ====================================== */}
 
-      <div className="pointer-events-none absolute -left-32 -top-32 h-96 w-96 rounded-full bg-purple-500/30 blur-3xl" />
-
-      <div className="pointer-events-none absolute -bottom-32 -right-32 h-96 w-96 rounded-full bg-cyan-500/30 blur-3xl" />
-
-      {/* MOBILE HEADER */}
-
-      <header className="sticky top-0 z-50 w-full border-b border-white/10 bg-slate-950/95 px-3 py-3 backdrop-blur-xl sm:px-4 lg:hidden">
-
-        <div className="flex min-w-0 items-center justify-between gap-3">
-
-          <div className="min-w-0">
-
-            <div className="flex items-center gap-2">
-
-              <p className="truncate text-[10px] font-semibold uppercase tracking-[0.2em] text-cyan-300">
-                {activeServer.name}
-              </p>
-
-              {isSuperAdmin && (
-                <span className="shrink-0 rounded-full bg-purple-400/10 px-2 py-0.5 text-[8px] font-bold text-purple-300">
-                  ADMIN
-                </span>
-              )}
-
-            </div>
-
-            <h1 className="truncate text-lg font-bold">
-              Money Splitter
-            </h1>
-
+      <aside className="fixed bottom-0 left-0 top-0 z-40 hidden w-[260px] bg-gradient-to-b from-[#10245f] via-[#142a76] to-[#0c1e5b] p-5 text-white lg:flex lg:flex-col">
+        <div>
+          <div className="flex h-12 w-12 items-center justify-center rounded-[17px] bg-white/12">
+            <CircleDollarSign
+              size={27}
+            />
           </div>
+
+          <h1 className="mt-4 text-xl font-extrabold">
+            Money Splitter
+          </h1>
+
+          <p className="mt-1 text-xs text-blue-100/60">
+            Shared expenses
+            simplified
+          </p>
+
+          {isSuperAdmin && (
+            <div className="mt-3 inline-flex items-center gap-1 rounded-full bg-white/12 px-3 py-1 text-[10px] font-bold uppercase">
+              <ShieldCheck
+                size={13}
+              />
+
+              Super Admin
+            </div>
+          )}
+        </div>
+
+        {/* SERVER */}
+
+        <div className="mt-7 rounded-[18px] bg-white/10 p-4">
+          <p className="text-[10px] uppercase tracking-[0.14em] text-blue-100/60">
+            Current Server
+          </p>
+
+          <p className="mt-1 break-words font-extrabold">
+            {
+              activeServer.name
+            }
+          </p>
+
+          <p className="mt-2 text-xs text-blue-100/60">
+            {
+              serverPeople.length
+            }{" "}
+            saved people
+          </p>
+        </div>
+
+        {/* NAV */}
+
+        <nav className="mt-6 space-y-1">
+          {navItems.map(
+            ({
+              id,
+              desktop,
+              icon:
+                Icon,
+            }) => (
+              <button
+                key={
+                  id
+                }
+                type="button"
+                onClick={() =>
+                  changePage(
+                    id
+                  )
+                }
+                className={`flex min-h-12 w-full items-center gap-3 rounded-xl px-4 text-left text-sm font-bold transition ${
+                  page ===
+                  id
+                    ? "bg-white text-[#142a76]"
+                    : "text-blue-100/75 hover:bg-white/10 hover:text-white"
+                }`}
+              >
+                <Icon
+                  size={19}
+                />
+
+                {
+                  desktop
+                }
+              </button>
+            )
+          )}
+        </nav>
+
+        {/* BOTTOM */}
+
+        <div className="mt-auto space-y-2">
+          {canManage && (
+            <button
+              type="button"
+              onClick={() =>
+                setServerToManage(
+                  activeServer
+                )
+              }
+              className="flex min-h-11 w-full items-center gap-3 rounded-xl bg-white/10 px-4 text-sm font-bold transition hover:bg-white/15"
+            >
+              <Settings
+                size={18}
+              />
+
+              Manage Server
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={
+              changeServer
+            }
+            className="flex min-h-11 w-full items-center gap-3 rounded-xl bg-white/10 px-4 text-sm font-bold transition hover:bg-white/15"
+          >
+            <Server
+              size={18}
+            />
+
+            Change Server
+          </button>
+
+          {/* PROFILE + WALLET */}
 
           <button
             type="button"
             onClick={() =>
-              setMobileMenuOpen(
-                (current) =>
-                  !current
+              changePage(
+                "profile"
               )
             }
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/10 text-xl"
+            className={`flex min-h-[64px] w-full min-w-0 items-center gap-3 rounded-2xl p-3 text-left transition ${
+              page ===
+              "profile"
+                ? "bg-white text-[#142a76]"
+                : "bg-white/10 text-white hover:bg-white/15"
+            }`}
           >
-            {mobileMenuOpen
-              ? "✕"
-              : "☰"}
-          </button>
-
-        </div>
-
-        {mobileMenuOpen && (
-          <nav className="mt-3 space-y-1 rounded-2xl border border-white/10 bg-slate-900 p-2">
-
-            <button
-              type="button"
-              onClick={() =>
-                openMobilePage(
-                  "calculator"
-                )
-              }
-              className="min-h-12 w-full rounded-xl bg-white/5 px-4 text-left text-sm"
-            >
-              🧮 Split Calculator
-            </button>
-
-            <button
-              type="button"
-              onClick={() =>
-                openMobilePage(
-                  "totals"
-                )
-              }
-              className="min-h-12 w-full rounded-xl bg-white/5 px-4 text-left text-sm"
-            >
-              💸 Person Totals
-            </button>
-
-            <button
-              type="button"
-              onClick={() =>
-                openMobilePage(
-                  "history"
-                )
-              }
-              className="min-h-12 w-full rounded-xl bg-white/5 px-4 text-left text-sm"
-            >
-              📁 Split History
-            </button>
-
-            {canManageServer && (
-              <button
-                type="button"
-                onClick={() => {
-                  setServerToManage(
-                    activeServer
-                  );
-
-                  setMobileMenuOpen(
-                    false
-                  );
-                }}
-                className="min-h-12 w-full rounded-xl bg-cyan-400/10 px-4 text-left text-sm text-cyan-300"
-              >
-                ⚙️ Manage Server
-              </button>
+            {profile.photoURL ? (
+              <img
+                src={
+                  profile.photoURL
+                }
+                alt=""
+                referrerPolicy="no-referrer"
+                className="h-10 w-10 shrink-0 rounded-full object-cover"
+              />
+            ) : (
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/15">
+                <UserRound
+                  size={19}
+                />
+              </div>
             )}
 
-            <button
-              type="button"
-              onClick={() => {
-                setActiveServer(
-                  null
-                );
-
-                setMobileMenuOpen(
-                  false
-                );
-              }}
-              className="min-h-12 w-full rounded-xl bg-purple-400/10 px-4 text-left text-sm text-purple-300"
-            >
-              👥 Change Server
-            </button>
-
-            <button
-              type="button"
-              onClick={() =>
-                signOut(auth)
-              }
-              className="min-h-12 w-full rounded-xl bg-red-500/10 px-4 text-left text-sm text-red-300"
-            >
-              Sign Out
-            </button>
-
-          </nav>
-        )}
-
-      </header>
-
-      <main className="relative z-10 mx-auto w-full min-w-0 max-w-7xl px-3 py-4 sm:px-5 sm:py-6 lg:px-6 lg:py-10">
-
-        {/* DESKTOP HEADER */}
-
-        <div className="mb-8 hidden items-center justify-between gap-4 lg:flex">
-
-          <div>
-
-            <div className="flex items-center gap-3">
-
-              <p className="text-xs font-semibold uppercase tracking-[0.25em] text-cyan-300">
-                {activeServer.name}
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-extrabold">
+                {profile.displayName ||
+                  "Profile"}
               </p>
 
-              {isSuperAdmin && (
-                <span className="rounded-full bg-purple-400/10 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-purple-300">
-                  Super Admin
-                </span>
-              )}
-
+              <p className="truncate text-[11px] opacity-60">
+                Profile & Wallet
+              </p>
             </div>
 
-            <h1 className="mt-1 text-4xl font-bold">
-              Money Splitter
-            </h1>
+            <UserCog
+              size={17}
+              className="shrink-0 opacity-70"
+            />
+          </button>
 
-            <p className="mt-2 text-sm text-slate-500">
-              {activeServer.members?.length || 0}{" "}
-              {(activeServer.members?.length || 0) === 1
-                ? "server member"
-                : "server members"}
+          <button
+            type="button"
+            onClick={
+              handleSignOut
+            }
+            className="flex min-h-11 w-full items-center gap-3 rounded-xl px-4 text-sm font-bold text-blue-100 transition hover:bg-white/10"
+          >
+            <LogOut
+              size={18}
+            />
+
+            Sign Out
+          </button>
+        </div>
+      </aside>
+
+      {/* =====================================
+          MOBILE HEADER
+      ====================================== */}
+
+      <header className="relative z-30 bg-gradient-to-r from-[#10245f] to-[#294aad] px-4 py-4 text-white lg:hidden">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="truncate text-[10px] font-bold uppercase tracking-[0.16em] text-blue-100/60">
+              {
+                activeServer.name
+              }
             </p>
 
+            <h1 className="truncate text-xl font-extrabold">
+              Money Splitter
+            </h1>
           </div>
 
-          <div className="flex flex-wrap justify-end gap-2">
-
-            {canManageServer && (
-              <button
-                type="button"
-                onClick={() =>
-                  setServerToManage(
-                    activeServer
-                  )
-                }
-                className="min-h-11 rounded-xl bg-cyan-400/10 px-4 text-sm font-medium text-cyan-300"
-              >
-                Manage Server
-              </button>
-            )}
+          <div className="flex gap-2">
+            {/* PROFILE + WALLET */}
 
             <button
               type="button"
+              title="Profile & Wallet"
               onClick={() =>
-                setActiveServer(
-                  null
+                changePage(
+                  "profile"
                 )
               }
-              className="min-h-11 rounded-xl border border-white/10 bg-white/5 px-4 text-sm"
+              className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-xl bg-white/15"
             >
-              Change Server
+              {profile.photoURL ? (
+                <img
+                  src={
+                    profile.photoURL
+                  }
+                  alt=""
+                  referrerPolicy="no-referrer"
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <UserCog
+                  size={20}
+                />
+              )}
             </button>
 
             <button
               type="button"
-              onClick={() =>
-                signOut(auth)
+              title="Change server"
+              onClick={
+                changeServer
               }
-              className="min-h-11 rounded-xl bg-red-500/10 px-4 text-sm text-red-300"
+              className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/15"
             >
-              Sign Out
+              <Server
+                size={20}
+              />
             </button>
-
           </div>
-
         </div>
+      </header>
 
-        {/* MOBILE */}
+      {/* =====================================
+          MAIN
+      ====================================== */}
 
-        <div className="lg:hidden">
-
-          {activeMobilePage ===
-            "calculator" && (
-            <SplitCalculator
-              onSave={saveSplit}
-              saving={saving}
-            />
-          )}
-
-          {activeMobilePage ===
-            "totals" && (
-            <PersonTotals
-              savedSplits={
-                savedSplits
-              }
-              settlements={
-                settlements
-              }
-              onMarkPaid={
-                markAsPaid
-              }
-              onRestorePayment={
-                restorePayment
-              }
-              paymentLoading={
-                paymentLoading
-              }
-              getSettlementId={
-                getSettlementId
-              }
-            />
-          )}
-
-          {activeMobilePage ===
-            "history" && (
-            <SplitHistory
-              savedSplits={
-                savedSplits
-              }
-              loading={loading}
-              openSplitId={
-                openSplitId
-              }
-              onToggle={
-                toggleSplit
-              }
-              onDelete={
-                deleteSplit
-              }
-              formatDate={
-                formatDate
-              }
-            />
-          )}
-
+      <main className="relative z-10 w-full min-w-0 px-3 py-4 pb-28 sm:px-5 lg:ml-[260px] lg:w-[calc(100%-260px)] lg:px-8 lg:py-8 lg:pb-10">
+        <div className="mx-auto w-full min-w-0 max-w-6xl">
+          {
+            renderPage()
+          }
         </div>
-
-        {/* DESKTOP */}
-
-        <div className="hidden lg:block">
-
-          <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
-
-            <SplitCalculator
-              onSave={saveSplit}
-              saving={saving}
-            />
-
-            <PersonTotals
-              savedSplits={
-                savedSplits
-              }
-              settlements={
-                settlements
-              }
-              onMarkPaid={
-                markAsPaid
-              }
-              onRestorePayment={
-                restorePayment
-              }
-              paymentLoading={
-                paymentLoading
-              }
-              getSettlementId={
-                getSettlementId
-              }
-            />
-
-          </div>
-
-          <div className="mt-6">
-
-            <SplitHistory
-              savedSplits={
-                savedSplits
-              }
-              loading={loading}
-              openSplitId={
-                openSplitId
-              }
-              onToggle={
-                toggleSplit
-              }
-              onDelete={
-                deleteSplit
-              }
-              formatDate={
-                formatDate
-              }
-            />
-
-          </div>
-
-        </div>
-
       </main>
 
+      {/* =====================================
+          MOBILE NAV
+          4 ITEMS NOW
+      ====================================== */}
+
+      <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-[#d8e0ed] bg-[#f7f9fd]/95 px-2 pb-[max(env(safe-area-inset-bottom),8px)] pt-2 shadow-[0_-8px_30px_rgba(20,42,118,0.08)] backdrop-blur-xl lg:hidden">
+        <div className="mx-auto grid max-w-xl grid-cols-4 gap-1">
+          {navItems.map(
+            ({
+              id,
+              mobile,
+              icon:
+                Icon,
+            }) => (
+              <button
+                key={
+                  id
+                }
+                type="button"
+                onClick={() =>
+                  changePage(
+                    id
+                  )
+                }
+                className={`flex min-h-[60px] flex-col items-center justify-center gap-1 rounded-xl text-[10px] font-bold ${
+                  page ===
+                  id
+                    ? "text-[#142a76]"
+                    : "text-[#9ca7b8]"
+                }`}
+              >
+                <div
+                  className={`flex h-8 w-10 items-center justify-center rounded-xl ${
+                    page ===
+                    id
+                      ? "bg-[#dfe7ff]"
+                      : ""
+                  }`}
+                >
+                  <Icon
+                    size={19}
+                  />
+                </div>
+
+                {
+                  mobile
+                }
+              </button>
+            )
+          )}
+        </div>
+      </nav>
+
+      {/* =====================================
+          OTHER PERSON'S WALLET
+      ====================================== */}
+
+      {walletPerson && (
+        <WalletViewer
+          person={
+            walletPerson
+          }
+          onClose={() =>
+            setWalletPerson(
+              null
+            )
+          }
+        />
+      )}
+
+      <Dialog />
     </div>
   );
 }

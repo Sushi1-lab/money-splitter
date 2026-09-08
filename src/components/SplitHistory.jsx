@@ -1,5 +1,14 @@
+import {
+  CalendarDays,
+  ChevronDown,
+  ChevronUp,
+  ReceiptText,
+  Trash2,
+  UsersRound,
+} from "lucide-react";
+
 function SplitHistory({
-  savedSplits,
+  savedSplits = [],
   loading,
   openSplitId,
   onToggle,
@@ -7,89 +16,88 @@ function SplitHistory({
   formatDate,
 }) {
   return (
-    <section className="min-w-0 rounded-3xl border border-white/10 bg-white/[0.08] p-4 shadow-2xl backdrop-blur-2xl sm:p-5 md:p-7">
+    <section className="app-card w-full min-w-0 overflow-hidden">
 
-      <div className="mb-6 flex items-center justify-between gap-3">
+      <div className="bg-gradient-to-r from-[#10245f] to-[#294aad] p-5 text-white sm:p-6">
 
-        <div>
+        <div className="flex items-center gap-3">
 
-          <p className="text-sm text-slate-400">
-            Current server
-          </p>
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/15">
+            <ReceiptText
+              size={22}
+            />
+          </div>
 
-          <h2 className="text-xl font-bold sm:text-2xl">
-            Split History
-          </h2>
+          <div>
+
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-blue-100/70">
+              Records
+            </p>
+
+            <h2 className="text-xl font-extrabold">
+              Expense History
+            </h2>
+
+          </div>
 
         </div>
-
-        <span className="rounded-full bg-white/10 px-3 py-1 text-xs text-slate-400">
-          {savedSplits.length}
-        </span>
 
       </div>
 
-      {loading ? (
-        <div className="p-8 text-center text-slate-500">
-          Loading...
-        </div>
-      ) : savedSplits.length ===
-        0 ? (
-        <div className="rounded-2xl border border-dashed border-white/10 p-8 text-center">
+      <div className="p-4 sm:p-6">
 
-          <div className="mb-3 text-3xl">
-            📁
-          </div>
-
-          <p className="text-sm text-slate-500">
-            No saved splits yet.
+        {loading ? (
+          <p className="text-sm text-[#8995aa]">
+            Loading expenses...
           </p>
+        ) : savedSplits.length ===
+          0 ? (
+          <div className="rounded-2xl bg-[#eaf0fa] p-8 text-center">
 
-        </div>
-      ) : (
-        <div className="space-y-3">
+            <ReceiptText
+              size={30}
+              className="mx-auto text-[#9da9bb]"
+            />
 
-          {savedSplits.map(
-            (split) => {
-              const isOpen =
-                openSplitId ===
-                split.id;
+            <p className="mt-3 text-sm text-[#8995aa]">
+              No expenses yet.
+            </p>
 
-              return (
-                <div
-                  key={split.id}
-                  className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04]"
-                >
+          </div>
+        ) : (
+          <div className="space-y-3">
 
-                  <div className="flex min-w-0 items-center gap-3 p-3 sm:p-4">
+            {savedSplits.map(
+              (split) => {
+                const open =
+                  openSplitId ===
+                  split.id;
 
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10">
-                      {isOpen
-                        ? "📂"
-                        : "📁"}
-                    </div>
+                const payerName =
+  split.payer?.name ||
+  split.payer?.displayName ||
+  split.addedBy ||
+  "Unknown";
 
-                    <div className="min-w-0 flex-1">
+const people =
+  Array.isArray(
+    split.participants
+  ) &&
+  split.participants.length
+    ? split.participants.map(
+        (person) =>
+          person.name ||
+          person.displayName
+      )
+    : split.people || [];
 
-                      <p className="truncate font-semibold">
-                        {split.description ||
-                          "Untitled Split"}
-                      </p>
-
-                      <p className="truncate text-xs text-slate-500">
-                        ₱
-                        {Number(
-                          split.totalAmount ||
-                            0
-                        ).toFixed(
-                          2
-                        )}
-                        {" • "}
-                        {split.addedBy ||
-                          "Unknown"}
-                      </p>
-
-                    </div>
+                return (
+                  <div
+                    key={
+                      split.id
+                    }
+                    className="overflow-hidden rounded-[20px] border border-[#dce3ef] bg-[#f7f9fd]"
+                  >
 
                     <button
                       type="button"
@@ -98,147 +106,194 @@ function SplitHistory({
                           split.id
                         )
                       }
-                      className="min-h-11 shrink-0 rounded-xl bg-white/10 px-3 text-xs font-semibold"
+                      className="flex w-full min-w-0 items-center gap-3 p-4 text-left"
                     >
-                      {isOpen
-                        ? "Close"
-                        : "View"}
+
+                      <div className="app-icon-box">
+                        <ReceiptText
+                          size={20}
+                        />
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+
+                        <p className="truncate font-extrabold">
+                          {split.description ||
+                            "Expense"}
+                        </p>
+
+                        <p className="mt-1 truncate text-xs text-[#8995aa]">
+                          {split.category ||
+                            "Other"}{" "}
+                          •{" "}
+                          {payerName}
+                        </p>
+
+                      </div>
+
+                      <div className="shrink-0 text-right">
+
+                        <p className="font-extrabold text-[#142a76]">
+                          ₱
+                          {Number(
+                            split.totalAmount ||
+                              0
+                          ).toLocaleString(
+                            "en-PH",
+                            {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            }
+                          )}
+                        </p>
+
+                        {open ? (
+                          <ChevronUp
+                            size={17}
+                            className="ml-auto mt-1 text-[#8995aa]"
+                          />
+                        ) : (
+                          <ChevronDown
+                            size={17}
+                            className="ml-auto mt-1 text-[#8995aa]"
+                          />
+                        )}
+
+                      </div>
+
                     </button>
 
-                  </div>
+                    {open && (
+                      <div className="border-t border-[#dce3ef] bg-[#edf1f7] p-4">
 
-                  {isOpen && (
-                    <div className="border-t border-white/10 p-4 sm:p-5">
+                        <div className="grid gap-3 sm:grid-cols-2">
 
-                      <div className="grid gap-3 sm:grid-cols-2">
+                          <div className="rounded-2xl bg-[#f8faff] p-4">
 
-                        <div className="rounded-xl bg-white/5 p-3">
+                            <p className="text-xs text-[#8995aa]">
+                              Amount per person
+                            </p>
 
-                          <p className="text-xs text-slate-500">
-                            Total
-                          </p>
+                            <p className="mt-1 font-extrabold text-[#142a76]">
+                              ₱
+                              {Number(
+                                split.amountPerPerson ||
+                                  0
+                              ).toFixed(
+                                2
+                              )}
+                            </p>
 
-                          <p className="mt-1 font-semibold">
-                            ₱
-                            {Number(
-                              split.totalAmount ||
-                                0
-                            ).toFixed(
-                              2
+                          </div>
+
+                          <div className="rounded-2xl bg-[#f8faff] p-4">
+
+                            <p className="text-xs text-[#8995aa]">
+                              Paid by
+                            </p>
+
+                            <p className="mt-1 font-extrabold">
+                              {
+                                payerName
+                              }
+                            </p>
+
+                          </div>
+
+                        </div>
+
+                        <div className="mt-4">
+
+                          <div className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-[#8995aa]">
+
+                            <UsersRound
+                              size={15}
+                            />
+
+                            People
+
+                          </div>
+
+                          <div className="mt-2 flex flex-wrap gap-2">
+
+                            {people.map(
+                              (
+                                person,
+                                index
+                              ) => (
+                                <span
+                                  key={`${person}-${index}`}
+                                  className="rounded-full bg-[#e4ebff] px-3 py-2 text-xs font-bold text-[#142a76]"
+                                >
+                                  {
+                                    person
+                                  }
+                                </span>
+                              )
                             )}
-                          </p>
+
+                          </div>
 
                         </div>
 
-                        <div className="rounded-xl bg-white/5 p-3">
+                        {split.receiptBase64 && (
+                          <div className="mt-4">
 
-                          <p className="text-xs text-slate-500">
-                            Each Person
-                          </p>
+                            <img
+                              src={
+                                split.receiptBase64
+                              }
+                              alt="Receipt"
+                              className="max-h-[500px] w-full rounded-2xl object-contain"
+                            />
 
-                          <p className="mt-1 font-semibold">
-                            ₱
-                            {Number(
-                              split.amountPerPerson ||
-                                0
-                            ).toFixed(
-                              2
+                          </div>
+                        )}
+
+                        <div className="mt-4 flex flex-col gap-3 border-t border-[#d5dde9] pt-4 sm:flex-row sm:items-center sm:justify-between">
+
+                          <div className="flex items-center gap-2 text-xs text-[#8995aa]">
+
+                            <CalendarDays
+                              size={15}
+                            />
+
+                            {formatDate(
+                              split.createdAt
                             )}
-                          </p>
 
-                        </div>
+                          </div>
 
-                      </div>
-
-                      <div className="mt-5">
-
-                        <p className="mb-2 text-xs text-slate-400">
-                          People Included
-                        </p>
-
-                        <div className="flex flex-wrap gap-2">
-
-                          {split.people?.map(
-                            (
-                              person,
-                              index
-                            ) => (
-                              <span
-                                key={`${person}-${index}`}
-                                className="rounded-full bg-white/10 px-3 py-2 text-xs"
-                              >
-                                {person}
-                              </span>
-                            )
-                          )}
-
-                        </div>
-
-                      </div>
-
-                      {split.receiptBase64 && (
-                        <div className="mt-5">
-
-                          <p className="mb-2 text-xs text-slate-400">
-                            Receipt
-                          </p>
-
-                          <img
-                            src={
-                              split.receiptBase64
+                          <button
+                            type="button"
+                            onClick={() =>
+                              onDelete(
+                                split.id
+                              )
                             }
-                            alt="Receipt"
-                            className="max-h-96 w-full rounded-2xl border border-white/10 object-contain"
-                          />
+                            className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#ffeded] px-4 text-sm font-bold text-[#cf4646]"
+                          >
+                            <Trash2
+                              size={16}
+                            />
+
+                            Delete
+                          </button>
 
                         </div>
-                      )}
-
-                      <div className="mt-5 border-t border-white/10 pt-4">
-
-                        <p className="text-xs text-slate-500">
-                          Added By
-                        </p>
-
-                        <p className="mt-1 text-sm">
-                          {split.addedBy ||
-                            "Unknown"}
-                        </p>
-
-                        <p className="mt-4 text-xs text-slate-500">
-                          Created
-                        </p>
-
-                        <p className="mt-1 text-sm text-slate-300">
-                          {formatDate(
-                            split.createdAt
-                          )}
-                        </p>
 
                       </div>
+                    )}
 
-                      <button
-                        type="button"
-                        onClick={() =>
-                          onDelete(
-                            split.id
-                          )
-                        }
-                        className="mt-5 min-h-11 w-full rounded-xl bg-red-500/10 px-4 text-xs font-semibold text-red-300 sm:w-auto"
-                      >
-                        Delete Split
-                      </button>
+                  </div>
+                );
+              }
+            )}
 
-                    </div>
-                  )}
+          </div>
+        )}
 
-                </div>
-              );
-            }
-          )}
-
-        </div>
-      )}
+      </div>
 
     </section>
   );
