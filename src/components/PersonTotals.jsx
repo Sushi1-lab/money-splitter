@@ -1,10 +1,16 @@
 import {
   ArrowRight,
   CheckCircle2,
+  ChevronDown,
+  ChevronRight,
   QrCode,
   RotateCcw,
   WalletCards,
 } from "lucide-react";
+
+import {
+  useState,
+} from "react";
 
 function PersonTotals({
   savedSplits = [],
@@ -16,6 +22,23 @@ function PersonTotals({
   paymentLoading,
   getSettlementId,
 }) {
+
+  const [
+    expandedPerson,
+    setExpandedPerson,
+  ] = useState(null);
+
+  const togglePerson = (
+    personKey
+  ) => {
+    setExpandedPerson(
+      (current) =>
+        current === personKey
+          ? null
+          : personKey
+    );
+  };
+
   // =========================================
   // NORMALIZE
   // =========================================
@@ -363,6 +386,13 @@ function PersonTotals({
             entry.person
               .username ||
             "",
+
+          photoURL:
+            latestDebtor
+              ?.photoURL ||
+            entry.person
+              .photoURL ||
+            null,
         };
 
         const creditors =
@@ -419,6 +449,13 @@ function PersonTotals({
                     creditor.person
                       .username ||
                     "",
+
+                  photoURL:
+                    latestCreditor
+                      ?.photoURL ||
+                    creditor.person
+                      .photoURL ||
+                    null,
                 };
 
               const settlementId =
@@ -520,6 +557,10 @@ function PersonTotals({
             <h2 className="text-xl font-extrabold">
               Person Totals
             </h2>
+
+            <p className="mt-1 text-xs text-blue-100/70">
+              Click a person's name or icon to view the breakdown.
+            </p>
           </div>
         </div>
       </div>
@@ -538,302 +579,406 @@ function PersonTotals({
             </p>
 
             <p className="mt-1 text-xs text-[#9ba6b9]">
-              Add an expense to
-              start calculating
-              balances.
+              Add an expense to start calculating balances.
             </p>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-3">
             {debtPeople.map(
-              (entry) => (
-                <div
-                  key={entry.key}
-                  className="rounded-[20px] border border-[#dce3ef] bg-[#eef2f8] p-4"
-                >
-                  {/* PERSON TOTAL */}
+              (entry) => {
+                const isExpanded =
+                  expandedPerson ===
+                  entry.key;
 
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <p className="font-extrabold text-[#182442]">
-                        {
-                          entry.person
-                            .name
-                        }
-                      </p>
+                return (
+                  <div
+                    key={entry.key}
+                    className="overflow-hidden rounded-[20px] border border-[#dce3ef] bg-[#eef2f8] transition"
+                  >
+                    {/* CLICKABLE PERSON SUMMARY */}
 
-                      <p className="mt-1 text-xs text-[#8995aa]">
-                        Total unpaid
-                      </p>
-                    </div>
-
-                    <p className="text-xl font-extrabold text-[#142a76]">
-                      ₱
-                      {entry.totalOwed.toLocaleString(
-                        "en-PH",
-                        {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        }
-                      )}
-                    </p>
-                  </div>
-
-                  {/* CREDITORS */}
-
-                  <div className="mt-4 space-y-3">
-                    {entry.creditors.map(
-                      (creditor) => (
-                        <div
-                          key={
-                            creditor.key
+                    <button
+                      type="button"
+                      onClick={() =>
+                        togglePerson(
+                          entry.key
+                        )
+                      }
+                      aria-expanded={
+                        isExpanded
+                      }
+                      className="flex w-full items-center gap-3 p-4 text-left transition hover:bg-[#e7edf7] sm:p-5"
+                    >
+                      {entry.person
+                        .photoURL ? (
+                        <img
+                          src={
+                            entry.person
+                              .photoURL
                           }
-                          className="rounded-2xl border border-[#e0e6f0] bg-[#f8faff] p-4"
-                        >
-                          {/* WHO OWES WHO */}
+                          alt={`${entry.person.name || "Person"} profile`}
+                          referrerPolicy="no-referrer"
+                          className="h-12 w-12 shrink-0 rounded-2xl border border-white/80 object-cover shadow-sm"
+                          onError={(
+                            event
+                          ) => {
+                            event.currentTarget.style.display =
+                              "none";
 
-                          <div className="flex min-w-0 items-center justify-between gap-3">
-                            <div className="flex min-w-0 items-center gap-2">
-                              <span className="truncate font-bold text-[#52617d]">
-                                {
-                                  entry
-                                    .person
-                                    .name
-                                }
-                              </span>
+                            const fallback =
+                              event.currentTarget
+                                .nextElementSibling;
 
-                              <ArrowRight
-                                size={16}
-                                className="shrink-0 text-[#8995aa]"
-                              />
+                            if (
+                              fallback
+                            ) {
+                              fallback.style.display =
+                                "flex";
+                            }
+                          }}
+                        />
+                      ) : null}
 
-                              <span className="truncate font-extrabold text-[#142a76]">
-                                {
-                                  creditor
-                                    .person
-                                    .name
-                                }
-                              </span>
-                            </div>
+                      <div
+                        className="h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#dfe8ff] text-lg font-extrabold uppercase text-[#294aad]"
+                        style={{
+                          display:
+                            entry.person
+                              .photoURL
+                              ? "none"
+                              : "flex",
+                        }}
+                      >
+                        {String(
+                          entry.person
+                            .name ||
+                            "?"
+                        )
+                          .trim()
+                          .charAt(0) ||
+                          "?"}
+                      </div>
 
-                            {creditor.isPaid ? (
-                              <span className="shrink-0 text-sm font-extrabold text-[#18845c]">
-                                Paid
-                              </span>
-                            ) : (
-                              <span className="shrink-0 font-extrabold text-[#142a76]">
-                                ₱
-                                {creditor.outstanding.toLocaleString(
-                                  "en-PH",
-                                  {
-                                    minimumFractionDigits: 2,
-                                    maximumFractionDigits: 2,
-                                  }
-                                )}
-                              </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-extrabold text-[#182442]">
+                          {
+                            entry.person
+                              .name
+                          }
+                        </p>
+
+                        <p className="mt-1 text-xs text-[#8995aa]">
+                          {isExpanded
+                            ? "Hide balance breakdown"
+                            : "Tap to view balance breakdown"}
+                        </p>
+                      </div>
+
+                      <div className="flex shrink-0 items-center gap-3">
+                        <div className="text-right">
+                          <p className="text-lg font-extrabold text-[#142a76] sm:text-xl">
+                            ₱
+                            {entry.totalOwed.toLocaleString(
+                              "en-PH",
+                              {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              }
                             )}
-                          </div>
-
-                          {/* EXPENSE COUNT */}
-
-                          <p className="mt-2 text-xs text-[#8995aa]">
-                            {
-                              creditor
-                                .splits
-                                .length
-                            }{" "}
-                            {creditor
-                              .splits
-                              .length ===
-                            1
-                              ? "expense"
-                              : "expenses"}
                           </p>
 
-                          {/* EXPENSE LIST */}
+                          <p className="text-[11px] font-bold text-[#8995aa]">
+                            Total unpaid
+                          </p>
+                        </div>
 
-                          <div className="mt-3 space-y-2">
-                            {creditor.splits.map(
-                              (
-                                split,
-                                index
-                              ) => (
-                                <div
-                                  key={`${split.id || "split"}-${index}`}
-                                  className="flex justify-between gap-3 text-xs text-[#71809a]"
-                                >
-                                  <span className="min-w-0 break-words">
-                                    {
-                                      split.description
-                                    }
-                                  </span>
-
-                                  <span className="shrink-0">
-                                    ₱
-                                    {Number(
-                                      split.amount
-                                    ).toLocaleString(
-                                      "en-PH",
-                                      {
-                                        minimumFractionDigits: 2,
-                                        maximumFractionDigits: 2,
-                                      }
-                                    )}
-                                  </span>
-                                </div>
-                              )
-                            )}
-                          </div>
-
-                          {/* PREVIOUSLY PAID */}
-
-                          {creditor.settled >
-                            0 &&
-                            !creditor.isPaid && (
-                              <div className="mt-3 rounded-xl bg-[#e7f6ef] px-3 py-2 text-xs font-bold text-[#18845c]">
-                                Previously
-                                paid: ₱
-                                {creditor.settled.toLocaleString(
-                                  "en-PH",
-                                  {
-                                    minimumFractionDigits: 2,
-                                    maximumFractionDigits: 2,
-                                  }
-                                )}
-                              </div>
-                            )}
-
-                          {/* =================================
-                              WALLET BUTTON
-                          ================================== */}
-
-                          {creditor
-                            .person
-                            .linkedUid ? (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                console.log(
-                                  "Opening wallet for:",
-                                  creditor.person
-                                );
-
-                                onViewWallet({
-                                  id:
-                                    creditor
-                                      .person
-                                      .id ||
-                                    null,
-
-                                  name:
-                                    creditor
-                                      .person
-                                      .name,
-
-                                  linkedUid:
-                                    creditor
-                                      .person
-                                      .linkedUid,
-
-                                  linkedEmail:
-                                    creditor
-                                      .person
-                                      .linkedEmail ||
-                                    null,
-
-                                  username:
-                                    creditor
-                                      .person
-                                      .username ||
-                                    "",
-                                });
-                              }}
-                              className="mt-4 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#142a76] text-sm font-bold text-white transition hover:bg-[#10245f]"
-                            >
-                              <QrCode
-                                size={17}
-                              />
-
-                              View{" "}
-                              {
-                                creditor
-                                  .person
-                                  .name
-                              }
-                              's Wallet
-                            </button>
+                        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-[#294aad] shadow-sm">
+                          {isExpanded ? (
+                            <ChevronDown
+                              size={19}
+                            />
                           ) : (
-                            <div className="mt-4 rounded-xl bg-[#eef2f8] px-3 py-3 text-center text-xs font-bold text-[#8995aa]">
-                              {
-                                creditor
-                                  .person
-                                  .name
-                              }
-                              's account is
-                              not linked yet
-                            </div>
-                          )}
-
-                          {/* PAYMENT */}
-
-                          {creditor.isPaid ? (
-                            <button
-                              type="button"
-                              disabled={
-                                paymentLoading ===
-                                creditor.settlementId
-                              }
-                              onClick={() =>
-                                onRestorePayment(
-                                  entry.key,
-                                  creditor.key
-                                )
-                              }
-                              className="mt-2 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#e7ebf2] text-sm font-bold text-[#52617d] disabled:opacity-50"
-                            >
-                              <RotateCcw
-                                size={16}
-                              />
-
-                              Restore Payment
-                            </button>
-                          ) : (
-                            <button
-                              type="button"
-                              disabled={
-                                paymentLoading ===
-                                creditor.settlementId
-                              }
-                              onClick={() =>
-                                onMarkPaid(
-                                  entry.key,
-
-                                  creditor.key,
-
-                                  creditor.total,
-
-                                  entry.person
-                                    .name,
-
-                                  creditor.person
-                                    .name
-                                )
-                              }
-                              className="mt-2 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#e4ebff] text-sm font-bold text-[#142a76] disabled:opacity-50"
-                            >
-                              <CheckCircle2
-                                size={17}
-                              />
-
-                              Mark Paid
-                            </button>
+                            <ChevronRight
+                              size={19}
+                            />
                           )}
                         </div>
-                      )
+                      </div>
+                    </button>
+
+                    {/* EXPANDED BREAKDOWN */}
+
+                    {isExpanded && (
+                      <div className="border-t border-[#dce3ef] p-4 sm:p-5">
+                        <div className="mb-3 flex items-center justify-between gap-3">
+                          <p className="text-xs font-extrabold uppercase tracking-[0.12em] text-[#8995aa]">
+                            Amount Breakdown
+                          </p>
+
+                          <p className="text-xs font-bold text-[#71809a]">
+                            {
+                              entry.creditors
+                                .length
+                            }{" "}
+                            {entry.creditors
+                              .length ===
+                            1
+                              ? "person"
+                              : "people"}
+                          </p>
+                        </div>
+
+                        <div className="space-y-3">
+                          {entry.creditors.map(
+                            (
+                              creditor
+                            ) => (
+                              <div
+                                key={
+                                  creditor.key
+                                }
+                                className="rounded-2xl border border-[#e0e6f0] bg-[#f8faff] p-4"
+                              >
+                                {/* WHO OWES WHO */}
+
+                                <div className="flex min-w-0 items-center justify-between gap-3">
+                                  <div className="flex min-w-0 items-center gap-2">
+                                    <span className="truncate font-bold text-[#52617d]">
+                                      {
+                                        entry
+                                          .person
+                                          .name
+                                      }
+                                    </span>
+
+                                    <ArrowRight
+                                      size={16}
+                                      className="shrink-0 text-[#8995aa]"
+                                    />
+
+                                    <span className="truncate font-extrabold text-[#142a76]">
+                                      {
+                                        creditor
+                                          .person
+                                          .name
+                                      }
+                                    </span>
+                                  </div>
+
+                                  {creditor.isPaid ? (
+                                    <span className="shrink-0 text-sm font-extrabold text-[#18845c]">
+                                      Paid
+                                    </span>
+                                  ) : (
+                                    <span className="shrink-0 font-extrabold text-[#142a76]">
+                                      ₱
+                                      {creditor.outstanding.toLocaleString(
+                                        "en-PH",
+                                        {
+                                          minimumFractionDigits: 2,
+                                          maximumFractionDigits: 2,
+                                        }
+                                      )}
+                                    </span>
+                                  )}
+                                </div>
+
+                                {/* EXPENSE COUNT */}
+
+                                <p className="mt-2 text-xs text-[#8995aa]">
+                                  {
+                                    creditor
+                                      .splits
+                                      .length
+                                  }{" "}
+                                  {creditor
+                                    .splits
+                                    .length ===
+                                  1
+                                    ? "expense"
+                                    : "expenses"}
+                                </p>
+
+                                {/* EXPENSE LIST */}
+
+                                <div className="mt-3 space-y-2">
+                                  {creditor.splits.map(
+                                    (
+                                      split,
+                                      index
+                                    ) => (
+                                      <div
+                                        key={`${split.id || "split"}-${index}`}
+                                        className="flex justify-between gap-3 text-xs text-[#71809a]"
+                                      >
+                                        <span className="min-w-0 break-words">
+                                          {
+                                            split.description
+                                          }
+                                        </span>
+
+                                        <span className="shrink-0">
+                                          ₱
+                                          {Number(
+                                            split.amount
+                                          ).toLocaleString(
+                                            "en-PH",
+                                            {
+                                              minimumFractionDigits: 2,
+                                              maximumFractionDigits: 2,
+                                            }
+                                          )}
+                                        </span>
+                                      </div>
+                                    )
+                                  )}
+                                </div>
+
+                                {/* PREVIOUSLY PAID */}
+
+                                {creditor.settled >
+                                  0 &&
+                                  !creditor.isPaid && (
+                                    <div className="mt-3 rounded-xl bg-[#e7f6ef] px-3 py-2 text-xs font-bold text-[#18845c]">
+                                      Previously
+                                      paid: ₱
+                                      {creditor.settled.toLocaleString(
+                                        "en-PH",
+                                        {
+                                          minimumFractionDigits: 2,
+                                          maximumFractionDigits: 2,
+                                        }
+                                      )}
+                                    </div>
+                                  )}
+
+                                {/* WALLET BUTTON */}
+
+                                {creditor
+                                  .person
+                                  .linkedUid ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      console.log(
+                                        "Opening wallet for:",
+                                        creditor.person
+                                      );
+
+                                      onViewWallet({
+                                        id:
+                                          creditor
+                                            .person
+                                            .id ||
+                                          null,
+
+                                        name:
+                                          creditor
+                                            .person
+                                            .name,
+
+                                        linkedUid:
+                                          creditor
+                                            .person
+                                            .linkedUid,
+
+                                        linkedEmail:
+                                          creditor
+                                            .person
+                                            .linkedEmail ||
+                                          null,
+
+                                        username:
+                                          creditor
+                                            .person
+                                            .username ||
+                                          "",
+                                      });
+                                    }}
+                                    className="mt-4 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#142a76] text-sm font-bold text-white transition hover:bg-[#10245f]"
+                                  >
+                                    <QrCode
+                                      size={17}
+                                    />
+
+                                    View{" "}
+                                    {
+                                      creditor
+                                        .person
+                                        .name
+                                    }
+                                    's Wallet
+                                  </button>
+                                ) : (
+                                  <div className="mt-4 rounded-xl bg-[#eef2f8] px-3 py-3 text-center text-xs font-bold text-[#8995aa]">
+                                    {
+                                      creditor
+                                        .person
+                                        .name
+                                    }
+                                    's account is not linked yet
+                                  </div>
+                                )}
+
+                                {/* PAYMENT */}
+
+                                {creditor.isPaid ? (
+                                  <button
+                                    type="button"
+                                    disabled={
+                                      paymentLoading ===
+                                      creditor.settlementId
+                                    }
+                                    onClick={() =>
+                                      onRestorePayment(
+                                        entry.key,
+                                        creditor.key
+                                      )
+                                    }
+                                    className="mt-2 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#e7ebf2] text-sm font-bold text-[#52617d] disabled:opacity-50"
+                                  >
+                                    <RotateCcw
+                                      size={16}
+                                    />
+
+                                    Restore Payment
+                                  </button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    disabled={
+                                      paymentLoading ===
+                                      creditor.settlementId
+                                    }
+                                    onClick={() =>
+                                      onMarkPaid(
+                                        entry.key,
+                                        creditor.key,
+                                        creditor.total,
+                                        entry.person
+                                          .name,
+                                        creditor.person
+                                          .name
+                                      )
+                                    }
+                                    className="mt-2 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#e4ebff] text-sm font-bold text-[#142a76] disabled:opacity-50"
+                                  >
+                                    <CheckCircle2
+                                      size={17}
+                                    />
+
+                                    Mark Paid
+                                  </button>
+                                )}
+                              </div>
+                            )
+                          )}
+                        </div>
+                      </div>
                     )}
                   </div>
-                </div>
-              )
+                );
+              }
             )}
           </div>
         )}

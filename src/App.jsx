@@ -768,6 +768,11 @@ function App() {
           username:
             profile?.username ||
             "",
+
+          photoURL:
+            profile?.photoURL ||
+            user?.photoURL ||
+            null,
         };
 
       const alreadyCorrect =
@@ -1016,6 +1021,88 @@ function App() {
             unique
           );
 
+        // =====================================
+        // LOAD GOOGLE / PROFILE PHOTOS
+        // =====================================
+        //
+        // If a saved person is linked to a
+        // Firebase user, read users/{uid} and
+        // attach that user's photoURL.
+        //
+        // Google-authenticated users normally
+        // have their Google profile image in
+        // photoURL. Email/password users can
+        // simply fall back to initials.
+
+        unique =
+          await Promise.all(
+            unique.map(
+              async (
+                person
+              ) => {
+                if (
+                  !person.linkedUid
+                ) {
+                  return {
+                    ...person,
+
+                    photoURL:
+                      person.photoURL ||
+                      null,
+                  };
+                }
+
+                try {
+                  const userSnapshot =
+                    await getDoc(
+                      doc(
+                        db,
+                        "users",
+                        person.linkedUid
+                      )
+                    );
+
+                  if (
+                    !userSnapshot.exists()
+                  ) {
+                    return {
+                      ...person,
+
+                      photoURL:
+                        person.photoURL ||
+                        null,
+                    };
+                  }
+
+                  const linkedProfile =
+                    userSnapshot.data();
+
+                  return {
+                    ...person,
+
+                    photoURL:
+                      linkedProfile?.photoURL ||
+                      person.photoURL ||
+                      null,
+                  };
+                } catch (err) {
+                  console.error(
+                    `Unable to load profile photo for ${person.name}:`,
+                    err
+                  );
+
+                  return {
+                    ...person,
+
+                    photoURL:
+                      person.photoURL ||
+                      null,
+                  };
+                }
+              }
+            )
+          );
+
         setServerPeople(
           unique
         );
@@ -1108,6 +1195,9 @@ function App() {
               username:
                 "",
 
+              photoURL:
+                null,
+
               createdByUid:
                 user.uid,
 
@@ -1139,6 +1229,9 @@ function App() {
 
             username:
               "",
+
+            photoURL:
+              null,
           };
 
         const displayName =
@@ -1181,6 +1274,11 @@ function App() {
               username:
                 profile?.username ||
                 "",
+
+              photoURL:
+                profile?.photoURL ||
+                user?.photoURL ||
+                null,
             };
 
           await updateDoc(
