@@ -582,7 +582,8 @@ function App() {
       if (
         !user?.uid ||
         !user?.email ||
-        !activeServer?.id
+        !activeServer?.id ||
+        !profile
       ) {
         return people;
       }
@@ -611,7 +612,13 @@ function App() {
       let matchingPerson =
         null;
 
-      // UID
+      let matchReason =
+        "";
+
+      // =====================================
+      // 1. ALREADY LINKED TO CURRENT UID
+      // =====================================
+
       matchingPerson =
         people.find(
           (
@@ -621,9 +628,20 @@ function App() {
             currentUid
         );
 
-      // EMAIL
       if (
-        !matchingPerson
+        matchingPerson
+      ) {
+        matchReason =
+          "uid";
+      }
+
+      // =====================================
+      // 2. SAME CURRENT EMAIL
+      // =====================================
+
+      if (
+        !matchingPerson &&
+        currentEmail
       ) {
         matchingPerson =
           people.find(
@@ -636,9 +654,19 @@ function App() {
               ) ===
                 currentEmail
           );
+
+        if (
+          matchingPerson
+        ) {
+          matchReason =
+            "email";
+        }
       }
 
-      // USERNAME
+      // =====================================
+      // 3. SAME CURRENT USERNAME
+      // =====================================
+
       if (
         !matchingPerson &&
         currentUsername
@@ -654,9 +682,19 @@ function App() {
               ) ===
                 currentUsername
           );
+
+        if (
+          matchingPerson
+        ) {
+          matchReason =
+            "username";
+        }
       }
 
-      // PERSON NAME = USERNAME
+      // =====================================
+      // 4. SAVED PERSON NAME = CURRENT USERNAME
+      // =====================================
+
       if (
         !matchingPerson &&
         currentUsername
@@ -673,9 +711,19 @@ function App() {
                   currentUsername
                 )
           );
+
+        if (
+          matchingPerson
+        ) {
+          matchReason =
+            "person-name-to-username";
+        }
       }
 
-      // PERSON NAME = DISPLAY NAME
+      // =====================================
+      // 5. SAVED PERSON NAME = CURRENT DISPLAY NAME
+      // =====================================
+
       if (
         !matchingPerson &&
         currentDisplayName
@@ -690,19 +738,22 @@ function App() {
               ) ===
                 currentDisplayName
           );
+
+        if (
+          matchingPerson
+        ) {
+          matchReason =
+            "person-name-to-display-name";
+        }
       }
 
       if (
         !matchingPerson
       ) {
-        return people;
-      }
+        console.log(
+          "No saved person matched the logged-in profile."
+        );
 
-      if (
-        matchingPerson.linkedUid &&
-        matchingPerson.linkedUid !==
-          currentUid
-      ) {
         return people;
       }
 
@@ -719,7 +770,87 @@ function App() {
             "",
         };
 
+      const alreadyCorrect =
+        matchingPerson.linkedUid ===
+          linkedData.linkedUid &&
+        normalizeEmail(
+          matchingPerson.linkedEmail ||
+            ""
+        ) ===
+          linkedData.linkedEmail &&
+        normalizeUsername(
+          matchingPerson.username ||
+            ""
+        ) ===
+          normalizeUsername(
+            linkedData.username
+          );
+
+      if (
+        alreadyCorrect
+      ) {
+        return people;
+      }
+
+      // IMPORTANT:
+      // Older versions of Money Splitter may have stored
+      // an outdated linkedUid / linkedEmail / username on
+      // the saved person. If the saved person's name or
+      // username clearly matches the CURRENT logged-in
+      // profile, repair those stale fields instead of
+      // refusing because an older UID is present.
+
+      const canRepairStaleLink =
+        matchReason ===
+          "uid" ||
+        matchReason ===
+          "email" ||
+        matchReason ===
+          "username" ||
+        matchReason ===
+          "person-name-to-username" ||
+        matchReason ===
+          "person-name-to-display-name";
+
+      if (
+        !canRepairStaleLink
+      ) {
+        return people;
+      }
+
       try {
+        console.log(
+          "Repairing saved person link:",
+          {
+            person:
+              matchingPerson.name,
+
+            matchReason,
+
+            oldLinkedUid:
+              matchingPerson.linkedUid ||
+              null,
+
+            newLinkedUid:
+              currentUid,
+
+            oldLinkedEmail:
+              matchingPerson.linkedEmail ||
+              null,
+
+            newLinkedEmail:
+              currentEmail,
+
+            oldUsername:
+              matchingPerson.username ||
+              "",
+
+            newUsername:
+              profile?.username ||
+              "",
+          }
+        );
+
         await updateDoc(
           doc(
             db,
@@ -728,7 +859,16 @@ function App() {
             "people",
             matchingPerson.id
           ),
-          linkedData
+          {
+            ...linkedData,
+
+            linkedUpdatedAt:
+              serverTimestamp(),
+          }
+        );
+
+        console.log(
+          "Saved person link repaired successfully."
         );
 
         return people.map(
@@ -745,7 +885,7 @@ function App() {
         );
       } catch (err) {
         console.error(
-          "Person linking error:",
+          "Person linking / repair error:",
           err
         );
 
@@ -1934,12 +2074,15 @@ function App() {
   // =========================================
 
   if (
-    !profile
+    !profile?.username
   ) {
     return (
       <ProfileSetup
         user={
           user
+        }
+        existingProfile={
+          profile
         }
         onProfileCreated={
           setProfile

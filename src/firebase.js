@@ -1,13 +1,14 @@
-import { initializeApp } from "firebase/app";
+import {
+  initializeApp,
+} from "firebase/app";
+
+import {
+  getAuth,
+} from "firebase/auth";
 
 import {
   getFirestore,
 } from "firebase/firestore";
-
-import {
-  getAuth,
-  GoogleAuthProvider,
-} from "firebase/auth";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAJ4F7BVnVsYHbhJJcjOl5ijkDjF3kfHIk",
@@ -19,23 +20,24 @@ const firebaseConfig = {
   measurementId: "G-973WYBXQ6S"
 };
 
+const app =
+  initializeApp(
+    firebaseConfig
+  );
 
-const app = initializeApp(firebaseConfig);
+const auth =
+  getAuth(app);
 
-const db = getFirestore(app);
+const db =
+  getFirestore(app);
 
-const auth = getAuth(app);
-
-const googleProvider =
-  new GoogleAuthProvider();
-
-googleProvider.setCustomParameters({
-  prompt: "select_account",
-});
+console.log(
+  "🔥 FIREBASE PROJECT:",
+  firebaseConfig.projectId
+);
 
 export {
   app,
-  db,
   auth,
-  googleProvider,
+  db,
 };
