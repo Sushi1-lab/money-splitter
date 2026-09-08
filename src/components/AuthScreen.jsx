@@ -1,14 +1,11 @@
 import {
   ArrowLeft,
   ArrowRight,
-  CheckCircle2,
   CircleDollarSign,
   Eye,
   EyeOff,
   LockKeyhole,
-  LogIn,
   Mail,
-  PlusCircle,
   ReceiptText,
   Server,
   Sparkles,
@@ -25,16 +22,21 @@ import {
 import {
   createUserWithEmailAndPassword,
   GoogleAuthProvider,
+  sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signInWithPopup,
   updateProfile,
 } from "firebase/auth";
 
 import {
+  collection,
   doc,
   getDoc,
+  getDocs,
+  query,
   serverTimestamp,
   setDoc,
+  where,
 } from "firebase/firestore";
 
 import {
@@ -45,10 +47,18 @@ import {
 import useAppDialog from "../hooks/useAppDialog.jsx";
 
 function AuthScreen() {
+  // =========================================
+  // PAGE MODE
+  // =========================================
+
   const [
     createMode,
     setCreateMode,
   ] = useState(false);
+
+  // =========================================
+  // FORM
+  // =========================================
 
   const [
     displayName,
@@ -70,6 +80,10 @@ function AuthScreen() {
     setConfirmPassword,
   ] = useState("");
 
+  // =========================================
+  // LOADING
+  // =========================================
+
   const [
     loading,
     setLoading,
@@ -81,6 +95,15 @@ function AuthScreen() {
   ] = useState(false);
 
   const [
+    resetLoading,
+    setResetLoading,
+  ] = useState(false);
+
+  // =========================================
+  // PASSWORD VISIBILITY
+  // =========================================
+
+  const [
     showPassword,
     setShowPassword,
   ] = useState(false);
@@ -90,8 +113,13 @@ function AuthScreen() {
     setShowConfirmPassword,
   ] = useState(false);
 
+  // =========================================
+  // CUSTOM DIALOG
+  // =========================================
+
   const {
     Dialog,
+    success,
     warning,
     error,
   } = useAppDialog();
@@ -100,12 +128,15 @@ function AuthScreen() {
   // HELPERS
   // =========================================
 
-  const cleanEmail = (
-    value
-  ) =>
+  const cleanEmail = (value) =>
     String(value)
       .trim()
       .toLowerCase();
+
+  const cleanName = (value) =>
+    String(value)
+      .trim()
+      .replace(/\s+/g, " ");
 
   const getAuthErrorMessage = (
     authError
@@ -125,8 +156,6 @@ function AuthScreen() {
         return "We couldn't find an account with this email.";
 
       case "auth/wrong-password":
-        return "The password you entered is incorrect.";
-
       case "auth/invalid-credential":
         return "The email or password you entered is incorrect.";
 
@@ -166,7 +195,212 @@ function AuthScreen() {
   };
 
   // =========================================
-  // LOGIN
+  // FIND EXISTING PROFILE BY EMAIL
+  // =========================================
+
+  const findExistingProfileByEmail =
+    async (emailAddress) => {
+      const normalizedEmail =
+        cleanEmail(
+          emailAddress
+        );
+
+      if (!normalizedEmail) {
+        return null;
+      }
+
+      try {
+        const usersQuery =
+          query(
+            collection(
+              db,
+              "users"
+            ),
+            where(
+              "email",
+              "==",
+              normalizedEmail
+            )
+          );
+
+        const snapshot =
+          await getDocs(
+            usersQuery
+          );
+
+        if (
+          snapshot.empty
+        ) {
+          return null;
+        }
+
+        const firstDoc =
+          snapshot.docs[0];
+
+        return {
+          id:
+            firstDoc.id,
+          ...firstDoc.data(),
+        };
+      } catch (err) {
+        console.error(
+          "Find profile by email error:",
+          err
+        );
+
+        return null;
+      }
+    };
+
+  // =========================================
+  // SYNC USER PROFILE
+  // =========================================
+
+  const syncUserProfile =
+    async ({
+      firebaseUser,
+      preferredDisplayName = "",
+      normalizedEmail = "",
+    }) => {
+      const userRef =
+        doc(
+          db,
+          "users",
+          firebaseUser.uid
+        );
+
+      const userSnapshot =
+        await getDoc(
+          userRef
+        );
+
+      const currentData =
+        userSnapshot.exists()
+          ? userSnapshot.data()
+          : null;
+
+      let username =
+        currentData
+          ?.username ||
+        "";
+
+      let preservedName =
+        currentData
+          ?.displayName ||
+        "";
+
+      // If this UID does not already have a username,
+      // look for an existing profile using the same email.
+      if (!username) {
+        const emailProfile =
+          await findExistingProfileByEmail(
+            normalizedEmail ||
+              firebaseUser.email
+          );
+
+        if (
+          emailProfile &&
+          emailProfile.id !==
+            firebaseUser.uid
+        ) {
+          if (
+            emailProfile.username
+          ) {
+            username =
+              emailProfile.username;
+          }
+
+          if (
+            !preservedName &&
+            emailProfile.displayName
+          ) {
+            preservedName =
+              emailProfile.displayName;
+          }
+        }
+      }
+
+      const finalDisplayName =
+        cleanName(
+          preferredDisplayName
+        ) ||
+        cleanName(
+          firebaseUser.displayName
+        ) ||
+        cleanName(
+          preservedName
+        );
+
+      if (
+        userSnapshot.exists()
+      ) {
+        await setDoc(
+          userRef,
+          {
+            displayName:
+              finalDisplayName ||
+              currentData
+                ?.displayName ||
+              "",
+
+            email:
+              cleanEmail(
+                normalizedEmail ||
+                  firebaseUser.email
+              ),
+
+            photoURL:
+              firebaseUser.photoURL ||
+              currentData
+                ?.photoURL ||
+              null,
+
+            ...(username
+              ? {
+                  username,
+                }
+              : {}),
+
+            updatedAt:
+              serverTimestamp(),
+          },
+          {
+            merge: true,
+          }
+        );
+      } else {
+        await setDoc(
+          userRef,
+          {
+            displayName:
+              finalDisplayName,
+
+            username:
+              username ||
+              "",
+
+            email:
+              cleanEmail(
+                normalizedEmail ||
+                  firebaseUser.email
+              ),
+
+            photoURL:
+              firebaseUser.photoURL ||
+              null,
+
+            createdAt:
+              serverTimestamp(),
+
+            updatedAt:
+              serverTimestamp(),
+          }
+        );
+      }
+    };
+
+  // =========================================
+  // EMAIL LOGIN
   // =========================================
 
   const handleLogin =
@@ -197,11 +431,18 @@ function AuthScreen() {
       try {
         setLoading(true);
 
-        await signInWithEmailAndPassword(
-          auth,
+        const credential =
+          await signInWithEmailAndPassword(
+            auth,
+            normalizedEmail,
+            password
+          );
+
+        await syncUserProfile({
+          firebaseUser:
+            credential.user,
           normalizedEmail,
-          password
-        );
+        });
       } catch (err) {
         console.error(
           "Login error:",
@@ -230,16 +471,13 @@ function AuthScreen() {
       const normalizedEmail =
         cleanEmail(email);
 
-      const cleanName =
-        displayName
-          .trim()
-          .replace(
-            /\s+/g,
-            " "
-          );
+      const normalizedName =
+        cleanName(
+          displayName
+        );
 
       if (
-        cleanName.length <
+        normalizedName.length <
         2
       ) {
         await warning(
@@ -300,40 +538,16 @@ function AuthScreen() {
           firebaseUser,
           {
             displayName:
-              cleanName,
+              normalizedName,
           }
         );
 
-        await setDoc(
-          doc(
-            db,
-            "users",
-            firebaseUser.uid
-          ),
-          {
-            displayName:
-              cleanName,
-
-            username:
-              "",
-
-            email:
-              normalizedEmail,
-
-            photoURL:
-              firebaseUser.photoURL ||
-              null,
-
-            createdAt:
-              serverTimestamp(),
-
-            updatedAt:
-              serverTimestamp(),
-          },
-          {
-            merge: true,
-          }
-        );
+        await syncUserProfile({
+          firebaseUser,
+          preferredDisplayName:
+            normalizedName,
+          normalizedEmail,
+        });
       } catch (err) {
         console.error(
           "Create account error:",
@@ -348,6 +562,92 @@ function AuthScreen() {
         );
       } finally {
         setLoading(false);
+      }
+    };
+
+  // =========================================
+  // FORGOT PASSWORD
+  // =========================================
+
+  const handleForgotPassword =
+    async () => {
+      const normalizedEmail =
+        cleanEmail(email);
+
+      if (!normalizedEmail) {
+        await warning(
+          "Email Required",
+          "Enter your email address first, then click Forgot Password."
+        );
+
+        return;
+      }
+
+      try {
+        setResetLoading(
+          true
+        );
+
+        await sendPasswordResetEmail(
+          auth,
+          normalizedEmail
+        );
+
+        await success(
+          "Reset Request Sent",
+          `If ${normalizedEmail} is registered with Email/Password, a password reset email will be sent. Check your Inbox, Spam, Junk, and Promotions folders.`
+        );
+      } catch (err) {
+        console.error(
+          "Password reset error:",
+          err
+        );
+
+        let message =
+          "We couldn't send the password reset email.";
+
+        switch (
+          err?.code
+        ) {
+          case "auth/invalid-email":
+            message =
+              "Enter a valid email address.";
+            break;
+
+          case "auth/user-not-found":
+            message =
+              "No Email/Password account was found for this email.";
+            break;
+
+          case "auth/too-many-requests":
+            message =
+              "Too many reset attempts were made. Wait a little and try again.";
+            break;
+
+          case "auth/network-request-failed":
+            message =
+              "Check your internet connection and try again.";
+            break;
+
+          case "auth/operation-not-allowed":
+            message =
+              "Email/Password authentication is not enabled in Firebase.";
+            break;
+
+          default:
+            message =
+              err?.message ||
+              message;
+        }
+
+        await error(
+          "Unable to Reset Password",
+          message
+        );
+      } finally {
+        setResetLoading(
+          false
+        );
       }
     };
 
@@ -379,70 +679,15 @@ function AuthScreen() {
         const firebaseUser =
           credential.user;
 
-        const userRef =
-          doc(
-            db,
-            "users",
-            firebaseUser.uid
-          );
-
-        const snapshot =
-          await getDoc(
-            userRef
-          );
-
-        if (
-          !snapshot.exists()
-        ) {
-          await setDoc(
-            userRef,
-            {
-              displayName:
-                firebaseUser.displayName ||
-                "",
-
-              username:
-                "",
-
-              email:
-                cleanEmail(
-                  firebaseUser.email
-                ),
-
-              photoURL:
-                firebaseUser.photoURL ||
-                null,
-
-              createdAt:
-                serverTimestamp(),
-
-              updatedAt:
-                serverTimestamp(),
-            }
-          );
-        } else {
-          await setDoc(
-            userRef,
-            {
-              email:
-                cleanEmail(
-                  firebaseUser.email
-                ),
-
-              photoURL:
-                firebaseUser.photoURL ||
-                snapshot.data()
-                  ?.photoURL ||
-                null,
-
-              updatedAt:
-                serverTimestamp(),
-            },
-            {
-              merge: true,
-            }
-          );
-        }
+        await syncUserProfile({
+          firebaseUser,
+          preferredDisplayName:
+            firebaseUser.displayName ||
+            "",
+          normalizedEmail:
+            firebaseUser.email ||
+            "",
+        });
       } catch (err) {
         console.error(
           "Google sign-in error:",
@@ -472,30 +717,18 @@ function AuthScreen() {
     };
 
   // =========================================
-  // MODE
+  // SWITCH TO CREATE ACCOUNT
   // =========================================
 
   const openCreateAccount =
     () => {
-      setCreateMode(
-        true
-      );
+      setCreateMode(true);
 
-      setPassword(
-        ""
-      );
+      setPassword("");
+      setConfirmPassword("");
 
-      setConfirmPassword(
-        ""
-      );
-
-      setShowPassword(
-        false
-      );
-
-      setShowConfirmPassword(
-        false
-      );
+      setShowPassword(false);
+      setShowConfirmPassword(false);
 
       window.scrollTo({
         top: 0,
@@ -503,27 +736,19 @@ function AuthScreen() {
       });
     };
 
+  // =========================================
+  // BACK TO SIGN IN
+  // =========================================
+
   const backToSignIn =
     () => {
-      setCreateMode(
-        false
-      );
+      setCreateMode(false);
 
-      setPassword(
-        ""
-      );
+      setPassword("");
+      setConfirmPassword("");
 
-      setConfirmPassword(
-        ""
-      );
-
-      setShowPassword(
-        false
-      );
-
-      setShowConfirmPassword(
-        false
-      );
+      setShowPassword(false);
+      setShowConfirmPassword(false);
 
       window.scrollTo({
         top: 0,
@@ -533,30 +758,25 @@ function AuthScreen() {
 
   const busy =
     loading ||
-    googleLoading;
+    googleLoading ||
+    resetLoading;
 
   // =========================================
   // UI
   // =========================================
 
   return (
-    <main className="relative min-h-[100dvh] overflow-hidden bg-[#eaf0fa]">
-      {/* BACKGROUND GRAPHICS */}
-
+    <main className="relative min-h-[100dvh] w-full overflow-x-hidden overflow-y-auto bg-[#eaf0fa]">
       <div className="pointer-events-none absolute -left-32 -top-32 h-[380px] w-[380px] rounded-full bg-[#cfdcff]/50 blur-3xl" />
 
       <div className="pointer-events-none absolute -bottom-40 -right-24 h-[430px] w-[430px] rounded-full bg-[#b9c9ff]/45 blur-3xl" />
 
-      <div className="pointer-events-none absolute left-[46%] top-[10%] hidden h-32 w-32 rotate-12 rounded-[35px] border border-white/50 bg-white/20 backdrop-blur-sm lg:block" />
-
-      <div className="relative z-10 mx-auto grid min-h-[100dvh] w-full max-w-7xl items-center gap-10 px-4 py-8 sm:px-6 lg:grid-cols-[1.1fr_0.9fr] lg:px-10 xl:px-14">
+      <div className="relative z-10 mx-auto grid min-h-[100dvh] w-full max-w-7xl items-center gap-8 px-4 py-8 sm:px-6 md:px-8 lg:grid-cols-[1.12fr_0.88fr] lg:gap-12 lg:px-10 xl:px-14">
         {/* =====================================
-            LEFT SIDE
+            DESKTOP / LANDSCAPE
         ====================================== */}
 
         <section className="hidden lg:block">
-          {/* BRAND */}
-
           <div className="flex items-center gap-3">
             <div className="flex h-14 w-14 items-center justify-center rounded-[20px] bg-gradient-to-br from-[#10245f] to-[#294aad] text-white shadow-[0_12px_30px_rgba(20,42,118,0.2)]">
               <CircleDollarSign
@@ -576,8 +796,6 @@ function AuthScreen() {
             </div>
           </div>
 
-          {/* HEADLINE */}
-
           <div className="mt-10 max-w-xl">
             <div className="inline-flex items-center gap-2 rounded-full border border-[#cbd6ef] bg-white/60 px-3 py-2 text-xs font-bold text-[#294aad] shadow-sm backdrop-blur">
               <Sparkles
@@ -588,9 +806,8 @@ function AuthScreen() {
             </div>
 
             <h1 className="mt-5 text-5xl font-extrabold leading-[1.08] tracking-[-0.04em] text-[#182442]">
-              Split expenses
-              without the awkward
-              math.
+              Split expenses without
+              the awkward math.
             </h1>
 
             <p className="mt-5 max-w-lg text-base leading-7 text-[#71809a]">
@@ -601,15 +818,9 @@ function AuthScreen() {
             </p>
           </div>
 
-          {/* =================================
-              1 - 2 - 3 SECTION
-          ================================== */}
-
           <div className="mt-9 space-y-3">
-            {/* STEP 1 */}
-
-            <div className="group flex max-w-xl items-center gap-4 rounded-[22px] border border-white/70 bg-white/65 p-4 shadow-[0_12px_30px_rgba(40,64,120,0.06)] backdrop-blur transition hover:-translate-y-0.5 hover:bg-white">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#142a76] text-lg font-extrabold text-white shadow-sm">
+            <div className="flex max-w-xl items-center gap-4 rounded-[22px] border border-white/70 bg-white/65 p-4 shadow-sm backdrop-blur">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#142a76] text-lg font-extrabold text-white">
                 1
               </div>
 
@@ -621,8 +832,7 @@ function AuthScreen() {
 
               <div>
                 <p className="font-extrabold text-[#182442]">
-                  Create or join a
-                  server
+                  Create or join a server
                 </p>
 
                 <p className="mt-1 text-sm text-[#8995aa]">
@@ -633,10 +843,8 @@ function AuthScreen() {
               </div>
             </div>
 
-            {/* STEP 2 */}
-
-            <div className="group flex max-w-xl items-center gap-4 rounded-[22px] border border-white/70 bg-white/65 p-4 shadow-[0_12px_30px_rgba(40,64,120,0.06)] backdrop-blur transition hover:-translate-y-0.5 hover:bg-white">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#294aad] text-lg font-extrabold text-white shadow-sm">
+            <div className="flex max-w-xl items-center gap-4 rounded-[22px] border border-white/70 bg-white/65 p-4 shadow-sm backdrop-blur">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#294aad] text-lg font-extrabold text-white">
                 2
               </div>
 
@@ -648,23 +856,19 @@ function AuthScreen() {
 
               <div>
                 <p className="font-extrabold text-[#182442]">
-                  Add shared
-                  expenses
+                  Add shared expenses
                 </p>
 
                 <p className="mt-1 text-sm text-[#8995aa]">
-                  Choose who
-                  covered it and
-                  who should be
-                  included.
+                  Choose who covered
+                  the expense and who
+                  should be included.
                 </p>
               </div>
             </div>
 
-            {/* STEP 3 */}
-
-            <div className="group flex max-w-xl items-center gap-4 rounded-[22px] border border-white/70 bg-white/65 p-4 shadow-[0_12px_30px_rgba(40,64,120,0.06)] backdrop-blur transition hover:-translate-y-0.5 hover:bg-white">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#3d63d2] text-lg font-extrabold text-white shadow-sm">
+            <div className="flex max-w-xl items-center gap-4 rounded-[22px] border border-white/70 bg-white/65 p-4 shadow-sm backdrop-blur">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#3d63d2] text-lg font-extrabold text-white">
                 3
               </div>
 
@@ -680,92 +884,21 @@ function AuthScreen() {
                 </p>
 
                 <p className="mt-1 text-sm text-[#8995aa]">
-                  Check balances
-                  and open payment
-                  details when it's
-                  time to settle.
+                  Check balances and
+                  payment details when
+                  it's time to settle.
                 </p>
               </div>
-            </div>
-          </div>
-
-          {/* =================================
-              SMALL GRAPHIC PREVIEW
-          ================================== */}
-
-          <div className="relative mt-8 max-w-xl">
-            <div className="rounded-[26px] border border-white/70 bg-gradient-to-br from-[#10245f] to-[#294aad] p-5 text-white shadow-[0_20px_55px_rgba(20,42,118,0.18)]">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-blue-100/60">
-                    Example Balance
-                  </p>
-
-                  <p className="mt-1 text-lg font-extrabold">
-                    Dinner Split
-                  </p>
-                </div>
-
-                <div className="flex -space-x-2">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-[#294aad] bg-white text-xs font-extrabold text-[#142a76]">
-                    M
-                  </div>
-
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-[#294aad] bg-[#dfe7ff] text-xs font-extrabold text-[#142a76]">
-                    R
-                  </div>
-
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-[#294aad] bg-[#c9d6ff] text-xs font-extrabold text-[#142a76]">
-                    J
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-5 rounded-[18px] bg-white/10 p-4">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/15">
-                    <UserRound
-                      size={18}
-                    />
-                  </div>
-
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs text-blue-100/60">
-                      Ron owes Marl
-                    </p>
-
-                    <p className="font-extrabold">
-                      ₱450.00
-                    </p>
-                  </div>
-
-                  <ArrowRight
-                    size={18}
-                    className="text-blue-100/70"
-                  />
-
-                  <CheckCircle2
-                    size={20}
-                    className="text-blue-100"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="absolute -right-5 -top-5 flex h-16 w-16 rotate-6 items-center justify-center rounded-[20px] bg-white text-[#294aad] shadow-[0_12px_35px_rgba(40,64,120,0.15)]">
-              <PlusCircle
-                size={28}
-              />
             </div>
           </div>
         </section>
 
         {/* =====================================
-            RIGHT SIDE LOGIN
+            AUTH SIDE
         ====================================== */}
 
-        <section className="mx-auto w-full max-w-md">
-          {/* MOBILE BRAND */}
+        <section className="mx-auto w-full max-w-md self-center lg:max-w-[460px]">
+          {/* MOBILE LOGO */}
 
           <div className="mb-6 text-center lg:hidden">
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[22px] bg-gradient-to-br from-[#10245f] to-[#294aad] text-white shadow-[0_12px_30px_rgba(20,42,118,0.2)]">
@@ -784,11 +917,11 @@ function AuthScreen() {
             </p>
           </div>
 
-          {/* MOBILE 1-2-3 */}
+          {/* MOBILE STEPS */}
 
           {!createMode && (
             <div className="mb-5 grid grid-cols-3 gap-2 lg:hidden">
-              <div className="rounded-[16px] bg-white/75 p-3 text-center shadow-sm backdrop-blur">
+              <div className="rounded-[16px] bg-white/75 p-3 text-center shadow-sm">
                 <div className="mx-auto flex h-8 w-8 items-center justify-center rounded-lg bg-[#142a76] text-xs font-extrabold text-white">
                   1
                 </div>
@@ -798,7 +931,7 @@ function AuthScreen() {
                 </p>
               </div>
 
-              <div className="rounded-[16px] bg-white/75 p-3 text-center shadow-sm backdrop-blur">
+              <div className="rounded-[16px] bg-white/75 p-3 text-center shadow-sm">
                 <div className="mx-auto flex h-8 w-8 items-center justify-center rounded-lg bg-[#294aad] text-xs font-extrabold text-white">
                   2
                 </div>
@@ -808,7 +941,7 @@ function AuthScreen() {
                 </p>
               </div>
 
-              <div className="rounded-[16px] bg-white/75 p-3 text-center shadow-sm backdrop-blur">
+              <div className="rounded-[16px] bg-white/75 p-3 text-center shadow-sm">
                 <div className="mx-auto flex h-8 w-8 items-center justify-center rounded-lg bg-[#3d63d2] text-xs font-extrabold text-white">
                   3
                 </div>
@@ -820,16 +953,10 @@ function AuthScreen() {
             </div>
           )}
 
-          {/* AUTH CARD */}
+          {/* CARD */}
 
           <div className="overflow-hidden rounded-[30px] border border-white/80 bg-white/90 shadow-[0_24px_70px_rgba(31,53,108,0.14)] backdrop-blur-xl">
-            {/* HEADER */}
-
             <div className="relative overflow-hidden bg-gradient-to-br from-[#10245f] via-[#142a76] to-[#294aad] p-6 text-white">
-              <div className="pointer-events-none absolute -right-10 -top-12 h-32 w-32 rounded-full border-[18px] border-white/5" />
-
-              <div className="pointer-events-none absolute bottom-0 right-16 h-16 w-16 rounded-t-full bg-white/5" />
-
               {createMode && (
                 <button
                   type="button"
@@ -837,13 +964,13 @@ function AuthScreen() {
                   onClick={
                     backToSignIn
                   }
-                  className="relative z-10 mb-4 inline-flex min-h-9 items-center gap-2 rounded-xl bg-white/10 px-3 text-xs font-bold transition hover:bg-white/15"
+                  className="relative z-10 mb-5 inline-flex min-h-10 items-center gap-2 rounded-xl border border-white/10 bg-white/10 px-4 text-xs font-extrabold text-white transition hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <ArrowLeft
-                    size={15}
+                    size={16}
                   />
 
-                  Back to Sign In
+                  Back to Google Sign-In
                 </button>
               )}
 
@@ -862,19 +989,17 @@ function AuthScreen() {
 
                 <p className="mt-2 max-w-xs text-sm leading-6 text-blue-100/70">
                   {createMode
-                    ? "Create your Money Splitter account and start organizing shared expenses."
+                    ? "Create your Money Splitter account using your email and password."
                     : "Sign in to continue to your servers, balances and shared expenses."}
                 </p>
               </div>
             </div>
 
-            {/* BODY */}
-
             <div className="p-5 sm:p-6">
+              {/* GOOGLE */}
+
               {!createMode && (
                 <>
-                  {/* GOOGLE */}
-
                   <button
                     type="button"
                     disabled={busy}
@@ -919,8 +1044,6 @@ function AuthScreen() {
                       : "Continue with Google"}
                   </button>
 
-                  {/* DIVIDER */}
-
                   <div className="my-6 flex items-center gap-3">
                     <div className="h-px flex-1 bg-[#e0e6ef]" />
 
@@ -943,8 +1066,6 @@ function AuthScreen() {
                 }
                 className="space-y-4"
               >
-                {/* DISPLAY NAME */}
-
                 {createMode && (
                   <div>
                     <label className="app-label">
@@ -1079,6 +1200,23 @@ function AuthScreen() {
                       )}
                     </button>
                   </div>
+
+                  {!createMode && (
+                    <div className="mt-2 flex justify-end">
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={
+                          handleForgotPassword
+                        }
+                        className="text-xs font-extrabold text-[#294aad] transition hover:text-[#142a76] disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {resetLoading
+                          ? "Sending..."
+                          : "Forgot Password?"}
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {/* CONFIRM PASSWORD */}
@@ -1159,7 +1297,7 @@ function AuthScreen() {
                       size={18}
                     />
                   ) : (
-                    <LogIn
+                    <LockKeyhole
                       size={18}
                     />
                   )}
@@ -1179,8 +1317,7 @@ function AuthScreen() {
               {!createMode && (
                 <div className="mt-6 rounded-[18px] bg-[#eef3ff] p-4 text-center">
                   <p className="text-sm text-[#71809a]">
-                    Don't have an
-                    account?
+                    Don't have an account?
                   </p>
 
                   <button
@@ -1189,7 +1326,7 @@ function AuthScreen() {
                     onClick={
                       openCreateAccount
                     }
-                    className="mt-1 inline-flex items-center gap-1 font-extrabold text-[#294aad] transition hover:text-[#142a76]"
+                    className="mt-1 inline-flex items-center gap-1 font-extrabold text-[#294aad] transition hover:text-[#142a76] disabled:opacity-50"
                   >
                     Create one
 
@@ -1200,28 +1337,35 @@ function AuthScreen() {
                 </div>
               )}
 
+              {/* BACK TO GOOGLE */}
+
               {createMode && (
-                <div className="mt-6 text-center">
-                  <p className="text-sm text-[#8995aa]">
-                    Already have an
-                    account?{" "}
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={
-                        backToSignIn
-                      }
-                      className="font-extrabold text-[#294aad]"
-                    >
-                      Sign in
-                    </button>
+                <div className="mt-6 rounded-[18px] border border-[#dce5f6] bg-[#f7f9ff] p-4 text-center">
+                  <p className="text-sm text-[#71809a]">
+                    Already have an account
+                    or prefer Google?
                   </p>
+
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={
+                      backToSignIn
+                    }
+                    className="mt-2 inline-flex items-center gap-2 font-extrabold text-[#294aad] transition hover:text-[#142a76] disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <ArrowLeft
+                      size={15}
+                    />
+
+                    Back to Sign In & Google
+                  </button>
                 </div>
               )}
             </div>
           </div>
 
-          {/* SMALL TRUST ROW */}
+          {/* FOOTER */}
 
           {!createMode && (
             <div className="mt-5 flex items-center justify-center gap-5 text-[11px] font-bold text-[#8995aa]">
@@ -1229,7 +1373,6 @@ function AuthScreen() {
                 <UsersRound
                   size={14}
                 />
-
                 Groups
               </span>
 
@@ -1239,7 +1382,6 @@ function AuthScreen() {
                 <ReceiptText
                   size={14}
                 />
-
                 Expenses
               </span>
 
@@ -1249,7 +1391,6 @@ function AuthScreen() {
                 <WalletCards
                   size={14}
                 />
-
                 Payments
               </span>
             </div>
