@@ -11,13 +11,13 @@ import {
 } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyAJ4F7BVnVsYHbhJJcjOl5ijkDjF3kfHIk",
-  authDomain: "splitter-db.firebaseapp.com",
-  projectId: "splitter-db",
-  storageBucket: "splitter-db.firebasestorage.app",
-  messagingSenderId: "2979940330",
-  appId: "1:2979940330:web:87342368f82aac44d69493",
-  measurementId: "G-973WYBXQ6S"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId:
+    import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
 const app =
