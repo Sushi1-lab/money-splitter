@@ -1,959 +1,1229 @@
-import { useEffect, useState } from "react";
-
 import {
-  Camera,
   Check,
-  CircleDollarSign,
+  ChevronDown,
+  ChevronRight,
+  ImagePlus,
+  Percent,
   Plus,
-  Tag,
+  ReceiptText,
+  Save,
   Trash2,
-  UserPlus,
-  UserRound,
-  UsersRound,
+  Users,
   X,
 } from "lucide-react";
 
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
 import useAppDialog from "../hooks/useAppDialog.jsx";
+
+const categories = [
+  "Food",
+  "Groceries",
+  "Transport",
+  "Shopping",
+  "Bills",
+  "Travel",
+  "Entertainment",
+  "Health",
+  "Other",
+];
+
+const normalizeName = (name = "") =>
+  String(name)
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLowerCase();
 
 function SplitCalculator({
   people = [],
   onAddPerson,
   onDeletePerson,
   onSave,
-  saving,
+  onUpdate,
+  editingSplit = null,
+  onCancelEdit,
+  saving = false,
 }) {
-  const [amount, setAmount] = useState("");
-  const [description, setDescription] = useState("");
-  const [category, setCategory] = useState("Food");
-  const [payerId, setPayerId] = useState("");
-  const [participantIds, setParticipantIds] = useState([]);
-  const [newPersonName, setNewPersonName] = useState("");
-  const [addingPerson, setAddingPerson] = useState(false);
-  const [receipt, setReceipt] = useState(null);
-  const [receiptPreview, setReceiptPreview] = useState(null);
-
   const {
     Dialog,
     warning,
-    error,
-    success,
   } = useAppDialog();
 
-  const categories = [
-    "Food",
-    "Transport",
-    "Hotel",
-    "Shopping",
-    "Bills",
-    "Entertainment",
-    "Other",
-  ];
+  const [totalAmount, setTotalAmount] =
+    useState("");
 
-  // =========================================
-  // KEEP COVERED PERSON VALID
-  // =========================================
+  const [description, setDescription] =
+    useState("");
+
+  const [category, setCategory] =
+    useState("Food");
+
+  const [payerKey, setPayerKey] =
+    useState("");
+
+  const [selectedKeys, setSelectedKeys] =
+    useState([]);
+
+  const [splitMode, setSplitMode] =
+    useState("equal");
+
+  const [percentages, setPercentages] =
+    useState({});
+
+  const [showSavedPeople, setShowSavedPeople] =
+    useState(false);
+
+  const [showAddPerson, setShowAddPerson] =
+    useState(false);
+
+  const [newPerson, setNewPerson] =
+    useState("");
+
+  const [receiptBase64, setReceiptBase64] =
+    useState(null);
+
+  const personKey = (person) =>
+    person.id ||
+    normalizeName(person.name);
+
+  const uniqueKeys = (keys = []) =>
+    [...new Set(keys.filter(Boolean))];
+
+  const peopleByKey =
+    useMemo(() => {
+      const map = {};
+
+      people.forEach((person) => {
+        map[
+          personKey(person)
+        ] = person;
+      });
+
+      return map;
+    }, [people]);
 
   useEffect(() => {
-    if (people.length === 0) {
-      setPayerId("");
-      setParticipantIds([]);
+    if (!editingSplit) {
       return;
     }
 
-    const coveredPersonStillExists = people.some(
-      (person) => person.id === payerId
-    );
-
-    if (!coveredPersonStillExists) {
-      setPayerId(people[0].id);
-    }
-
-    setParticipantIds((current) =>
-      current.filter((id) =>
-        people.some((person) => person.id === id)
+    setTotalAmount(
+      String(
+        editingSplit.totalAmount ??
+          ""
       )
     );
-  }, [people, payerId]);
 
-  // =========================================
-  // VALUES
-  // =========================================
+    setDescription(
+      editingSplit.description ||
+        ""
+    );
 
-  const totalAmount = Number(amount) || 0;
+    setCategory(
+      editingSplit.category ||
+        "Other"
+    );
 
-  const amountPerPerson =
-    participantIds.length > 0
-      ? totalAmount / participantIds.length
-      : 0;
+    const payer =
+      editingSplit.payer;
 
-  const getPerson = (id) =>
-    people.find((person) => person.id === id);
+    if (payer?.name) {
+      const match =
+        people.find(
+          (person) =>
+            normalizeName(
+              person.name
+            ) ===
+            normalizeName(
+              payer.name
+            )
+        );
 
-  // =========================================
-  // WHO COVERED
-  // =========================================
-
-  const changeCoveredPerson = (id) => {
-    setPayerId(id);
-
-    // The person who covered is NOT
-    // automatically included in the split.
-  };
-
-  // =========================================
-  // PARTICIPANTS
-  // =========================================
-
-  const toggleParticipant = (id) => {
-    setParticipantIds((current) => {
-      if (current.includes(id)) {
-        return current.filter(
-          (value) => value !== id
+      if (match) {
+        setPayerKey(
+          personKey(match)
         );
       }
-
-      return [...current, id];
-    });
-  };
-
-  const selectEveryone = () => {
-    setParticipantIds(
-      people.map((person) => person.id)
-    );
-  };
-
-  const clearParticipants = () => {
-    setParticipantIds([]);
-  };
-
-  // =========================================
-  // ADD PERSON
-  // =========================================
-
-  const handleAddPerson = async () => {
-    const cleanName = newPersonName.trim();
-
-    if (!cleanName) {
-      await warning(
-        "Name Required",
-        "Enter a person's name before adding them."
-      );
-
-      return;
     }
 
-    const existing = people.find(
-      (person) =>
-        person.name?.trim().toLowerCase() ===
-        cleanName.toLowerCase()
-    );
+    const participants =
+      Array.isArray(
+        editingSplit.participants
+      )
+        ? editingSplit.participants
+        : (
+            editingSplit.people ||
+            []
+          ).map((name) => ({
+            name,
+          }));
 
-    if (existing) {
-      await warning(
-        "Person Already Added",
-        `${existing.name} is already saved in this server.`
+    const keys =
+      uniqueKeys(
+        participants
+          .map((participant) => {
+            const match =
+              people.find(
+                (person) =>
+                  normalizeName(
+                    person.name
+                  ) ===
+                  normalizeName(
+                    participant.name
+                  )
+              );
+
+            return match
+              ? personKey(match)
+              : null;
+          })
+          .filter(Boolean)
       );
 
-      setNewPersonName("");
-      return;
-    }
+    setSelectedKeys(keys);
 
-    try {
-      setAddingPerson(true);
+    const hasPercentages =
+      participants.some(
+        (item) =>
+          Number.isFinite(
+            Number(
+              item.percentage
+            )
+          )
+      );
 
-      const newPerson =
-        await onAddPerson(cleanName);
+    setSplitMode(
+      hasPercentages
+        ? "percentage"
+        : "equal"
+    );
 
-      if (newPerson) {
-        setNewPersonName("");
+    const nextPercentages = {};
 
-        setParticipantIds((current) => [
-          ...current,
-          newPerson.id,
-        ]);
+    participants.forEach(
+      (participant) => {
+        const match =
+          people.find(
+            (person) =>
+              normalizeName(
+                person.name
+              ) ===
+              normalizeName(
+                participant.name
+              )
+          );
 
-        if (!payerId) {
-          setPayerId(newPerson.id);
+        if (match) {
+          nextPercentages[
+            personKey(match)
+          ] =
+            Number(
+              participant.percentage
+            ) || 0;
         }
       }
-    } catch (err) {
-      console.error(
-        "Add person error:",
-        err
-      );
+    );
 
-      await error(
-        "Unable to Add Person",
-        "We couldn't save this person. Please try again."
-      );
-    } finally {
-      setAddingPerson(false);
-    }
+    setPercentages(
+      nextPercentages
+    );
+
+    setReceiptBase64(
+      editingSplit.receiptBase64 ||
+        null
+    );
+  }, [
+    editingSplit?.id,
+    people,
+  ]);
+
+  const resetForm = () => {
+    setTotalAmount("");
+    setDescription("");
+    setCategory("Food");
+    setPayerKey("");
+    setSelectedKeys([]);
+    setSplitMode("equal");
+    setPercentages({});
+    setReceiptBase64(null);
   };
 
-  // =========================================
-  // RECEIPT COMPRESSION
-  // =========================================
+  const toggleParticipant = (
+    key
+  ) => {
+    setSelectedKeys(
+      (current) => {
+        const cleanCurrent =
+          uniqueKeys(current);
 
-  const compressImage = (file) =>
-    new Promise((resolve, reject) => {
-      const reader = new FileReader();
-
-      reader.onload = (event) => {
-        const image = new Image();
-
-        image.onload = () => {
-          let width = image.width;
-          let height = image.height;
-
-          const ratio = Math.min(
-            900 / width,
-            1200 / height,
-            1
-          );
-
-          width = Math.round(width * ratio);
-          height = Math.round(height * ratio);
-
-          const canvas =
-            document.createElement("canvas");
-
-          canvas.width = width;
-          canvas.height = height;
-
-          const context =
-            canvas.getContext("2d");
-
-          if (!context) {
-            reject(
-              new Error(
-                "Canvas is unavailable."
-              )
+        if (
+          cleanCurrent.includes(key)
+        ) {
+          const next =
+            cleanCurrent.filter(
+              (item) =>
+                item !== key
             );
-            return;
-          }
 
-          context.drawImage(
-            image,
-            0,
-            0,
-            width,
-            height
+          setPercentages(
+            (values) => {
+              const copy = {
+                ...values,
+              };
+
+              delete copy[key];
+              return copy;
+            }
           );
 
-          resolve(
-            canvas.toDataURL(
-              "image/jpeg",
-              0.55
-            )
-          );
-        };
+          return next;
+        }
 
-        image.onerror = reject;
-        image.src = event.target.result;
-      };
+        return uniqueKeys([
+          ...cleanCurrent,
+          key,
+        ]);
+      }
+    );
+  };
 
-      reader.onerror = reject;
-
-      reader.readAsDataURL(file);
-    });
-
-  // =========================================
-  // RECEIPT
-  // =========================================
-
-  const handleReceipt = async (event) => {
-    const file = event.target.files?.[0];
-
-    if (!file) {
-      return;
-    }
-
-    if (!file.type.startsWith("image/")) {
-      await warning(
-        "Invalid Receipt",
-        "Please select an image file for the receipt."
-      );
-
-      event.target.value = "";
-      return;
-    }
-
-    if (file.size > 10 * 1024 * 1024) {
-      await warning(
-        "Receipt Too Large",
-        "The original receipt image must be smaller than 10MB."
-      );
-
-      event.target.value = "";
-      return;
-    }
-
-    try {
-      const compressed =
-        await compressImage(file);
-
-      if (compressed.length > 700000) {
-        await warning(
-          "Receipt Too Large",
-          "We compressed the receipt, but it is still too large to save. Try a smaller image."
+  const distributeEqually =
+    () => {
+      const keys =
+        uniqueKeys(
+          selectedKeys
         );
 
-        event.target.value = "";
+      if (
+        keys.length ===
+        0
+      ) {
         return;
       }
 
-      setReceipt(compressed);
-      setReceiptPreview(compressed);
-    } catch (err) {
-      console.error(
-        "Receipt error:",
-        err
+      const equal =
+        100 /
+        keys.length;
+
+      const next = {};
+
+      keys.forEach(
+        (key, index) => {
+          next[key] =
+            index ===
+            keys.length -
+              1
+              ? Number(
+                  (
+                    100 -
+                    equal *
+                      (
+                        keys.length -
+                        1
+                      )
+                  ).toFixed(2)
+                )
+              : Number(
+                  equal.toFixed(
+                    2
+                  )
+                );
+        }
       );
 
-      await error(
-        "Receipt Error",
-        "We couldn't process this receipt. Try another image."
-      );
+      setSelectedKeys(keys);
+      setPercentages(next);
+    };
 
-      event.target.value = "";
+  useEffect(() => {
+    setSelectedKeys(
+      (current) => {
+        const deduped =
+          uniqueKeys(current);
+
+        return deduped.length ===
+          current.length
+          ? current
+          : deduped;
+      }
+    );
+  }, [
+    people.length,
+  ]);
+
+  useEffect(() => {
+    if (
+      splitMode ===
+      "percentage" &&
+      selectedKeys.length >
+        0
+    ) {
+      const currentTotal =
+        selectedKeys.reduce(
+          (sum, key) =>
+            sum +
+            Number(
+              percentages[
+                key
+              ] || 0
+            ),
+          0
+        );
+
+      if (
+        currentTotal === 0
+      ) {
+        distributeEqually();
+      }
     }
-  };
+  }, [
+    splitMode,
+    selectedKeys.length,
+  ]);
 
-  // =========================================
-  // SUBMIT
-  // =========================================
+  const percentageTotal =
+    uniqueKeys(
+      selectedKeys
+    ).reduce(
+      (sum, key) =>
+        sum +
+        Number(
+          percentages[key] ||
+            0
+        ),
+      0
+    );
 
-  const submit = async (event) => {
-    event.preventDefault();
+  const handleReceipt =
+    (event) => {
+      const file =
+        event.target
+          .files?.[0];
 
-    const coveredPerson =
-      getPerson(payerId);
+      if (!file) return;
 
-    const participants =
-      participantIds
-        .map(getPerson)
-        .filter(Boolean);
+      if (
+        !file.type.startsWith(
+          "image/"
+        )
+      ) {
+        warning(
+          "Invalid Image",
+          "Please choose an image file."
+        );
+        return;
+      }
 
-    if (!coveredPerson) {
-      await warning(
-        "Who Covered?",
-        "Choose the person who covered this expense."
+      const reader =
+        new FileReader();
+
+      reader.onload = () =>
+        setReceiptBase64(
+          reader.result
+        );
+
+      reader.readAsDataURL(
+        file
       );
+    };
 
-      return;
-    }
+  const addPerson =
+    async () => {
+      const clean =
+        newPerson
+          .trim()
+          .replace(/\s+/g, " ");
 
-    if (!description.trim()) {
-      await warning(
-        "Description Required",
-        "Add a short description so everyone knows what this expense was for."
-      );
+      if (!clean) return;
 
-      return;
-    }
+      const created =
+        await onAddPerson?.(
+          clean
+        );
 
-    if (totalAmount <= 0) {
-      await warning(
-        "Invalid Amount",
-        "Enter an amount greater than ₱0."
-      );
+      if (created) {
+        const key =
+          personKey(
+            created
+          );
 
-      return;
-    }
+        setSelectedKeys(
+          (current) =>
+            current.includes(
+              key
+            )
+              ? current
+              : [
+                  ...current,
+                  key,
+                ]
+        );
 
-    if (participants.length === 0) {
-      await warning(
-        "Nobody Is Included",
-        "Select at least one person who should share this expense."
-      );
+        setNewPerson("");
+        setShowAddPerson(false);
+        setShowSavedPeople(true);
+      }
+    };
 
-      return;
-    }
+  const handleSubmit =
+    async (
+      event
+    ) => {
+      event.preventDefault();
 
-    try {
-      const saved = await onSave({
-        totalAmount,
+      const total =
+        Number(
+          totalAmount
+        );
 
+      if (
+        !Number.isFinite(total) ||
+        total <= 0
+      ) {
+        await warning(
+          "Amount Required",
+          "Enter a valid total amount."
+        );
+        return;
+      }
+
+      if (!payerKey) {
+        await warning(
+          "Who Covered?",
+          "Choose the person who covered the expense."
+        );
+        return;
+      }
+
+      const cleanSelectedKeys =
+        uniqueKeys(
+          selectedKeys
+        );
+
+      if (
+        cleanSelectedKeys.length ===
+        0
+      ) {
+        await warning(
+          "Participants Required",
+          "Select at least one person included in the split."
+        );
+        return;
+      }
+
+      if (
+        splitMode ===
+          "percentage" &&
+        Math.abs(
+          percentageTotal -
+            100
+        ) > 0.01
+      ) {
+        await warning(
+          "Percentages Must Equal 100%",
+          `Your current total is ${percentageTotal.toFixed(
+            2
+          )}%.`
+        );
+        return;
+      }
+
+      const payer =
+        peopleByKey[
+          payerKey
+        ];
+
+      const equalAmount =
+        total /
+        cleanSelectedKeys.length;
+
+      const participants =
+        cleanSelectedKeys.map(
+          (key) => {
+            const person =
+              peopleByKey[key];
+
+            const percentage =
+              splitMode ===
+              "percentage"
+                ? Number(
+                    percentages[
+                      key
+                    ] || 0
+                  )
+                : Number(
+                    (
+                      100 /
+                      cleanSelectedKeys.length
+                    ).toFixed(
+                      4
+                    )
+                  );
+
+            const amount =
+              splitMode ===
+              "percentage"
+                ? total *
+                  (
+                    percentage /
+                    100
+                  )
+                : equalAmount;
+
+            return {
+              id:
+                person?.id ||
+                null,
+              name:
+                person?.name ||
+                "",
+              linkedUid:
+                person?.linkedUid ||
+                null,
+              linkedEmail:
+                person?.linkedEmail ||
+                null,
+              username:
+                person?.username ||
+                "",
+              photoURL:
+                person?.photoURL ||
+                null,
+              percentage:
+                Number(
+                  percentage.toFixed(
+                    4
+                  )
+                ),
+              amount:
+                Number(
+                  amount.toFixed(
+                    2
+                  )
+                ),
+            };
+          }
+        );
+
+      const payload = {
+        totalAmount:
+          Number(
+            total.toFixed(2)
+          ),
         amountPerPerson:
-          totalAmount / participants.length,
-
+          splitMode ===
+          "equal"
+            ? Number(
+                equalAmount.toFixed(
+                  2
+                )
+              )
+            : null,
+        splitMode,
         payer: {
-          id: coveredPerson.id,
-          name: coveredPerson.name,
-
+          id:
+            payer?.id ||
+            null,
+          name:
+            payer?.name ||
+            "",
           linkedUid:
-            coveredPerson.linkedUid || null,
-
+            payer?.linkedUid ||
+            null,
           linkedEmail:
-            coveredPerson.linkedEmail || null,
-
+            payer?.linkedEmail ||
+            null,
           username:
-            coveredPerson.username || "",
+            payer?.username ||
+            "",
+          photoURL:
+            payer?.photoURL ||
+            null,
         },
-
-        participants:
-          participants.map((person) => ({
-            id: person.id,
-            name: person.name,
-
-            linkedUid:
-              person.linkedUid || null,
-
-            linkedEmail:
-              person.linkedEmail || null,
-
-            username:
-              person.username || "",
-          })),
-
-        // Keep these for backward compatibility.
+        participants,
         people:
           participants.map(
-            (person) => person.name
+            (person) =>
+              person.name
           ),
-
         addedBy:
-          coveredPerson.name,
-
+          payer?.name ||
+          "",
         description:
-          description.trim(),
-
+          description.trim() ||
+          "Shared expense",
         category,
-
         receiptBase64:
-          receipt,
-      });
+          receiptBase64 ||
+          null,
+      };
 
-      if (saved) {
-        const savedDescription =
-          description.trim();
+      const success =
+        editingSplit?.id
+          ? await onUpdate?.(
+              editingSplit.id,
+              payload
+            )
+          : await onSave?.(
+              payload
+            );
 
-        const numberOfPeople =
-          participants.length;
-
-        setAmount("");
-        setDescription("");
-        setCategory("Food");
-        setReceipt(null);
-        setReceiptPreview(null);
-        setParticipantIds([]);
-
-        await success(
-          "Expense Saved",
-          `${savedDescription} was split between ${numberOfPeople} ${
-            numberOfPeople === 1
-              ? "person"
-              : "people"
-          }.`
-        );
+      if (success) {
+        resetForm();
+        onCancelEdit?.();
       }
-    } catch (err) {
-      console.error(
-        "Save expense error:",
-        err
-      );
-
-      await error(
-        "Unable to Save Expense",
-        "Something went wrong while saving this expense. Please try again."
-      );
-    }
-  };
+    };
 
   return (
-    <section className="app-card w-full min-w-0 overflow-hidden">
-      {/* =====================================
-          HEADER
-      ====================================== */}
-
-      <div className="bg-gradient-to-r from-[#10245f] to-[#294aad] p-5 text-white sm:p-6">
-        <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/15">
-            <CircleDollarSign
-              size={22}
-            />
-          </div>
-
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[0.16em] text-blue-100/70">
-              New Expense
-            </p>
-
-            <h2 className="text-xl font-extrabold">
-              Split Calculator
-            </h2>
-          </div>
-        </div>
-      </div>
-
+    <>
       <form
-        onSubmit={submit}
-        className="space-y-6 p-4 sm:p-6"
+        onSubmit={
+          handleSubmit
+        }
+        className="app-card overflow-hidden"
       >
-        {/* =====================================
-            SAVED PEOPLE
-        ====================================== */}
+        <div className="bg-gradient-to-r from-[#10245f] to-[#294aad] p-5 text-white sm:p-6">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/15">
+              <ReceiptText
+                size={22}
+              />
+            </div>
 
-        <div>
-          <div className="flex items-center justify-between gap-3">
             <div>
-              <label className="app-label mb-1">
-                Saved People
-              </label>
-
-              <p className="text-xs text-[#8995aa]">
-                Add a person once and reuse them in future splits.
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-blue-100/70">
+                {editingSplit
+                  ? "Edit Expense"
+                  : "New Expense"}
               </p>
-            </div>
 
-            <span className="shrink-0 rounded-full bg-[#e4ebff] px-3 py-1 text-xs font-bold text-[#142a76]">
-              {people.length}
-            </span>
+              <h2 className="text-xl font-extrabold">
+                {editingSplit
+                  ? "Update Split"
+                  : "Split an Expense"}
+              </h2>
+            </div>
           </div>
-
-          <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-            <div className="relative min-w-0 flex-1">
-              <UserPlus
-                size={18}
-                className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#8995aa]"
-              />
-
-              <input
-                value={newPersonName}
-                onChange={(event) =>
-                  setNewPersonName(
-                    event.target.value
-                  )
-                }
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    event.preventDefault();
-                    handleAddPerson();
-                  }
-                }}
-                placeholder="Add a person's name"
-                className="app-input app-input-icon"
-              />
-            </div>
-
-            <button
-              type="button"
-              disabled={addingPerson}
-              onClick={handleAddPerson}
-              className="app-button-secondary flex shrink-0 items-center justify-center gap-2 px-5 disabled:opacity-50"
-            >
-              <Plus size={17} />
-
-              {addingPerson
-                ? "Adding..."
-                : "Add"}
-            </button>
-          </div>
-
-          {people.length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-2">
-              {people.map((person) => (
-                <div
-                  key={person.id}
-                  className="flex items-center overflow-hidden rounded-full bg-[#e4ebff] text-sm font-bold text-[#142a76]"
-                >
-                  <span className="px-3 py-2">
-                    {person.name}
-                  </span>
-
-                  <button
-                    type="button"
-                    title={`Remove ${person.name}`}
-                    onClick={() =>
-                      onDeletePerson(person)
-                    }
-                    className="flex h-9 w-9 items-center justify-center border-l border-[#cdd8f7] text-[#7585a6] transition hover:bg-[#d8e2ff]"
-                  >
-                    <X size={14} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
 
-        {/* =====================================
-            EMPTY PEOPLE STATE
-        ====================================== */}
-
-        {people.length === 0 ? (
-          <div className="rounded-[20px] bg-[#eaf0fa] p-8 text-center">
-            <UsersRound
-              size={30}
-              className="mx-auto text-[#9da9bb]"
-            />
-
-            <p className="mt-3 font-extrabold text-[#52617d]">
-              Add your first person
-            </p>
-
-            <p className="mt-1 text-sm text-[#8995aa]">
-              Add names above before creating an expense.
-            </p>
-          </div>
-        ) : (
-          <>
-            {/* =====================================
-                WHO COVERED
-            ====================================== */}
-
+        <div className="space-y-5 p-4 sm:p-6">
+          <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label className="app-label">
-                Who Covered?
-              </label>
-
-              <div className="relative">
-                <UserRound
-                  size={18}
-                  className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#8995aa]"
-                />
-
-                <select
-                  value={payerId}
-                  onChange={(event) =>
-                    changeCoveredPerson(
-                      event.target.value
-                    )
-                  }
-                  className="app-input app-input-icon appearance-none"
-                >
-                  {people.map((person) => (
-                    <option
-                      key={person.id}
-                      value={person.id}
-                    >
-                      {person.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <p className="mt-2 text-xs text-[#8995aa]">
-                The person who covered the expense does not have to be included in the split.
-              </p>
-            </div>
-
-            {/* =====================================
-                DESCRIPTION
-            ====================================== */}
-
-            <div>
-              <label className="app-label">
-                Description
+                Total Amount
               </label>
 
               <input
-                value={description}
-                onChange={(event) =>
-                  setDescription(
-                    event.target.value
+                type="number"
+                min="0"
+                step="0.01"
+                value={
+                  totalAmount
+                }
+                onChange={(
+                  event
+                ) =>
+                  setTotalAmount(
+                    event.target
+                      .value
                   )
                 }
-                placeholder="Example: Dinner at Manam"
                 className="app-input"
+                placeholder="₱0.00"
               />
             </div>
-
-            {/* =====================================
-                CATEGORY
-            ====================================== */}
 
             <div>
               <label className="app-label">
                 Category
               </label>
 
-              <div className="relative">
-                <Tag
-                  size={18}
-                  className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#8995aa]"
-                />
-
-                <select
-                  value={category}
-                  onChange={(event) =>
-                    setCategory(
-                      event.target.value
-                    )
-                  }
-                  className="app-input app-input-icon appearance-none"
-                >
-                  {categories.map((item) => (
+              <select
+                value={
+                  category
+                }
+                onChange={(
+                  event
+                ) =>
+                  setCategory(
+                    event.target
+                      .value
+                  )
+                }
+                className="app-input"
+              >
+                {categories.map(
+                  (item) => (
                     <option
-                      key={item}
-                      value={item}
+                      key={
+                        item
+                      }
+                      value={
+                        item
+                      }
                     >
                       {item}
                     </option>
-                  ))}
-                </select>
-              </div>
+                  )
+                )}
+              </select>
             </div>
+          </div>
 
-            {/* =====================================
-                AMOUNT
-            ====================================== */}
+          <div>
+            <label className="app-label">
+              Description
+            </label>
 
-            <div>
-              <label className="app-label">
-                Total Amount
-              </label>
+            <input
+              value={
+                description
+              }
+              onChange={(
+                event
+              ) =>
+                setDescription(
+                  event.target
+                    .value
+                )
+              }
+              className="app-input"
+              placeholder="Dinner, groceries, hotel..."
+            />
+          </div>
 
-              <div className="relative">
-                <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 font-extrabold text-[#8995aa]">
-                  ₱
-                </span>
+          <div>
+            <label className="app-label">
+              Who Covered?
+            </label>
 
-                <input
-                  type="number"
-                  inputMode="decimal"
-                  min="0"
-                  step="0.01"
-                  value={amount}
-                  onChange={(event) =>
-                    setAmount(
-                      event.target.value
-                    )
-                  }
-                  placeholder="0.00"
-                  className="app-input app-input-icon"
+            <select
+              value={
+                payerKey
+              }
+              onChange={(
+                event
+              ) =>
+                setPayerKey(
+                  event.target
+                    .value
+                )
+              }
+              className="app-input"
+            >
+              <option value="">
+                Select person
+              </option>
+
+              {people.map(
+                (person) => (
+                  <option
+                    key={
+                      personKey(
+                        person
+                      )
+                    }
+                    value={
+                      personKey(
+                        person
+                      )
+                    }
+                  >
+                    {
+                      person.name
+                    }
+                  </option>
+                )
+              )}
+            </select>
+          </div>
+
+          <div>
+            <label className="app-label">
+              Split Method
+            </label>
+
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() =>
+                  setSplitMode(
+                    "equal"
+                  )
+                }
+                className={`min-h-12 rounded-xl border text-sm font-extrabold ${
+                  splitMode ===
+                  "equal"
+                    ? "border-[#294aad] bg-[#e4ebff] text-[#142a76]"
+                    : "border-[#dce3ef] bg-[#f7f9fd] text-[#71809a]"
+                }`}
+              >
+                Equal Split
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setSplitMode(
+                    "percentage"
+                  )
+                }
+                className={`flex min-h-12 items-center justify-center gap-2 rounded-xl border text-sm font-extrabold ${
+                  splitMode ===
+                  "percentage"
+                    ? "border-[#294aad] bg-[#e4ebff] text-[#142a76]"
+                    : "border-[#dce3ef] bg-[#f7f9fd] text-[#71809a]"
+                }`}
+              >
+                <Percent
+                  size={16}
                 />
-              </div>
+                Percentage
+              </button>
             </div>
+          </div>
 
-            {/* =====================================
-                PEOPLE INCLUDED
-            ====================================== */}
+          <div className="overflow-hidden rounded-2xl border border-[#dce3ef]">
+            <button
+              type="button"
+              onClick={() =>
+                setShowSavedPeople(
+                  (current) =>
+                    !current
+                )
+              }
+              className="flex w-full items-center justify-between gap-3 bg-[#f8faff] p-4 text-left"
+            >
+              <div className="flex items-center gap-3">
+                <Users
+                  size={20}
+                  className="text-[#294aad]"
+                />
 
-            <div>
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <div className="flex items-center gap-2">
-                    <UsersRound
-                      size={17}
-                      className="text-[#294aad]"
-                    />
-
-                    <p className="font-bold text-[#52617d]">
-                      People Included
-                    </p>
-                  </div>
+                  <p className="font-extrabold text-[#182442]">
+                    Saved People
+                  </p>
 
                   <p className="mt-1 text-xs text-[#8995aa]">
-                    Only selected people will share the total.
+                    {uniqueKeys(selectedKeys).length} selected · {people.length} added
                   </p>
                 </div>
-
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={selectEveryone}
-                    className="rounded-lg bg-[#e4ebff] px-3 py-2 text-xs font-bold text-[#142a76]"
-                  >
-                    Select All
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={clearParticipants}
-                    className="rounded-lg bg-[#e8ecf3] px-3 py-2 text-xs font-bold text-[#71809a]"
-                  >
-                    Clear
-                  </button>
-                </div>
               </div>
 
-              <div className="grid gap-2 sm:grid-cols-2">
-                {people.map((person) => {
-                  const selected =
-                    participantIds.includes(
-                      person.id
-                    );
-
-                  const isCoveredPerson =
-                    person.id === payerId;
-
-                  return (
-                    <button
-                      key={person.id}
-                      type="button"
-                      onClick={() =>
-                        toggleParticipant(
-                          person.id
-                        )
-                      }
-                      className={`
-                        flex min-h-[64px]
-                        min-w-0
-                        items-center
-                        gap-3
-                        rounded-2xl
-                        border
-                        p-3
-                        text-left
-                        transition
-                        ${
-                          selected
-                            ? "border-[#8199df] bg-[#e4ebff]"
-                            : "border-[#dce3ef] bg-[#f4f7fb]"
-                        }
-                      `}
-                    >
-                      <div
-                        className={`
-                          flex h-9 w-9
-                          shrink-0
-                          items-center justify-center
-                          rounded-full
-                          ${
-                            selected
-                              ? "bg-[#142a76] text-white"
-                              : "bg-[#dfe4ed] text-[#8995aa]"
-                          }
-                        `}
-                      >
-                        {selected ? (
-                          <Check size={17} />
-                        ) : (
-                          <UserRound size={17} />
-                        )}
-                      </div>
-
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="truncate text-sm font-extrabold text-[#182442]">
-                            {person.name}
-                          </p>
-
-                          {isCoveredPerson && (
-                            <span className="rounded-full bg-[#ccd8ff] px-2 py-0.5 text-[9px] font-extrabold uppercase text-[#142a76]">
-                              Covered
-                            </span>
-                          )}
-                        </div>
-
-                        <p className="mt-0.5 text-xs text-[#8995aa]">
-                          {selected
-                            ? "Included in split"
-                            : isCoveredPerson
-                              ? "Covered, but not included"
-                              : "Not included"}
-                        </p>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* =====================================
-                AMOUNT PER PERSON
-            ====================================== */}
-
-            <div className="rounded-[20px] bg-gradient-to-br from-[#dfe7ff] to-[#edf2ff] p-5">
-              <p className="text-xs font-extrabold uppercase tracking-[0.15em] text-[#71809a]">
-                Each Included Person
-              </p>
-
-              <p className="mt-1 text-3xl font-extrabold text-[#142a76]">
-                ₱
-                {amountPerPerson.toLocaleString(
-                  "en-PH",
-                  {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  }
-                )}
-              </p>
-
-              <p className="mt-2 text-xs text-[#71809a]">
-                {participantIds.length}{" "}
-                {participantIds.length === 1
-                  ? "person"
-                  : "people"}{" "}
-                included
-              </p>
-            </div>
-
-            {/* =====================================
-                RECEIPT
-            ====================================== */}
-
-            <div>
-              <label className="app-label">
-                Receipt
-
-                <span className="ml-1 font-normal text-[#9ba6b9]">
-                  optional
-                </span>
-              </label>
-
-              <label className="flex min-h-[52px] cursor-pointer items-center justify-center gap-2 rounded-[15px] border border-dashed border-[#b9c6e5] bg-[#eef3ff] font-bold text-[#294aad] transition hover:bg-[#e4ebff]">
-                <Camera size={19} />
-
-                Add Receipt
-
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleReceipt}
-                  className="hidden"
+              {showSavedPeople ? (
+                <ChevronDown
+                  size={18}
                 />
-              </label>
-
-              {receiptPreview && (
-                <div className="mt-3 overflow-hidden rounded-2xl border border-[#dce3ef] bg-white">
-                  <img
-                    src={receiptPreview}
-                    alt="Receipt preview"
-                    className="max-h-72 w-full object-contain"
-                  />
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setReceipt(null);
-                      setReceiptPreview(null);
-                    }}
-                    className="flex min-h-11 w-full items-center justify-center gap-2 bg-[#ffeded] text-sm font-bold text-[#cf4646]"
-                  >
-                    <Trash2 size={16} />
-
-                    Remove Receipt
-                  </button>
-                </div>
+              ) : (
+                <ChevronRight
+                  size={18}
+                />
               )}
-            </div>
+            </button>
 
-            {/* =====================================
-                SAVE
-            ====================================== */}
+            {showSavedPeople && (
+              <div className="space-y-2 border-t border-[#e3e8f0] p-4">
+                {people.length ===
+                0 ? (
+                  <p className="text-sm text-[#8995aa]">
+                    No saved people yet.
+                  </p>
+                ) : (
+                  people.map(
+                    (person) => {
+                      const key =
+                        personKey(
+                          person
+                        );
+
+                      const selected =
+                        selectedKeys.includes(
+                          key
+                        );
+
+                      return (
+                        <div
+                          key={
+                            key
+                          }
+                          className={`flex items-center gap-3 rounded-xl border p-3 ${
+                            selected
+                              ? "border-[#9cb0ea] bg-[#eef3ff]"
+                              : "border-[#e0e6ef] bg-white"
+                          }`}
+                        >
+                          <button
+                            type="button"
+                            onClick={() =>
+                              toggleParticipant(
+                                key
+                              )
+                            }
+                            className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                          >
+                            <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
+                              selected
+                                ? "bg-[#294aad] text-white"
+                                : "bg-[#edf1f7] text-[#71809a]"
+                            }`}>
+                              {selected ? (
+                                <Check
+                                  size={16}
+                                />
+                              ) : (
+                                String(
+                                  person.name ||
+                                    "?"
+                                )
+                                  .charAt(0)
+                                  .toUpperCase()
+                              )}
+                            </div>
+
+                            <div className="min-w-0">
+                              <p className="truncate font-bold text-[#182442]">
+                                {
+                                  person.name
+                                }
+                              </p>
+
+                              <p className="mt-0.5 text-[11px] text-[#8995aa]">
+                                Added to this workspace
+                              </p>
+                            </div>
+                          </button>
+
+                          {splitMode ===
+                            "percentage" &&
+                            selected && (
+                              <div className="flex items-center gap-1">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max="100"
+                                  step="0.01"
+                                  value={
+                                    percentages[
+                                      key
+                                    ] ??
+                                    ""
+                                  }
+                                  onChange={(
+                                    event
+                                  ) =>
+                                    setPercentages(
+                                      (
+                                        current
+                                      ) => ({
+                                        ...current,
+                                        [key]:
+                                          event.target
+                                            .value,
+                                      })
+                                    )
+                                  }
+                                  className="h-10 w-20 rounded-xl border border-[#dce3ef] bg-white px-2 text-right text-sm font-bold text-[#182442] outline-none"
+                                />
+                                <span className="text-xs font-bold text-[#71809a]">
+                                  %
+                                </span>
+                              </div>
+                            )}
+
+                          <button
+                            type="button"
+                            title="Remove saved person"
+                            onClick={() =>
+                              onDeletePerson?.(
+                                person
+                              )
+                            }
+                            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-[#c85353] hover:bg-[#ffeded]"
+                          >
+                            <Trash2
+                              size={15}
+                            />
+                          </button>
+                        </div>
+                      );
+                    }
+                  )
+                )}
+
+                {splitMode ===
+                  "percentage" &&
+                  uniqueKeys(selectedKeys).length >
+                    0 && (
+                    <div className={`mt-3 rounded-xl px-3 py-2 text-xs font-extrabold ${
+                      Math.abs(
+                        percentageTotal -
+                          100
+                      ) <= 0.01
+                        ? "bg-[#e7f6ef] text-[#18845c]"
+                        : "bg-[#fff3df] text-[#a36b16]"
+                    }`}>
+                      Percentage total: {percentageTotal.toFixed(2)}%
+                    </div>
+                  )}
+              </div>
+            )}
+          </div>
+
+          <div className="overflow-hidden rounded-2xl border border-[#dce3ef]">
+            <button
+              type="button"
+              onClick={() =>
+                setShowAddPerson(
+                  (current) =>
+                    !current
+                )
+              }
+              className="flex w-full items-center justify-between gap-3 bg-white p-4 text-left"
+            >
+              <div className="flex items-center gap-2 font-extrabold text-[#294aad]">
+                <Plus
+                  size={18}
+                />
+                Save New Person
+              </div>
+
+              {showAddPerson ? (
+                <ChevronDown
+                  size={18}
+                />
+              ) : (
+                <ChevronRight
+                  size={18}
+                />
+              )}
+            </button>
+
+            {showAddPerson && (
+              <div className="flex gap-2 border-t border-[#e3e8f0] p-4">
+                <input
+                  value={
+                    newPerson
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    setNewPerson(
+                      event.target
+                        .value
+                    )
+                  }
+                  className="app-input flex-1"
+                  placeholder="Person name"
+                />
+
+                <button
+                  type="button"
+                  onClick={
+                    addPerson
+                  }
+                  className="rounded-xl bg-[#142a76] px-4 font-extrabold text-white"
+                >
+                  Add
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div>
+            <label className="app-label">
+              Receipt
+              <span className="ml-1 font-normal text-[#9aa5b6]">
+                (optional)
+              </span>
+            </label>
+
+            <label className="flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-[#b9c6e5] bg-[#eef3ff] text-sm font-bold text-[#294aad]">
+              <ImagePlus
+                size={18}
+              />
+              {receiptBase64
+                ? "Replace Receipt"
+                : "Add Receipt Image"}
+
+              <input
+                type="file"
+                accept="image/*"
+                onChange={
+                  handleReceipt
+                }
+                className="hidden"
+              />
+            </label>
+
+            {receiptBase64 && (
+              <div className="mt-3 rounded-xl border border-[#dce3ef] bg-white p-3">
+                <img
+                  src={
+                    receiptBase64
+                  }
+                  alt="Receipt preview"
+                  className="mx-auto max-h-72 rounded-xl object-contain"
+                />
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setReceiptBase64(
+                      null
+                    )
+                  }
+                  className="mt-3 flex min-h-10 w-full items-center justify-center gap-2 rounded-xl bg-[#ffeded] text-sm font-bold text-[#c85353]"
+                >
+                  <X
+                    size={16}
+                  />
+                  Remove Receipt
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-2 sm:flex-row">
+            {editingSplit && (
+              <button
+                type="button"
+                onClick={() => {
+                  resetForm();
+                  onCancelEdit?.();
+                }}
+                className="min-h-12 flex-1 rounded-xl bg-[#e8edf5] font-extrabold text-[#52617d]"
+              >
+                Cancel Edit
+              </button>
+            )}
 
             <button
               type="submit"
-              disabled={saving}
-              className="app-button-primary flex w-full items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={
+                saving
+              }
+              className="app-button-primary flex min-h-12 flex-1 items-center justify-center gap-2 disabled:opacity-50"
             >
-              {saving && (
-                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
-              )}
-
+              <Save
+                size={18}
+              />
               {saving
                 ? "Saving..."
+                : editingSplit
+                ? "Update Expense"
                 : "Save Expense"}
             </button>
-          </>
-        )}
+          </div>
+        </div>
       </form>
 
       <Dialog />
-    </section>
+    </>
   );
 }
 

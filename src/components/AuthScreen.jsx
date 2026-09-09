@@ -766,635 +766,246 @@ function AuthScreen() {
   // =========================================
 
   return (
-    <main className="relative min-h-[100dvh] w-full overflow-x-hidden overflow-y-auto bg-[#eaf0fa]">
-      <div className="pointer-events-none absolute -left-32 -top-32 h-[380px] w-[380px] rounded-full bg-[#cfdcff]/50 blur-3xl" />
+    <main className="relative min-h-[100dvh] w-full overflow-hidden bg-[#07184b]">
+      {/* Deep premium background */}
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_15%,rgba(61,99,210,0.55),transparent_32%),radial-gradient(circle_at_82%_12%,rgba(83,126,255,0.30),transparent_28%),linear-gradient(135deg,#07184b_0%,#10245f_48%,#09163d_100%)]" />
+      <div className="pointer-events-none absolute -left-24 top-24 h-80 w-80 rounded-full border border-white/10" />
+      <div className="pointer-events-none absolute -left-10 top-36 h-52 w-52 rounded-full border border-white/10" />
+      <div className="pointer-events-none absolute -right-32 -top-28 h-[430px] w-[430px] rounded-full bg-[#4169e1]/20 blur-3xl" />
+      <div className="pointer-events-none absolute bottom-[-160px] left-[38%] h-[380px] w-[380px] rounded-full bg-[#3155c5]/20 blur-3xl" />
 
-      <div className="pointer-events-none absolute -bottom-40 -right-24 h-[430px] w-[430px] rounded-full bg-[#b9c9ff]/45 blur-3xl" />
+      {/* Dot matrix */}
+      <div className="pointer-events-none absolute left-[4%] top-[12%] hidden grid-cols-6 gap-3 opacity-20 lg:grid">
+        {Array.from({ length: 30 }).map((_, index) => (
+          <span key={index} className="h-1 w-1 rounded-full bg-white" />
+        ))}
+      </div>
 
-      <div className="relative z-10 mx-auto grid min-h-[100dvh] w-full max-w-7xl items-center gap-8 px-4 py-8 sm:px-6 md:px-8 lg:grid-cols-[1.12fr_0.88fr] lg:gap-12 lg:px-10 xl:px-14">
-        {/* =====================================
-            DESKTOP / LANDSCAPE
-        ====================================== */}
-
-        <section className="hidden lg:block">
-          <div className="flex items-center gap-3">
-            <div className="flex h-14 w-14 items-center justify-center rounded-[20px] bg-gradient-to-br from-[#10245f] to-[#294aad] text-white shadow-[0_12px_30px_rgba(20,42,118,0.2)]">
-              <CircleDollarSign
-                size={29}
-              />
+      <div className="relative z-10 mx-auto grid min-h-[100dvh] w-full max-w-[1440px] items-center gap-10 px-4 py-8 sm:px-6 lg:grid-cols-[1.08fr_0.92fr] lg:px-10 xl:px-16">
+        {/* HERO */}
+        <section className="relative hidden min-h-[690px] lg:flex lg:flex-col lg:justify-center">
+          <div className="relative z-20 max-w-[620px]">
+            <div className="flex items-center gap-3">
+              <div className="flex h-14 w-14 items-center justify-center rounded-[19px] border border-white/15 bg-white/10 text-white shadow-2xl backdrop-blur-xl">
+                <CircleDollarSign size={30} />
+              </div>
+              <div>
+                <p className="text-2xl font-black tracking-tight text-white">Money Splitter</p>
+                <p className="text-sm font-medium text-blue-100/55">Shared expenses, simplified.</p>
+              </div>
             </div>
 
-            <div>
-              <p className="text-2xl font-extrabold text-[#182442]">
-                Money Splitter
-              </p>
-
-              <p className="text-sm text-[#8995aa]">
-                Shared expenses,
-                simplified.
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-10 max-w-xl">
-            <div className="inline-flex items-center gap-2 rounded-full border border-[#cbd6ef] bg-white/60 px-3 py-2 text-xs font-bold text-[#294aad] shadow-sm backdrop-blur">
-              <Sparkles
-                size={14}
-              />
-
-              Easy expense sharing
+            <div className="mt-14 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-xs font-extrabold text-blue-100 shadow-lg backdrop-blur-xl">
+              <Sparkles size={14} />
+              Smarter shared spending
             </div>
 
-            <h1 className="mt-5 text-5xl font-extrabold leading-[1.08] tracking-[-0.04em] text-[#182442]">
-              Split expenses without
-              the awkward math.
+            <h1 className="mt-6 max-w-[600px] text-[58px] font-black leading-[0.98] tracking-[-0.055em] text-white xl:text-[68px]">
+              Split together.
+              <span className="block bg-gradient-to-r from-[#9eb8ff] via-white to-[#7ea3ff] bg-clip-text text-transparent">Stay balanced.</span>
             </h1>
 
-            <p className="mt-5 max-w-lg text-base leading-7 text-[#71809a]">
-              Keep track of shared
-              expenses, balances,
-              payments and wallet
-              details in one place.
+            <p className="mt-6 max-w-lg text-[16px] leading-7 text-blue-100/65">
+              One beautiful space for group expenses, balances, payment methods and the moments you share.
             </p>
           </div>
 
-          <div className="mt-9 space-y-3">
-            <div className="flex max-w-xl items-center gap-4 rounded-[22px] border border-white/70 bg-white/65 p-4 shadow-sm backdrop-blur">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#142a76] text-lg font-extrabold text-white">
-                1
+          {/* Floating visual system */}
+          <div className="relative z-20 mt-12 h-[255px] max-w-[650px]">
+            <div className="absolute left-0 top-8 w-[330px] rotate-[-2deg] rounded-[26px] border border-white/15 bg-white/[0.11] p-5 shadow-[0_25px_70px_rgba(0,0,0,0.22)] backdrop-blur-2xl">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-blue-100/50">Weekend Dinner</p>
+                  <p className="mt-1 text-3xl font-black text-white">₱2,480</p>
+                </div>
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/10 text-[#a9c0ff]">
+                  <ReceiptText size={21} />
+                </div>
               </div>
-
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#e4ebff] text-[#142a76]">
-                <Server
-                  size={20}
-                />
-              </div>
-
-              <div>
-                <p className="font-extrabold text-[#182442]">
-                  Create or join a server
-                </p>
-
-                <p className="mt-1 text-sm text-[#8995aa]">
-                  Keep each group,
-                  trip or household
-                  organized.
-                </p>
+              <div className="mt-5 flex items-center gap-2">
+                {["M", "R", "J", "R"].map((letter, index) => (
+                  <div key={`${letter}-${index}`} className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-[#18317a] bg-gradient-to-br from-[#6f91ed] to-[#294aad] text-xs font-black text-white">
+                    {letter}
+                  </div>
+                ))}
+                <span className="ml-2 text-xs font-bold text-blue-100/55">4 people included</span>
               </div>
             </div>
 
-            <div className="flex max-w-xl items-center gap-4 rounded-[22px] border border-white/70 bg-white/65 p-4 shadow-sm backdrop-blur">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#294aad] text-lg font-extrabold text-white">
-                2
+            <div className="absolute right-5 top-0 w-[245px] rotate-[3deg] rounded-[24px] border border-white/15 bg-white/[0.12] p-5 shadow-[0_24px_60px_rgba(0,0,0,0.20)] backdrop-blur-2xl">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-blue-100/60">Your balance</span>
+                <WalletCards size={18} className="text-[#a9c0ff]" />
               </div>
-
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#e4ebff] text-[#142a76]">
-                <ReceiptText
-                  size={20}
-                />
+              <p className="mt-3 text-2xl font-black text-white">₱620.00</p>
+              <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/10">
+                <div className="h-full w-[72%] rounded-full bg-gradient-to-r from-[#7d9cff] to-white" />
               </div>
-
-              <div>
-                <p className="font-extrabold text-[#182442]">
-                  Add shared expenses
-                </p>
-
-                <p className="mt-1 text-sm text-[#8995aa]">
-                  Choose who covered
-                  the expense and who
-                  should be included.
-                </p>
-              </div>
+              <p className="mt-3 text-[11px] font-semibold text-blue-100/50">Simple, clear, settled.</p>
             </div>
 
-            <div className="flex max-w-xl items-center gap-4 rounded-[22px] border border-white/70 bg-white/65 p-4 shadow-sm backdrop-blur">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#3d63d2] text-lg font-extrabold text-white">
-                3
+            <div className="absolute bottom-0 right-20 flex items-center gap-3 rounded-2xl border border-white/15 bg-[#122c73]/80 px-4 py-3 shadow-xl backdrop-blur-xl">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#70d7ae]/15 text-[#8ce7c2]">
+                <UsersRound size={18} />
               </div>
-
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#e4ebff] text-[#142a76]">
-                <WalletCards
-                  size={20}
-                />
-              </div>
-
               <div>
-                <p className="font-extrabold text-[#182442]">
-                  See who owes who
-                </p>
-
-                <p className="mt-1 text-sm text-[#8995aa]">
-                  Check balances and
-                  payment details when
-                  it's time to settle.
-                </p>
+                <p className="text-xs font-extrabold text-white">Everyone stays in sync</p>
+                <p className="mt-0.5 text-[10px] text-blue-100/50">Track · split · settle</p>
               </div>
             </div>
           </div>
         </section>
 
-        {/* =====================================
-            AUTH SIDE
-        ====================================== */}
-
-        <section className="mx-auto w-full max-w-md self-center lg:max-w-[460px]">
-          {/* MOBILE LOGO */}
-
-          <div className="mb-6 text-center lg:hidden">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[22px] bg-gradient-to-br from-[#10245f] to-[#294aad] text-white shadow-[0_12px_30px_rgba(20,42,118,0.2)]">
-              <WalletCards
-                size={31}
-              />
+        {/* AUTH */}
+        <section className="mx-auto w-full max-w-[500px]">
+          <div className="mb-7 text-center lg:hidden">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[22px] border border-white/15 bg-white/10 text-white shadow-xl backdrop-blur-xl">
+              <CircleDollarSign size={32} />
             </div>
-
-            <h1 className="mt-4 text-2xl font-extrabold text-[#182442]">
-              Money Splitter
-            </h1>
-
-            <p className="mt-1 text-sm text-[#8995aa]">
-              Shared expenses,
-              simplified.
-            </p>
+            <h1 className="mt-4 text-2xl font-black text-white">Money Splitter</h1>
+            <p className="mt-1 text-sm text-blue-100/55">Shared expenses, simplified.</p>
           </div>
 
-          {/* MOBILE STEPS */}
+          <div className="relative">
+            <div className="pointer-events-none absolute -inset-5 rounded-[42px] bg-gradient-to-br from-[#6e91ff]/25 to-transparent blur-2xl" />
 
-          {!createMode && (
-            <div className="mb-5 grid grid-cols-3 gap-2 lg:hidden">
-              <div className="rounded-[16px] bg-white/75 p-3 text-center shadow-sm">
-                <div className="mx-auto flex h-8 w-8 items-center justify-center rounded-lg bg-[#142a76] text-xs font-extrabold text-white">
-                  1
+            <div className="relative overflow-hidden rounded-[32px] border border-white/20 bg-white/[0.96] shadow-[0_35px_100px_rgba(0,0,0,0.35)] backdrop-blur-2xl">
+              <div className="relative overflow-hidden bg-gradient-to-br from-[#183680] via-[#2449aa] to-[#345ed0] px-6 py-7 text-white sm:px-8">
+                <div className="pointer-events-none absolute -right-14 -top-16 h-44 w-44 rounded-full border-[28px] border-white/[0.06]" />
+                <div className="pointer-events-none absolute bottom-[-65px] right-20 h-32 w-32 rounded-full bg-white/[0.06]" />
+                <div className="pointer-events-none absolute right-8 top-7 grid grid-cols-4 gap-2 opacity-20">
+                  {Array.from({ length: 12 }).map((_, index) => (
+                    <span key={index} className="h-1 w-1 rounded-full bg-white" />
+                  ))}
                 </div>
 
-                <p className="mt-2 text-[10px] font-extrabold text-[#52617d]">
-                  Join Server
-                </p>
-              </div>
-
-              <div className="rounded-[16px] bg-white/75 p-3 text-center shadow-sm">
-                <div className="mx-auto flex h-8 w-8 items-center justify-center rounded-lg bg-[#294aad] text-xs font-extrabold text-white">
-                  2
-                </div>
-
-                <p className="mt-2 text-[10px] font-extrabold text-[#52617d]">
-                  Add Expense
-                </p>
-              </div>
-
-              <div className="rounded-[16px] bg-white/75 p-3 text-center shadow-sm">
-                <div className="mx-auto flex h-8 w-8 items-center justify-center rounded-lg bg-[#3d63d2] text-xs font-extrabold text-white">
-                  3
-                </div>
-
-                <p className="mt-2 text-[10px] font-extrabold text-[#52617d]">
-                  Settle Up
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* CARD */}
-
-          <div className="overflow-hidden rounded-[30px] border border-white/80 bg-white/90 shadow-[0_24px_70px_rgba(31,53,108,0.14)] backdrop-blur-xl">
-            <div className="relative overflow-hidden bg-gradient-to-br from-[#10245f] via-[#142a76] to-[#294aad] p-6 text-white">
-              {createMode && (
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={
-                    backToSignIn
-                  }
-                  className="relative z-10 mb-5 inline-flex min-h-10 items-center gap-2 rounded-xl border border-white/10 bg-white/10 px-4 text-xs font-extrabold text-white transition hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <ArrowLeft
-                    size={16}
-                  />
-
-                  Back to Google Sign-In
-                </button>
-              )}
-
-              <div className="relative z-10">
-                <p className="text-xs font-bold uppercase tracking-[0.14em] text-blue-100/60">
-                  {createMode
-                    ? "Get Started"
-                    : "Welcome"}
-                </p>
-
-                <h2 className="mt-1 text-2xl font-extrabold">
-                  {createMode
-                    ? "Create Account"
-                    : "Welcome Back"}
-                </h2>
-
-                <p className="mt-2 max-w-xs text-sm leading-6 text-blue-100/70">
-                  {createMode
-                    ? "Create your Money Splitter account using your email and password."
-                    : "Sign in to continue to your servers, balances and shared expenses."}
-                </p>
-              </div>
-            </div>
-
-            <div className="p-5 sm:p-6">
-              {/* GOOGLE */}
-
-              {!createMode && (
-                <>
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={
-                      handleGoogleLogin
-                    }
-                    className="flex min-h-[52px] w-full items-center justify-center gap-3 rounded-[15px] border border-[#dce3ef] bg-white px-4 text-sm font-extrabold text-[#34415c] shadow-sm transition hover:-translate-y-0.5 hover:bg-[#f6f8fc] hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {googleLoading ? (
-                      <span className="h-5 w-5 animate-spin rounded-full border-2 border-[#cbd4e5] border-t-[#142a76]" />
-                    ) : (
-                      <svg
-                        width="19"
-                        height="19"
-                        viewBox="0 0 24 24"
-                        aria-hidden="true"
-                      >
-                        <path
-                          fill="#4285F4"
-                          d="M21.6 12.227c0-.709-.064-1.391-.182-2.045H12v3.873h5.382a4.6 4.6 0 0 1-1.996 3.018v2.509h3.232c1.891-1.741 2.982-4.305 2.982-7.355Z"
-                        />
-
-                        <path
-                          fill="#34A853"
-                          d="M12 22c2.7 0 4.964-.895 6.618-2.418l-3.232-2.509c-.895.6-2.041.955-3.386.955-2.605 0-4.809-1.759-5.595-4.123H3.064v2.591A10 10 0 0 0 12 22Z"
-                        />
-
-                        <path
-                          fill="#FBBC05"
-                          d="M6.405 13.905A6.02 6.02 0 0 1 6.091 12c0-.664.114-1.309.314-1.905V7.504H3.064A10 10 0 0 0 2 12c0 1.614.386 3.141 1.064 4.496l3.341-2.591Z"
-                        />
-
-                        <path
-                          fill="#EA4335"
-                          d="M12 5.973c1.468 0 2.786.504 3.823 1.491l2.868-2.868C16.959 2.982 14.7 2 12 2a10 10 0 0 0-8.936 5.504l3.341 2.591C7.191 7.732 9.395 5.973 12 5.973Z"
-                        />
-                      </svg>
-                    )}
-
-                    {googleLoading
-                      ? "Opening Google..."
-                      : "Continue with Google"}
-                  </button>
-
-                  <div className="my-6 flex items-center gap-3">
-                    <div className="h-px flex-1 bg-[#e0e6ef]" />
-
-                    <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#a0aabd]">
-                      or use email
-                    </span>
-
-                    <div className="h-px flex-1 bg-[#e0e6ef]" />
-                  </div>
-                </>
-              )}
-
-              {/* FORM */}
-
-              <form
-                onSubmit={
-                  createMode
-                    ? handleCreateAccount
-                    : handleLogin
-                }
-                className="space-y-4"
-              >
                 {createMode && (
-                  <div>
-                    <label className="app-label">
-                      Display Name
-                    </label>
-
-                    <div className="relative">
-                      <UserRound
-                        size={18}
-                        className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#8995aa]"
-                      />
-
-                      <input
-                        type="text"
-                        value={
-                          displayName
-                        }
-                        onChange={(
-                          event
-                        ) =>
-                          setDisplayName(
-                            event.target
-                              .value
-                          )
-                        }
-                        disabled={busy}
-                        autoComplete="name"
-                        placeholder="Your name"
-                        className="app-input app-input-icon"
-                      />
-                    </div>
-                  </div>
+                  <button type="button" disabled={busy} onClick={backToSignIn} className="relative z-10 mb-5 inline-flex min-h-9 items-center gap-2 rounded-xl border border-white/15 bg-white/10 px-3 text-xs font-extrabold text-white transition hover:bg-white/20 disabled:opacity-50">
+                    <ArrowLeft size={15} /> Back to Sign In
+                  </button>
                 )}
 
-                {/* EMAIL */}
-
-                <div>
-                  <label className="app-label">
-                    Email
-                  </label>
-
-                  <div className="relative">
-                    <Mail
-                      size={18}
-                      className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#8995aa]"
-                    />
-
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={(
-                        event
-                      ) =>
-                        setEmail(
-                          event.target
-                            .value
-                        )
-                      }
-                      disabled={busy}
-                      autoComplete="email"
-                      placeholder="you@email.com"
-                      className="app-input app-input-icon"
-                    />
-                  </div>
+                <div className="relative z-10">
+                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-blue-100/65">
+                    {createMode ? "Start your journey" : "Welcome back"}
+                  </p>
+                  <h2 className="mt-2 text-[28px] font-black tracking-tight">
+                    {createMode ? "Create your account" : "Good to see you again."}
+                  </h2>
+                  <p className="mt-2 max-w-sm text-sm leading-6 text-blue-100/70">
+                    {createMode ? "Create your Money Splitter account and make shared spending easier." : "Your groups, balances and shared expenses are waiting for you."}
+                  </p>
                 </div>
+              </div>
 
-                {/* PASSWORD */}
-
-                <div>
-                  <label className="app-label">
-                    Password
-                  </label>
-
-                  <div className="relative">
-                    <LockKeyhole
-                      size={18}
-                      className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#8995aa]"
-                    />
-
-                    <input
-                      type={
-                        showPassword
-                          ? "text"
-                          : "password"
-                      }
-                      value={
-                        password
-                      }
-                      onChange={(
-                        event
-                      ) =>
-                        setPassword(
-                          event.target
-                            .value
-                        )
-                      }
-                      disabled={busy}
-                      autoComplete={
-                        createMode
-                          ? "new-password"
-                          : "current-password"
-                      }
-                      placeholder={
-                        createMode
-                          ? "At least 6 characters"
-                          : "Enter password"
-                      }
-                      className="app-input app-input-icon pr-12"
-                    />
-
-                    <button
-                      type="button"
-                      tabIndex={-1}
-                      onClick={() =>
-                        setShowPassword(
-                          (
-                            current
-                          ) =>
-                            !current
-                        )
-                      }
-                      className="absolute right-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-[#8995aa] transition hover:bg-[#edf1f7] hover:text-[#142a76]"
-                    >
-                      {showPassword ? (
-                        <EyeOff
-                          size={18}
-                        />
-                      ) : (
-                        <Eye
-                          size={18}
-                        />
+              <div className="p-5 sm:p-7">
+                {!createMode && (
+                  <>
+                    <button type="button" disabled={busy} onClick={handleGoogleLogin} className="group flex min-h-[54px] w-full items-center justify-center gap-3 rounded-2xl border border-[#dce3ef] bg-white px-4 text-sm font-extrabold text-[#34415c] shadow-[0_5px_18px_rgba(30,55,110,0.06)] transition hover:-translate-y-0.5 hover:border-[#bdcbed] hover:shadow-[0_10px_25px_rgba(30,55,110,0.10)] disabled:opacity-50">
+                      {googleLoading ? <span className="h-5 w-5 animate-spin rounded-full border-2 border-[#cbd4e5] border-t-[#142a76]" /> : (
+                        <svg width="19" height="19" viewBox="0 0 24 24" aria-hidden="true">
+                          <path fill="#4285F4" d="M21.6 12.227c0-.709-.064-1.391-.182-2.045H12v3.873h5.382a4.6 4.6 0 0 1-1.996 3.018v2.509h3.232c1.891-1.741 2.982-4.305 2.982-7.355Z" />
+                          <path fill="#34A853" d="M12 22c2.7 0 4.964-.895 6.618-2.418l-3.232-2.509c-.895.6-2.041.955-3.386.955-2.605 0-4.809-1.759-5.595-4.123H3.064v2.591A10 10 0 0 0 12 22Z" />
+                          <path fill="#FBBC05" d="M6.405 13.905A6.02 6.02 0 0 1 6.091 12c0-.664.114-1.309.314-1.905V7.504H3.064A10 10 0 0 0 2 12c0 1.614.386 3.141 1.064 4.496l3.341-2.591Z" />
+                          <path fill="#EA4335" d="M12 5.973c1.468 0 2.786.504 3.823 1.491l2.868-2.868C16.959 2.982 14.7 2 12 2a10 10 0 0 0-8.936 5.504l3.341 2.591C7.191 7.732 9.395 5.973 12 5.973Z" />
+                        </svg>
                       )}
+                      {googleLoading ? "Opening Google..." : "Continue with Google"}
+                    </button>
+
+                    <div className="my-6 flex items-center gap-3">
+                      <div className="h-px flex-1 bg-[#e2e7f0]" />
+                      <span className="text-[10px] font-black uppercase tracking-[0.16em] text-[#a0aabd]">or continue with email</span>
+                      <div className="h-px flex-1 bg-[#e2e7f0]" />
+                    </div>
+                  </>
+                )}
+
+                <form onSubmit={createMode ? handleCreateAccount : handleLogin} className="space-y-4">
+                  {createMode && (
+                    <div>
+                      <label className="app-label">Display Name</label>
+                      <div className="relative">
+                        <UserRound size={18} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#8995aa]" />
+                        <input type="text" value={displayName} onChange={(event) => setDisplayName(event.target.value)} disabled={busy} autoComplete="name" placeholder="Your name" className="app-input app-input-icon" />
+                      </div>
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="app-label">Email</label>
+                    <div className="relative">
+                      <Mail size={18} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#8995aa]" />
+                      <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} disabled={busy} autoComplete="email" placeholder="you@email.com" className="app-input app-input-icon" />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="app-label">Password</label>
+                    <div className="relative">
+                      <LockKeyhole size={18} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#8995aa]" />
+                      <input type={showPassword ? "text" : "password"} value={password} onChange={(event) => setPassword(event.target.value)} disabled={busy} autoComplete={createMode ? "new-password" : "current-password"} placeholder={createMode ? "At least 6 characters" : "Enter password"} className="app-input app-input-icon pr-12" />
+                      <button type="button" tabIndex={-1} onClick={() => setShowPassword((current) => !current)} className="absolute right-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-[#8995aa] transition hover:bg-[#edf1f7] hover:text-[#142a76]">
+                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    </div>
+                    {!createMode && (
+                      <div className="mt-2 flex justify-end">
+                        <button type="button" disabled={busy} onClick={handleForgotPassword} className="text-xs font-extrabold text-[#294aad] transition hover:text-[#142a76] disabled:opacity-50">
+                          {resetLoading ? "Sending..." : "Forgot Password?"}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {createMode && (
+                    <div>
+                      <label className="app-label">Confirm Password</label>
+                      <div className="relative">
+                        <LockKeyhole size={18} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#8995aa]" />
+                        <input type={showConfirmPassword ? "text" : "password"} value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} disabled={busy} autoComplete="new-password" placeholder="Enter password again" className="app-input app-input-icon pr-12" />
+                        <button type="button" tabIndex={-1} onClick={() => setShowConfirmPassword((current) => !current)} className="absolute right-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-[#8995aa] transition hover:bg-[#edf1f7] hover:text-[#142a76]">
+                          {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  <button type="submit" disabled={busy} className="flex min-h-[54px] w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#183680] via-[#2449aa] to-[#345ed0] font-extrabold text-white shadow-[0_12px_28px_rgba(36,73,170,0.24)] transition hover:-translate-y-0.5 hover:shadow-[0_16px_34px_rgba(36,73,170,0.30)] disabled:opacity-50">
+                    {loading ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" /> : createMode ? <UserPlus size={18} /> : <LockKeyhole size={18} />}
+                    {loading ? (createMode ? "Creating Account..." : "Signing In...") : createMode ? "Create Account" : "Sign In"}
+                  </button>
+                </form>
+
+                {!createMode ? (
+                  <div className="mt-6 flex items-center justify-between rounded-2xl border border-[#e1e7f2] bg-[#f6f8fd] px-4 py-3.5">
+                    <div>
+                      <p className="text-xs font-bold text-[#8995aa]">New to Money Splitter?</p>
+                      <p className="mt-0.5 text-sm font-extrabold text-[#182442]">Create your free account</p>
+                    </div>
+                    <button type="button" disabled={busy} onClick={openCreateAccount} className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#e4ebff] text-[#294aad] transition hover:bg-[#d8e3ff] disabled:opacity-50" aria-label="Create account">
+                      <ArrowRight size={18} />
                     </button>
                   </div>
-
-                  {!createMode && (
-                    <div className="mt-2 flex justify-end">
-                      <button
-                        type="button"
-                        disabled={busy}
-                        onClick={
-                          handleForgotPassword
-                        }
-                        className="text-xs font-extrabold text-[#294aad] transition hover:text-[#142a76] disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        {resetLoading
-                          ? "Sending..."
-                          : "Forgot Password?"}
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                {/* CONFIRM PASSWORD */}
-
-                {createMode && (
-                  <div>
-                    <label className="app-label">
-                      Confirm Password
-                    </label>
-
-                    <div className="relative">
-                      <LockKeyhole
-                        size={18}
-                        className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#8995aa]"
-                      />
-
-                      <input
-                        type={
-                          showConfirmPassword
-                            ? "text"
-                            : "password"
-                        }
-                        value={
-                          confirmPassword
-                        }
-                        onChange={(
-                          event
-                        ) =>
-                          setConfirmPassword(
-                            event.target
-                              .value
-                          )
-                        }
-                        disabled={busy}
-                        autoComplete="new-password"
-                        placeholder="Enter password again"
-                        className="app-input app-input-icon pr-12"
-                      />
-
-                      <button
-                        type="button"
-                        tabIndex={-1}
-                        onClick={() =>
-                          setShowConfirmPassword(
-                            (
-                              current
-                            ) =>
-                              !current
-                          )
-                        }
-                        className="absolute right-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-[#8995aa] transition hover:bg-[#edf1f7] hover:text-[#142a76]"
-                      >
-                        {showConfirmPassword ? (
-                          <EyeOff
-                            size={18}
-                          />
-                        ) : (
-                          <Eye
-                            size={18}
-                          />
-                        )}
-                      </button>
-                    </div>
+                ) : (
+                  <div className="mt-6 rounded-2xl border border-[#dce5f6] bg-[#f7f9ff] p-4 text-center">
+                    <p className="text-sm text-[#71809a]">Already have an account?</p>
+                    <button type="button" disabled={busy} onClick={backToSignIn} className="mt-2 inline-flex items-center gap-2 font-extrabold text-[#294aad] transition hover:text-[#142a76] disabled:opacity-50">
+                      <ArrowLeft size={15} /> Back to Sign In & Google
+                    </button>
                   </div>
                 )}
-
-                {/* SUBMIT */}
-
-                <button
-                  type="submit"
-                  disabled={busy}
-                  className="app-button-primary flex min-h-[54px] w-full items-center justify-center gap-2 shadow-[0_10px_24px_rgba(20,42,118,0.16)] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {loading ? (
-                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
-                  ) : createMode ? (
-                    <UserPlus
-                      size={18}
-                    />
-                  ) : (
-                    <LockKeyhole
-                      size={18}
-                    />
-                  )}
-
-                  {loading
-                    ? createMode
-                      ? "Creating Account..."
-                      : "Signing In..."
-                    : createMode
-                      ? "Create Account"
-                      : "Sign In"}
-                </button>
-              </form>
-
-              {/* CREATE ACCOUNT LINK */}
-
-              {!createMode && (
-                <div className="mt-6 rounded-[18px] bg-[#eef3ff] p-4 text-center">
-                  <p className="text-sm text-[#71809a]">
-                    Don't have an account?
-                  </p>
-
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={
-                      openCreateAccount
-                    }
-                    className="mt-1 inline-flex items-center gap-1 font-extrabold text-[#294aad] transition hover:text-[#142a76] disabled:opacity-50"
-                  >
-                    Create one
-
-                    <ArrowRight
-                      size={15}
-                    />
-                  </button>
-                </div>
-              )}
-
-              {/* BACK TO GOOGLE */}
-
-              {createMode && (
-                <div className="mt-6 rounded-[18px] border border-[#dce5f6] bg-[#f7f9ff] p-4 text-center">
-                  <p className="text-sm text-[#71809a]">
-                    Already have an account
-                    or prefer Google?
-                  </p>
-
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={
-                      backToSignIn
-                    }
-                    className="mt-2 inline-flex items-center gap-2 font-extrabold text-[#294aad] transition hover:text-[#142a76] disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    <ArrowLeft
-                      size={15}
-                    />
-
-                    Back to Sign In & Google
-                  </button>
-                </div>
-              )}
+              </div>
             </div>
           </div>
 
-          {/* FOOTER */}
-
-          {!createMode && (
-            <div className="mt-5 flex items-center justify-center gap-5 text-[11px] font-bold text-[#8995aa]">
-              <span className="flex items-center gap-1.5">
-                <UsersRound
-                  size={14}
-                />
-                Groups
-              </span>
-
-              <span className="h-3 w-px bg-[#cfd7e5]" />
-
-              <span className="flex items-center gap-1.5">
-                <ReceiptText
-                  size={14}
-                />
-                Expenses
-              </span>
-
-              <span className="h-3 w-px bg-[#cfd7e5]" />
-
-              <span className="flex items-center gap-1.5">
-                <WalletCards
-                  size={14}
-                />
-                Payments
-              </span>
-            </div>
-          )}
+          <div className="mt-5 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-[11px] font-bold text-blue-100/45">
+            <span className="flex items-center gap-1.5"><UsersRound size={13} /> Groups</span>
+            <span className="h-3 w-px bg-white/15" />
+            <span className="flex items-center gap-1.5"><ReceiptText size={13} /> Expenses</span>
+            <span className="h-3 w-px bg-white/15" />
+            <span className="flex items-center gap-1.5"><WalletCards size={13} /> Payments</span>
+          </div>
         </section>
       </div>
 

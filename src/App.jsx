@@ -51,6 +51,7 @@ import ProfileSettings from "./components/ProfileSettings.jsx";
 import ServerSelector from "./components/ServerSelector.jsx";
 import SplitCalculator from "./components/SplitCalculator.jsx";
 import SplitHistory from "./components/SplitHistory.jsx";
+import TrashPanel from "./components/TrashPanel.jsx";
 import WalletViewer from "./components/WalletViewer.jsx";
 
 import useAppDialog from "./hooks/useAppDialog.jsx";
@@ -110,6 +111,41 @@ function App() {
     setActiveServer,
   ] = useState(
     null
+  );
+
+  const [
+    serverUsername,
+    setServerUsername,
+  ] = useState(
+    ""
+  );
+
+  const [
+    pendingServer,
+    setPendingServer,
+  ] = useState(
+    null
+  );
+
+  const [
+    pendingUsername,
+    setPendingUsername,
+  ] = useState(
+    ""
+  );
+
+  const [
+    usernameConflictMessage,
+    setUsernameConflictMessage,
+  ] = useState(
+    ""
+  );
+
+  const [
+    usernameChecking,
+    setUsernameChecking,
+  ] = useState(
+    false
   );
 
   const [
@@ -176,6 +212,13 @@ function App() {
   );
 
   const [
+    editingSplit,
+    setEditingSplit,
+  ] = useState(
+    null
+  );
+
+  const [
     page,
     setPage,
   ] = useState(
@@ -184,6 +227,7 @@ function App() {
 
   const {
     Dialog,
+    success,
     error,
     confirm,
   } = useAppDialog();
@@ -267,6 +311,18 @@ function App() {
 
             setActiveServer(
               null
+            );
+
+            setServerUsername(
+              ""
+            );
+
+            setPendingServer(
+              null
+            );
+
+            setPendingUsername(
+              ""
             );
 
             setServerToManage(
@@ -572,6 +628,353 @@ function App() {
   ]);
 
   // =========================================
+  // SERVER-SCOPED USERNAME
+  // =========================================
+
+  const reserveServerUsername =
+    async (
+      server,
+      requestedUsername
+    ) => {
+      if (
+        !server?.id ||
+        !user?.uid ||
+        !user?.email
+      ) {
+        return {
+          ok: false,
+          message:
+            "Unable to verify your workspace username.",
+        };
+      }
+
+      const cleanUsername =
+        normalizeUsername(
+          requestedUsername
+        );
+
+      const currentEmail =
+        normalizeEmail(
+          user.email
+        );
+
+      if (
+        cleanUsername.length <
+        3
+      ) {
+        return {
+          ok: false,
+          message:
+            "Use at least 3 characters for your workspace username.",
+        };
+      }
+
+      const usernameRef =
+        doc(
+          db,
+          "servers",
+          server.id,
+          "usernames",
+          cleanUsername
+        );
+
+      try {
+        // Migration-safe check:
+        // Existing servers may already have usernames stored
+        // on people documents before the per-server username
+        // reservation collection existed.
+        const peopleSnapshot =
+          await getDocs(
+            collection(
+              db,
+              "servers",
+              server.id,
+              "people"
+            )
+          );
+
+        const existingPersonConflict =
+          peopleSnapshot.docs.find(
+            (item) => {
+              const data =
+                item.data();
+
+              const existingUsername =
+                normalizeUsername(
+                  data?.username ||
+                    ""
+                );
+
+              const existingEmail =
+                normalizeEmail(
+                  data?.linkedEmail ||
+                    ""
+                );
+
+              return (
+                existingUsername ===
+                  cleanUsername &&
+                existingEmail &&
+                existingEmail !==
+                  currentEmail
+              );
+            }
+          );
+
+        if (
+          existingPersonConflict
+        ) {
+          return {
+            ok: false,
+            conflict: true,
+            message:
+              `@${cleanUsername} is already used by another email in this workspace. Choose another username for this workspace.`,
+          };
+        }
+
+        const snapshot =
+          await getDoc(
+            usernameRef
+          );
+
+        if (
+          snapshot.exists()
+        ) {
+          const data =
+            snapshot.data();
+
+          const reservedEmail =
+            normalizeEmail(
+              data?.email ||
+                ""
+            );
+
+          // SAME EMAIL = SAME PERSON.
+          // Allow the same username even when Firebase UID changed.
+          if (
+            reservedEmail &&
+            reservedEmail ===
+              currentEmail
+          ) {
+            await setDoc(
+              usernameRef,
+              {
+                username:
+                  cleanUsername,
+                uid:
+                  user.uid,
+                email:
+                  currentEmail,
+                displayName:
+                  profile?.displayName ||
+                  user?.displayName ||
+                  "",
+                photoURL:
+                  profile?.photoURL ||
+                  user?.photoURL ||
+                  null,
+                updatedAt:
+                  serverTimestamp(),
+              },
+              {
+                merge: true,
+              }
+            );
+
+            return {
+              ok: true,
+              username:
+                cleanUsername,
+            };
+          }
+
+          return {
+            ok: false,
+            conflict: true,
+            message:
+              `@${cleanUsername} is already used by another email in this workspace. Choose another username for this workspace.`,
+          };
+        }
+
+        await setDoc(
+          usernameRef,
+          {
+            username:
+              cleanUsername,
+            uid:
+              user.uid,
+            email:
+              currentEmail,
+            displayName:
+              profile?.displayName ||
+              user?.displayName ||
+              "",
+            photoURL:
+              profile?.photoURL ||
+              user?.photoURL ||
+              null,
+            createdAt:
+              serverTimestamp(),
+            updatedAt:
+              serverTimestamp(),
+          }
+        );
+
+        return {
+          ok: true,
+          username:
+            cleanUsername,
+        };
+      } catch (err) {
+        console.error(
+          "Workspace username check error:",
+          err
+        );
+
+        return {
+          ok: false,
+          message:
+            err?.code === "permission-denied"
+              ? "Firestore blocked the workspace username check. Publish the updated Firestore rules, then try again."
+              : "We couldn't verify your username for this workspace. Please try again.",
+        };
+      }
+    };
+
+  const handleSelectServer =
+    async (
+      server,
+      requestedUsername = ""
+    ) => {
+      const preferredUsername =
+        normalizeUsername(
+          requestedUsername ||
+            profile?.username ||
+            ""
+        );
+
+      if (
+        !preferredUsername
+      ) {
+        await error(
+          "Username Required",
+          "Set a username in your profile before entering a workspace."
+        );
+
+        return;
+      }
+
+      setUsernameChecking(
+        true
+      );
+
+      const result =
+        await reserveServerUsername(
+          server,
+          preferredUsername
+        );
+
+      setUsernameChecking(
+        false
+      );
+
+      if (
+        result.ok
+      ) {
+        setServerUsername(
+          result.username
+        );
+
+        setActiveServer(
+          server
+        );
+
+        return;
+      }
+
+      if (
+        result.conflict
+      ) {
+        setPendingServer(
+          server
+        );
+
+        setPendingUsername(
+          ""
+        );
+
+        setUsernameConflictMessage(
+          result.message
+        );
+
+        return;
+      }
+
+      await error(
+        "Unable to Enter Workspace",
+        result.message
+      );
+    };
+
+  const confirmWorkspaceUsername =
+    async () => {
+      if (
+        !pendingServer
+      ) {
+        return;
+      }
+
+      const requested =
+        normalizeUsername(
+          pendingUsername
+        );
+
+      setUsernameChecking(
+        true
+      );
+
+      const result =
+        await reserveServerUsername(
+          pendingServer,
+          requested
+        );
+
+      setUsernameChecking(
+        false
+      );
+
+      if (
+        !result.ok
+      ) {
+        setUsernameConflictMessage(
+          result.message
+        );
+
+        return;
+      }
+
+      setServerUsername(
+        result.username
+      );
+
+      setActiveServer(
+        pendingServer
+      );
+
+      setPendingServer(
+        null
+      );
+
+      setPendingUsername(
+        ""
+      );
+
+      setUsernameConflictMessage(
+        ""
+      );
+    };
+
+  // =========================================
   // LINK ACCOUNT TO SAVED PERSON
   // =========================================
 
@@ -598,7 +1001,8 @@ function App() {
 
       const currentUsername =
         normalizeUsername(
-          profile?.username ||
+          serverUsername ||
+            profile?.username ||
             ""
         );
 
@@ -766,6 +1170,7 @@ function App() {
             currentEmail,
 
           username:
+            serverUsername ||
             profile?.username ||
             "",
 
@@ -851,6 +1256,7 @@ function App() {
               "",
 
             newUsername:
+              serverUsername ||
               profile?.username ||
               "",
           }
@@ -1243,7 +1649,8 @@ function App() {
 
         const username =
           normalizeUsername(
-            profile?.username ||
+            serverUsername ||
+              profile?.username ||
               ""
           );
 
@@ -1617,6 +2024,11 @@ function App() {
 
         await fetchSplits();
 
+        await success(
+          "Expense Added!",
+          "Your expense was saved successfully and the balances were updated."
+        );
+
         return true;
       } catch (err) {
         console.error(
@@ -1626,6 +2038,85 @@ function App() {
 
         await error(
           "Unable to Save Expense",
+          "Please try again."
+        );
+
+        return false;
+      } finally {
+        setSaving(
+          false
+        );
+      }
+    };
+
+  // =========================================
+  // UPDATE SPLIT
+  // =========================================
+
+  const updateSplit =
+    async (
+      id,
+      data
+    ) => {
+      if (
+        !activeServer?.id ||
+        !id
+      ) {
+        return false;
+      }
+
+      try {
+        setSaving(
+          true
+        );
+
+        await updateDoc(
+          doc(
+            db,
+            "servers",
+            activeServer.id,
+            "splits",
+            id
+          ),
+          {
+            ...data,
+
+            updatedByUid:
+              user.uid,
+
+            updatedByEmail:
+              user.email ||
+              "",
+
+            updatedByUsername:
+              profile?.username ||
+              "",
+
+            updatedAt:
+              serverTimestamp(),
+          }
+        );
+
+        await fetchSplits();
+
+        setEditingSplit(
+          null
+        );
+
+        await success(
+          "Expense Updated!",
+          "Your changes were saved successfully and the balances were recalculated."
+        );
+
+        return true;
+      } catch (err) {
+        console.error(
+          "Update split error:",
+          err
+        );
+
+        await error(
+          "Unable to Update Expense",
           "Please try again."
         );
 
@@ -1837,6 +2328,199 @@ function App() {
     };
 
   // =========================================
+  // MARK SIMPLIFIED / NET BALANCE PAID
+  // =========================================
+
+  const markNetPaid =
+    async ({
+      debtorKey,
+      creditorKey,
+      debtorName,
+      creditorName,
+      amount,
+      forwardRawTotal,
+      reverseRawTotal,
+    }) => {
+      const forwardId =
+        getSettlementId(
+          debtorKey,
+          creditorKey
+        );
+
+      const reverseId =
+        getSettlementId(
+          creditorKey,
+          debtorKey
+        );
+
+      const approved =
+        await confirm({
+          type:
+            "info",
+
+          title:
+            "Settle Simplified Balance?",
+
+          message:
+            `${debtorName} will settle the net balance with ${creditorName} for ₱${Number(
+              amount
+            ).toLocaleString(
+              "en-PH",
+              {
+                minimumFractionDigits:
+                  2,
+
+                maximumFractionDigits:
+                  2,
+              }
+            )}. The mutual debts in both directions will be treated as settled.`,
+
+          confirmText:
+            "Settle Net Balance",
+        });
+
+      if (!approved) {
+        return;
+      }
+
+      try {
+        setPaymentLoading(
+          forwardId
+        );
+
+        const writes = [
+          setDoc(
+            doc(
+              db,
+              "servers",
+              activeServer.id,
+              "settlements",
+              forwardId
+            ),
+            {
+              debtorKey:
+                normalizeName(
+                  debtorKey
+                ),
+
+              creditorKey:
+                normalizeName(
+                  creditorKey
+                ),
+
+              debtor:
+                debtorName,
+
+              creditor:
+                creditorName,
+
+              settledAmount:
+                Number(
+                  forwardRawTotal
+                ) || 0,
+
+              settlementType:
+                "netted",
+
+              netPaymentAmount:
+                Number(
+                  amount
+                ) || 0,
+
+              updatedByUid:
+                user.uid,
+
+              updatedByEmail:
+                user.email ||
+                "",
+
+              updatedAt:
+                serverTimestamp(),
+            }
+          ),
+        ];
+
+        if (
+          Number(
+            reverseRawTotal
+          ) > 0
+        ) {
+          writes.push(
+            setDoc(
+              doc(
+                db,
+                "servers",
+                activeServer.id,
+                "settlements",
+                reverseId
+              ),
+              {
+                debtorKey:
+                  normalizeName(
+                    creditorKey
+                  ),
+
+                creditorKey:
+                  normalizeName(
+                    debtorKey
+                  ),
+
+                debtor:
+                  creditorName,
+
+                creditor:
+                  debtorName,
+
+                settledAmount:
+                  Number(
+                    reverseRawTotal
+                  ) || 0,
+
+                settlementType:
+                  "netted",
+
+                netPaymentAmount:
+                  Number(
+                    amount
+                  ) || 0,
+
+                updatedByUid:
+                  user.uid,
+
+                updatedByEmail:
+                  user.email ||
+                  "",
+
+                updatedAt:
+                  serverTimestamp(),
+              }
+            )
+          );
+        }
+
+        await Promise.all(
+          writes
+        );
+
+        await fetchSettlements();
+      } catch (err) {
+        console.error(
+          "Net payment error:",
+          err
+        );
+
+        await error(
+          "Payment Update Failed",
+          "We couldn't settle the simplified balance."
+        );
+      } finally {
+        setPaymentLoading(
+          null
+        );
+      }
+    };
+
+  // =========================================
   // RESTORE PAYMENT
   // =========================================
 
@@ -1906,6 +2590,77 @@ function App() {
     };
 
   // =========================================
+  // RESTORE FROM TRASH
+  // =========================================
+
+  const restoreFromTrash =
+    async (
+      settlement
+    ) => {
+      if (
+        !settlement?.id
+      ) {
+        return;
+      }
+
+      const approved =
+        await confirm({
+          type:
+            "warning",
+
+          title:
+            "Restore Expense?",
+
+          message:
+            `This will restore the split balance. ${settlement.debtor || "This person"} will owe ${settlement.creditor || "the other person"} again and the expense will appear in Balances.`,
+
+          confirmText:
+            "Restore Expense",
+        });
+
+      if (!approved) {
+        return;
+      }
+
+      try {
+        setPaymentLoading(
+          settlement.id
+        );
+
+        await deleteDoc(
+          doc(
+            db,
+            "servers",
+            activeServer.id,
+            "settlements",
+            settlement.id
+          )
+        );
+
+        await fetchSettlements();
+
+        await success(
+          "Expense Restored",
+          "The paid record was removed from Trash. The original split balance is active again."
+        );
+      } catch (err) {
+        console.error(
+          "Trash restore error:",
+          err
+        );
+
+        await error(
+          "Unable to Restore",
+          "Please try again."
+        );
+      } finally {
+        setPaymentLoading(
+          null
+        );
+      }
+    };
+
+  // =========================================
   // SERVER MANAGEMENT
   // =========================================
 
@@ -1961,6 +2716,10 @@ function App() {
 
       setActiveServer(
         null
+      );
+
+      setServerUsername(
+        ""
       );
 
       setServerToManage(
@@ -2035,6 +2794,15 @@ function App() {
     (
       nextPage
     ) => {
+      if (
+        nextPage !==
+        "split"
+      ) {
+        setEditingSplit(
+          null
+        );
+      }
+
       setPage(
         nextPage
       );
@@ -2056,6 +2824,10 @@ function App() {
     () => {
       setActiveServer(
         null
+      );
+
+      setServerUsername(
+        ""
       );
 
       setServerPeople(
@@ -2141,15 +2913,54 @@ function App() {
       )
     )
   ) {
-    return (
-      <div className="flex min-h-[100dvh] items-center justify-center bg-[#eaf0fa]">
-        <div className="text-center">
-          <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-[#cfd9ed] border-t-[#142a76]" />
+    const loadingPercent =
+      authLoading
+        ? 28
+        : profileLoading
+        ? 68
+        : adminLoading
+        ? 88
+        : 100;
 
-          <p className="mt-4 text-sm font-bold text-[#8995aa]">
-            Loading Money
-            Splitter...
+    return (
+      <div className="relative flex min-h-[100dvh] items-center justify-center overflow-hidden bg-gradient-to-br from-[#eaf0fa] via-[#f8faff] to-[#e4ebff] px-6">
+        <div className="absolute -left-24 -top-24 h-72 w-72 rounded-full bg-[#294aad]/10 blur-2xl" />
+        <div className="absolute -bottom-28 -right-20 h-80 w-80 rounded-full bg-[#3d63d2]/10 blur-2xl" />
+
+        <div className="relative z-10 w-full max-w-sm text-center">
+          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-[26px] bg-gradient-to-br from-[#10245f] to-[#3d63d2] text-white shadow-[0_18px_45px_rgba(20,42,118,0.25)]">
+            <CircleDollarSign
+              size={38}
+            />
+          </div>
+
+          <h1 className="mt-5 text-2xl font-black text-[#182442]">
+            Money Splitter
+          </h1>
+
+          <p className="mt-2 text-sm font-medium text-[#8995aa]">
+            Preparing your workspace...
           </p>
+
+          <div className="mt-7 overflow-hidden rounded-full bg-[#dfe6f2] p-1">
+            <div
+              className="h-3 rounded-full bg-gradient-to-r from-[#142a76] to-[#3d63d2] transition-all duration-500"
+              style={{
+                width:
+                  `${loadingPercent}%`,
+              }}
+            />
+          </div>
+
+          <div className="mt-3 flex items-center justify-between text-xs font-extrabold text-[#71809a]">
+            <span>
+              Loading
+            </span>
+
+            <span>
+              {loadingPercent}%
+            </span>
+          </div>
         </div>
       </div>
     );
@@ -2249,7 +3060,7 @@ function App() {
             isSuperAdmin
           }
           onSelectServer={
-            setActiveServer
+            handleSelectServer
           }
           onRefreshServers={
             fetchServers
@@ -2258,6 +3069,119 @@ function App() {
             setServerToManage
           }
         />
+
+        <Dialog />
+      </>
+    );
+  }
+
+  if (
+    pendingServer
+  ) {
+    return (
+      <>
+        <div className="relative flex min-h-[100dvh] items-center justify-center overflow-hidden bg-[#eaf0fa] px-4 py-8">
+          <div className="pointer-events-none absolute -left-24 -top-24 h-72 w-72 rounded-full bg-[#cfdcff]/70 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-28 -right-20 h-80 w-80 rounded-full bg-[#b9c9ff]/55 blur-3xl" />
+
+          <div className="relative z-10 w-full max-w-md overflow-hidden rounded-[28px] border border-white/80 bg-white shadow-[0_24px_70px_rgba(31,53,108,0.15)]">
+            <div className="bg-gradient-to-br from-[#10245f] via-[#142a76] to-[#294aad] p-6 text-white">
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-blue-100/60">
+                Workspace Username
+              </p>
+
+              <h2 className="mt-1 text-2xl font-extrabold">
+                Choose another username
+              </h2>
+
+              <p className="mt-2 text-sm leading-6 text-blue-100/75">
+                Your preferred username is already used by a different email inside {pendingServer.name}.
+              </p>
+            </div>
+
+            <div className="space-y-4 p-5 sm:p-6">
+              <div className="rounded-2xl bg-[#fff3df] px-4 py-3 text-xs font-bold leading-5 text-[#9a6717]">
+                {usernameConflictMessage}
+              </div>
+
+              <div>
+                <label className="app-label">
+                  Username for {pendingServer.name}
+                </label>
+
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 font-extrabold text-[#8995aa]">
+                    @
+                  </span>
+
+                  <input
+                    value={
+                      pendingUsername
+                    }
+                    onChange={(event) => {
+                      setPendingUsername(
+                        normalizeUsername(
+                          event.target.value
+                        )
+                      );
+
+                      setUsernameConflictMessage(
+                        ""
+                      );
+                    }}
+                    maxLength={20}
+                    autoFocus
+                    className="app-input pl-8"
+                    placeholder="choose_another_name"
+                  />
+                </div>
+
+                <p className="mt-2 text-xs leading-5 text-[#8995aa]">
+                  This username applies only inside this workspace. Your preferred profile username stays unchanged.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                disabled={
+                  usernameChecking ||
+                  pendingUsername.length < 3
+                }
+                onClick={
+                  confirmWorkspaceUsername
+                }
+                className="app-button-primary min-h-12 w-full disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {usernameChecking
+                  ? "Checking..."
+                  : "Use This Username"}
+              </button>
+
+              <button
+                type="button"
+                disabled={
+                  usernameChecking
+                }
+                onClick={() => {
+                  setPendingServer(
+                    null
+                  );
+
+                  setPendingUsername(
+                    ""
+                  );
+
+                  setUsernameConflictMessage(
+                    ""
+                  );
+                }}
+                className="min-h-11 w-full rounded-xl bg-[#eef2f8] text-sm font-extrabold text-[#52617d]"
+              >
+                Back to Workspaces
+              </button>
+            </div>
+          </div>
+        </div>
 
         <Dialog />
       </>
@@ -2357,6 +3281,9 @@ function App() {
       ) {
         return (
           <Dashboard
+            user={
+              user
+            }
             profile={
               profile
             }
@@ -2365,6 +3292,9 @@ function App() {
             }
             savedSplits={
               savedSplits
+            }
+            serverPeople={
+              serverPeople
             }
           />
         );
@@ -2388,6 +3318,17 @@ function App() {
             onSave={
               saveSplit
             }
+            onUpdate={
+              updateSplit
+            }
+            editingSplit={
+              editingSplit
+            }
+            onCancelEdit={() =>
+              setEditingSplit(
+                null
+              )
+            }
             saving={
               saving
             }
@@ -2400,32 +3341,49 @@ function App() {
         "balances"
       ) {
         return (
-          <PersonTotals
-            people={
-              serverPeople
-            }
-            savedSplits={
-              savedSplits
-            }
-            settlements={
-              settlements
-            }
-            onMarkPaid={
-              markPaid
-            }
-            onRestorePayment={
-              restorePayment
-            }
-            onViewWallet={
-              setWalletPerson
-            }
-            paymentLoading={
-              paymentLoading
-            }
-            getSettlementId={
-              getSettlementId
-            }
-          />
+          <>
+            <PersonTotals
+              people={
+                serverPeople
+              }
+              savedSplits={
+                savedSplits
+              }
+              settlements={
+                settlements
+              }
+              onMarkPaid={
+                markPaid
+              }
+              onMarkNetPaid={
+                markNetPaid
+              }
+              onRestorePayment={
+                restorePayment
+              }
+              onViewWallet={
+                setWalletPerson
+              }
+              paymentLoading={
+                paymentLoading
+              }
+              getSettlementId={
+                getSettlementId
+              }
+            />
+
+            <TrashPanel
+              settlements={
+                settlements
+              }
+              onRestoreFromTrash={
+                restoreFromTrash
+              }
+              paymentLoading={
+                paymentLoading
+              }
+            />
+          </>
         );
       }
 
@@ -2460,6 +3418,19 @@ function App() {
             onDelete={
               deleteSplit
             }
+            onEdit={(split) => {
+              setEditingSplit(
+                split
+              );
+              setPage(
+                "split"
+              );
+              window.scrollTo({
+                top: 0,
+                behavior:
+                  "smooth",
+              });
+            }}
             formatDate={
               formatDate
             }
@@ -2479,8 +3450,17 @@ function App() {
             profile={
               profile
             }
+            activeServer={
+              activeServer
+            }
+            serverUsername={
+              serverUsername
+            }
             onProfileUpdated={
               setProfile
+            }
+            onSignOut={
+              handleSignOut
             }
           />
         );
@@ -2768,7 +3748,7 @@ function App() {
           4 ITEMS NOW
       ====================================== */}
 
-      <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-[#d8e0ed] bg-[#f7f9fd]/95 px-2 pb-[max(env(safe-area-inset-bottom),8px)] pt-2 shadow-[0_-8px_30px_rgba(20,42,118,0.08)] backdrop-blur-xl lg:hidden">
+      <nav className="fixed bottom-[max(env(safe-area-inset-bottom),12px)] left-3 right-3 z-50 rounded-[24px] border border-white/70 bg-[#f7f9fd]/92 px-2 py-2 shadow-[0_18px_50px_rgba(20,42,118,0.20)] backdrop-blur-xl lg:hidden">
         <div className="mx-auto grid max-w-xl grid-cols-4 gap-1">
           {navItems.map(
             ({
