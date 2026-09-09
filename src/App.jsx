@@ -2821,7 +2821,28 @@ function App() {
   // =========================================
 
   const changeServer =
-    () => {
+    async () => {
+      const approved =
+        await confirm({
+          type:
+            "warning",
+
+          title:
+            "Leave Workspace?",
+
+          message:
+            `Are you sure you want to leave "${activeServer?.name || "this workspace"}"? Your expenses and workspace data will remain saved.`,
+
+          confirmText:
+            "Leave Workspace",
+        });
+
+      if (
+        !approved
+      ) {
+        return;
+      }
+
       setActiveServer(
         null
       );

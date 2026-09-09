@@ -290,6 +290,20 @@ function Dashboard({
       savedSplits,
     ]);
 
+  const topCategoryNames =
+    useMemo(
+      () =>
+        categoryData
+          .slice(0, 3)
+          .map(
+            (item) =>
+              item.name
+          ),
+      [
+        categoryData,
+      ]
+    );
+
   const topCoverers =
     useMemo(() => {
       const map = {};
@@ -382,80 +396,182 @@ function Dashboard({
       serverPeople,
     ]);
 
-  const monthlyData =
+  const weeklyData =
     useMemo(() => {
-      const now =
-        new Date();
-
+      const now = new Date();
       const rows = [];
 
       for (
-        let offset = 3;
-        offset >= 0;
-        offset -= 1
+        let monthOffset = 1;
+        monthOffset >= 0;
+        monthOffset -= 1
       ) {
-        const date =
-          new Date(
-            now.getFullYear(),
-            now.getMonth() -
-              offset,
-            1
+        const monthDate = new Date(
+          now.getFullYear(),
+          now.getMonth() - monthOffset,
+          1
+        );
+
+        const year = monthDate.getFullYear();
+        const month = monthDate.getMonth();
+        const daysInMonth = new Date(
+          year,
+          month + 1,
+          0
+        ).getDate();
+
+        const weekCount = Math.ceil(
+          daysInMonth / 7
+        );
+
+        for (
+          let weekIndex = 0;
+          weekIndex < weekCount;
+          weekIndex += 1
+        ) {
+          const startDay =
+            weekIndex * 7 + 1;
+
+          const endDay = Math.min(
+            startDay + 6,
+            daysInMonth
           );
 
-        rows.push({
-          key: `${date.getFullYear()}-${date.getMonth()}`,
-          label:
-            date.toLocaleString(
+          const categoryAmounts = {};
+
+          topCategoryNames.forEach(
+            (category) => {
+              categoryAmounts[
+                category
+              ] = 0;
+            }
+          );
+
+          const monthLabel =
+            monthDate.toLocaleString(
               "en-PH",
               {
-                month:
-                  "short",
+                month: "short",
               }
-            ),
-          amount: 0,
-        });
+            );
+
+          rows.push({
+            key:
+              `${year}-${month}-${weekIndex}`,
+            year,
+            month,
+            weekIndex,
+            weekNumber:
+              weekIndex + 1,
+            weekLabel:
+              `W${weekIndex + 1}`,
+            monthLabel,
+            label:
+              `W${weekIndex + 1}`,
+            rangeLabel:
+              `${startDay}-${endDay}`,
+            amount: 0,
+            categoryAmounts,
+          });
+        }
       }
 
-      savedSplits.forEach(
-        (split) => {
-          const date =
-            getDate(
-              split.createdAt
-            );
+      savedSplits.forEach((split) => {
+        const date =
+          getDate(split.createdAt);
 
-          if (!date) return;
+        if (!date) return;
 
-          const key =
-            `${date.getFullYear()}-${date.getMonth()}`;
+        const weekIndex =
+          Math.floor(
+            (date.getDate() - 1) /
+              7
+          );
 
-          const row =
-            rows.find(
-              (item) =>
-                item.key === key
-            );
+        const key =
+          `${date.getFullYear()}-${date.getMonth()}-${weekIndex}`;
 
-          if (row) {
-            row.amount +=
-              Number(
-                split.totalAmount ||
-                  0
-              );
-          }
+        const row = rows.find(
+          (item) =>
+            item.key === key
+        );
+
+        if (!row) return;
+
+        const amount = Number(
+          split.totalAmount || 0
+        );
+
+        row.amount += amount;
+
+        const category =
+          split.category || "Other";
+
+        if (
+          topCategoryNames.includes(
+            category
+          )
+        ) {
+          row.categoryAmounts[
+            category
+          ] += amount;
         }
-      );
+      });
 
       return rows;
-    }, [
-      savedSplits,
-    ]);
+    }, [savedSplits, topCategoryNames]);
 
-  const maxMonthly =
-    Math.max(
-      ...monthlyData.map(
-        (item) =>
-          item.amount
-      ),
-      1
+  const maxWeekly = Math.max(
+    ...weeklyData.map(
+      (item) => item.amount
+    ),
+    1
+  );
+
+  const currentWeekIndex =
+    Math.floor(
+      (new Date().getDate() - 1) /
+        7
+    );
+
+  const currentWeekData =
+    weeklyData.find(
+      (item) =>
+        item.year ===
+          new Date().getFullYear() &&
+        item.month ===
+          new Date().getMonth() &&
+        item.weekIndex ===
+          currentWeekIndex
+    ) ||
+    weeklyData[
+      weeklyData.length - 1
+    ] ||
+    null;
+
+  const twoMonthTotal =
+    weeklyData.reduce(
+      (sum, item) =>
+        sum +
+        Number(item.amount || 0),
+      0
+    );
+
+  const twoMonthCategoryTotals =
+    topCategoryNames.map(
+      (category) => ({
+        name: category,
+        amount: weeklyData.reduce(
+          (sum, item) =>
+            sum +
+            Number(
+              item.categoryAmounts?.[
+                category
+              ] || 0
+            ),
+          0
+        ),
+      })
     );
 
   const serverType =
@@ -650,146 +766,676 @@ function Dashboard({
 
               <div>
                 <h2 className="font-extrabold text-[#182442]">
-                  Monthly Expense Comparison
+                  Spending Trends & Categories
                 </h2>
 
                 <p className="mt-1 text-xs text-[#8995aa]">
-                  Last 4 months · available for long-term workspaces
+                  Weekly spending plus your top categories across the last 2 months
                 </p>
               </div>
             </div>
 
-            <div className="mt-6 overflow-hidden rounded-2xl border border-[#dfe6f3] bg-[#f8faff] p-4">
-              <div className="relative h-56 w-full">
-                <div className="absolute inset-x-0 top-0 border-t border-dashed border-[#d8e1f0]" />
-                <div className="absolute inset-x-0 top-1/3 border-t border-dashed border-[#e2e8f2]" />
-                <div className="absolute inset-x-0 top-2/3 border-t border-dashed border-[#e2e8f2]" />
-                <div className="absolute inset-x-0 bottom-0 border-t border-[#d8e1f0]" />
+            <div className="mt-6 overflow-hidden rounded-[24px] border border-[#dbe4f4] bg-gradient-to-b from-white to-[#f7f9ff] p-4 shadow-[0_12px_30px_rgba(20,42,118,0.06)] sm:p-5">
+              <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#8995aa]">
+                    Weekly spending trend
+                  </p>
 
-                <svg
-                  viewBox="0 0 100 70"
-                  preserveAspectRatio="none"
-                  className="absolute inset-0 h-[180px] w-full overflow-visible"
-                >
-                  <defs>
-                    <linearGradient
-                      id="monthlyLineFill"
-                      x1="0"
-                      y1="0"
-                      x2="0"
-                      y2="1"
-                    >
-                      <stop
-                        offset="0%"
-                        stopColor="#3d63d2"
-                        stopOpacity="0.22"
-                      />
-                      <stop
-                        offset="100%"
-                        stopColor="#3d63d2"
-                        stopOpacity="0"
-                      />
-                    </linearGradient>
-                  </defs>
+                  <p className="mt-1 text-2xl font-black text-[#182442]">
+                    ₱
+                    {Number(
+                      currentWeekData?.amount ||
+                        0
+                    ).toLocaleString(
+                      "en-PH",
+                      {
+                        maximumFractionDigits:
+                          0,
+                      }
+                    )}
+                  </p>
 
-                  {monthlyData.length > 1 && (
-                    <>
-                      <path
-                        d={`M ${monthlyData
-                          .map((item, index) => {
-                            const x =
-                              monthlyData.length === 1
-                                ? 50
-                                : (index / (monthlyData.length - 1)) * 100;
+                  <p className="mt-1 text-xs font-bold text-[#71809a]">
+                    Current week · {currentWeekData?.label || ""}
+                  </p>
+                </div>
 
-                            const y =
-                              65 -
-                              (Number(item.amount || 0) /
-                                Math.max(maxMonthly, 1)) *
-                                55;
+                <div className="rounded-2xl bg-[#eef3ff] px-4 py-3 text-right">
+                  <p className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#71809a]">
+                    2-month total
+                  </p>
 
-                            return `${x} ${y}`;
-                          })
-                          .join(" L ")} L 100 70 L 0 70 Z`}
-                        fill="url(#monthlyLineFill)"
-                      />
+                  <p className="mt-1 text-sm font-black text-[#294aad]">
+                    ₱
+                    {twoMonthTotal.toLocaleString(
+                      "en-PH",
+                      {
+                        maximumFractionDigits:
+                          0,
+                      }
+                    )}
+                  </p>
+                </div>
+              </div>
 
-                      <polyline
-                        points={monthlyData
-                          .map((item, index) => {
-                            const x =
-                              monthlyData.length === 1
-                                ? 50
-                                : (index / (monthlyData.length - 1)) * 100;
+              <div className="w-full overflow-x-auto pb-2">
+                <div className="mx-auto min-w-[900px] max-w-[1100px]">
+                <div className="mb-4 flex flex-wrap gap-2">
+                  <div className="inline-flex items-center gap-2 rounded-full bg-[#eef3ff] px-3 py-1.5 text-[11px] font-extrabold text-[#294aad]">
+                    <span className="h-2.5 w-2.5 rounded-full bg-[#294aad]" />
+                    Total
+                  </div>
 
-                            const y =
-                              65 -
-                              (Number(item.amount || 0) /
-                                Math.max(maxMonthly, 1)) *
-                                55;
+                  {topCategoryNames.map(
+                    (
+                      category,
+                      index
+                    ) => {
+                      const swatches =
+                        [
+                          "#18845c",
+                          "#c47a16",
+                          "#8b5cf6",
+                        ];
 
-                            return `${x},${y}`;
-                          })
-                          .join(" ")}
-                        fill="none"
-                        stroke="#294aad"
-                        strokeWidth="2.8"
-                        vectorEffect="non-scaling-stroke"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </>
+                      return (
+                        <div
+                          key={
+                            category
+                          }
+                          className="inline-flex items-center gap-2 rounded-full bg-[#f7f9fc] px-3 py-1.5 text-[11px] font-extrabold text-[#52617d]"
+                        >
+                          <span
+                            className="h-2.5 w-2.5 rounded-full"
+                            style={{
+                              backgroundColor:
+                                swatches[
+                                  index %
+                                    swatches.length
+                                ],
+                            }}
+                          />
+
+                          {
+                            category
+                          }
+                        </div>
+                      );
+                    }
                   )}
+                </div>
 
-                  {monthlyData.map((item, index) => {
-                    const x =
-                      monthlyData.length === 1
-                        ? 50
-                        : (index / (monthlyData.length - 1)) * 100;
+                <div className="relative h-[325px] w-full">
+                  <div className="absolute inset-x-0 top-[18px] border-t border-dashed border-[#dce4f1]" />
+                  <div className="absolute inset-x-0 top-[78px] border-t border-dashed border-[#e6ebf4]" />
+                  <div className="absolute inset-x-0 top-[138px] border-t border-dashed border-[#e6ebf4]" />
+                  <div className="absolute inset-x-0 top-[198px] border-t border-dashed border-[#e6ebf4]" />
 
-                    const y =
-                      65 -
-                      (Number(item.amount || 0) /
-                        Math.max(maxMonthly, 1)) *
-                        55;
+                  {(() => {
+                    const chartTop =
+                      18;
+                    const chartBottom =
+                      198;
+                    const chartHeight =
+                      chartBottom -
+                      chartTop;
+
+                    const getXPercent =
+                      (index) =>
+                        weeklyData.length <=
+                        1
+                          ? 50
+                          : ((index +
+                              0.5) /
+                              weeklyData.length) *
+                            100;
+
+                    const getY =
+                      (value) =>
+                        chartBottom -
+                        (Number(
+                          value ||
+                            0
+                        ) /
+                          Math.max(
+                            maxWeekly,
+                            1
+                          )) *
+                          chartHeight;
+
+                    const totalPoints =
+                      weeklyData.map(
+                        (
+                          item,
+                          index
+                        ) => ({
+                          x:
+                            getXPercent(
+                              index
+                            ),
+                          y:
+                            getY(
+                              item.amount
+                            ),
+                          value:
+                            item.amount,
+                          item,
+                        })
+                      );
+
+                    const categorySeries =
+                      topCategoryNames.map(
+                        (
+                          category,
+                          categoryIndex
+                        ) => ({
+                          category,
+                          categoryIndex,
+                          points:
+                            weeklyData.map(
+                              (
+                                item,
+                                index
+                              ) => ({
+                                x:
+                                  getXPercent(
+                                    index
+                                  ),
+                                y:
+                                  getY(
+                                    item
+                                      .categoryAmounts?.[
+                                      category
+                                    ] ||
+                                      0
+                                  ),
+                                value:
+                                  item
+                                    .categoryAmounts?.[
+                                    category
+                                  ] ||
+                                  0,
+                                item,
+                              })
+                            ),
+                        })
+                      );
+
+                    const toSvg =
+                      (points) =>
+                        points.map(
+                          (
+                            point
+                          ) => ({
+                            x:
+                              point.x,
+                            y:
+                              (point.y /
+                                210) *
+                              100,
+                          })
+                        );
+
+                    const buildSmoothPath =
+                      (
+                        rows
+                      ) => {
+                        if (
+                          rows.length ===
+                          0
+                        ) {
+                          return "";
+                        }
+
+                        if (
+                          rows.length ===
+                          1
+                        ) {
+                          return `M ${rows[0].x} ${rows[0].y}`;
+                        }
+
+                        let path =
+                          `M ${rows[0].x} ${rows[0].y}`;
+
+                        for (
+                          let index =
+                            0;
+                          index <
+                          rows.length -
+                            1;
+                          index +=
+                          1
+                        ) {
+                          const current =
+                            rows[index];
+                          const next =
+                            rows[
+                              index +
+                                1
+                            ];
+
+                          const midpoint =
+                            (current.x +
+                              next.x) /
+                            2;
+
+                          path +=
+                            ` C ${midpoint} ${current.y}, ${midpoint} ${next.y}, ${next.x} ${next.y}`;
+                        }
+
+                        return path;
+                      };
+
+                    const totalSvg =
+                      toSvg(
+                        totalPoints
+                      );
+
+                    const totalPath =
+                      buildSmoothPath(
+                        totalSvg
+                      );
+
+                    const bottomY =
+                      (chartBottom /
+                        210) *
+                      100;
+
+                    const areaPath =
+                      totalSvg.length >
+                      0
+                        ? `${totalPath} L ${totalSvg[totalSvg.length - 1].x} ${bottomY} L ${totalSvg[0].x} ${bottomY} Z`
+                        : "";
+
+                    const categoryColors =
+                      [
+                        "#18845c",
+                        "#c47a16",
+                        "#8b5cf6",
+                      ];
 
                     return (
-                      <circle
-                        key={item.key}
-                        cx={x}
-                        cy={y}
-                        r="2.4"
-                        fill="#ffffff"
-                        stroke="#294aad"
-                        strokeWidth="2"
-                        vectorEffect="non-scaling-stroke"
-                      />
-                    );
-                  })}
-                </svg>
+                      <>
+                        <svg
+                          viewBox="0 0 100 100"
+                          preserveAspectRatio="none"
+                          className="absolute inset-x-0 top-0 h-[210px] w-full overflow-visible"
+                          role="img"
+                          aria-label="Weekly total spending and category spending chart for the last 2 months"
+                        >
+                          <defs>
+                            <linearGradient
+                              id="monthlyAreaFill"
+                              x1="0"
+                              y1="0"
+                              x2="0"
+                              y2="1"
+                            >
+                              <stop
+                                offset="0%"
+                                stopColor="#3d63d2"
+                                stopOpacity="0.20"
+                              />
+                              <stop
+                                offset="100%"
+                                stopColor="#3d63d2"
+                                stopOpacity="0"
+                              />
+                            </linearGradient>
+                          </defs>
 
-                <div className="absolute inset-x-0 top-[185px] grid grid-cols-4 gap-2">
-                  {monthlyData.map((item) => (
-                    <div
-                      key={item.key}
-                      className="text-center"
-                    >
-                      <p className="text-[10px] font-black text-[#294aad] sm:text-xs">
-                        ₱
-                        {Number(item.amount || 0).toLocaleString(
-                          "en-PH",
-                          {
-                            maximumFractionDigits: 0,
+                          <path
+                            d={
+                              areaPath
+                            }
+                            fill="url(#monthlyAreaFill)"
+                          />
+
+                          {categorySeries.map(
+                            (
+                              series
+                            ) => (
+                              <path
+                                key={
+                                  series.category
+                                }
+                                d={
+                                  buildSmoothPath(
+                                    toSvg(
+                                      series.points
+                                    )
+                                  )
+                                }
+                                fill="none"
+                                stroke={
+                                  categoryColors[
+                                    series.categoryIndex %
+                                      categoryColors.length
+                                  ]
+                                }
+                                strokeWidth="0.65"
+                                vectorEffect="non-scaling-stroke"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeDasharray="3 3"
+                              />
+                            )
+                          )}
+
+                          <path
+                            d={
+                              totalPath
+                            }
+                            fill="none"
+                            stroke="#294aad"
+                            strokeWidth="1"
+                            vectorEffect="non-scaling-stroke"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+
+                        {totalPoints.map(
+                          (
+                            point
+                          ) => (
+                            <div
+                              key={
+                                point.item
+                                  .key
+                              }
+                              className="absolute z-20 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-[3px] border-[#294aad] bg-white shadow-[0_3px_10px_rgba(20,42,118,0.18)]"
+                              style={{
+                                left:
+                                  `${point.x}%`,
+                                top:
+                                  `${point.y}px`,
+                              }}
+                            >
+                              <span className="absolute left-1/2 top-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#294aad]" />
+                            </div>
+                          )
+                        )}
+
+                        {categorySeries.map(
+                          (
+                            series
+                          ) =>
+                            series.points.map(
+                              (
+                                point
+                              ) => (
+                                <div
+                                  key={`${series.category}-${point.item.key}`}
+                                  className="absolute z-10 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 bg-white"
+                                  style={{
+                                    left:
+                                      `${point.x}%`,
+                                    top:
+                                      `${point.y}px`,
+                                    borderColor:
+                                      categoryColors[
+                                        series.categoryIndex %
+                                          categoryColors.length
+                                      ],
+                                  }}
+                                  title={`${series.category}: ₱${Number(
+                                    point.value ||
+                                      0
+                                  ).toLocaleString(
+                                    "en-PH",
+                                    {
+                                      maximumFractionDigits:
+                                        0,
+                                    }
+                                  )}`}
+                                />
+                              )
+                            )
+                        )}
+
+                        {totalPoints.map(
+                          (
+                            point,
+                            index
+                          ) => (
+                            <div
+                              key={`${point.item.key}-label`}
+                              className="absolute top-[218px] w-[70px] -translate-x-1/2 text-center"
+                              style={{
+                                left:
+                                  `${point.x}%`,
+                              }}
+                            >
+                              <p
+                                className={`text-[11px] font-black sm:text-xs ${
+                                  index ===
+                                  totalPoints.length -
+                                    1
+                                    ? "text-[#294aad]"
+                                    : "text-[#52617d]"
+                                }`}
+                              >
+                                ₱
+                                {Number(
+                                  point.value ||
+                                    0
+                                ).toLocaleString(
+                                  "en-PH",
+                                  {
+                                    maximumFractionDigits:
+                                      0,
+                                  }
+                                )}
+                              </p>
+
+                              <div className="mx-auto mt-1 h-1 w-1 rounded-full bg-[#c9d5ec]" />
+
+                              <p
+                                className={`mt-1 text-[11px] font-black uppercase tracking-[0.08em] sm:text-xs ${
+                                  index ===
+                                  totalPoints.length -
+                                    1
+                                    ? "text-[#294aad]"
+                                    : "text-[#52617d]"
+                                }`}
+                              >
+                                {point.item.weekLabel}
+                              </p>
+
+                            </div>
+                          )
+                        )}
+
+                        {(() => {
+                          const monthGroups = [];
+
+                          totalPoints.forEach(
+                            (
+                              point,
+                              index
+                            ) => {
+                              const lastGroup =
+                                monthGroups[
+                                  monthGroups.length -
+                                    1
+                                ];
+
+                              if (
+                                lastGroup &&
+                                lastGroup.month ===
+                                  point.item
+                                    .month &&
+                                lastGroup.year ===
+                                  point.item
+                                    .year
+                              ) {
+                                lastGroup.endIndex =
+                                  index;
+                              } else {
+                                monthGroups.push(
+                                  {
+                                    month:
+                                      point
+                                        .item
+                                        .month,
+                                    year:
+                                      point
+                                        .item
+                                        .year,
+                                    label:
+                                      point
+                                        .item
+                                        .monthLabel,
+                                    startIndex:
+                                      index,
+                                    endIndex:
+                                      index,
+                                  }
+                                );
+                              }
+                            }
+                          );
+
+                          return monthGroups.map(
+                            (
+                              group
+                            ) => {
+                              const firstPoint =
+                                totalPoints[
+                                  group
+                                    .startIndex
+                                ];
+
+                              const lastPoint =
+                                totalPoints[
+                                  group
+                                    .endIndex
+                                ];
+
+                              const firstX =
+                                firstPoint?.x ||
+                                0;
+
+                              const lastX =
+                                lastPoint?.x ||
+                                firstX;
+
+                              const centerX =
+                                (firstX +
+                                  lastX) /
+                                2;
+
+                              const groupWidth =
+                                Math.max(
+                                  lastX -
+                                    firstX +
+                                    8,
+                                  18
+                                );
+
+                              return (
+                                <div
+                                  key={`${group.year}-${group.month}-group`}
+                                  className="absolute top-[262px] -translate-x-1/2 text-center"
+                                  style={{
+                                    left:
+                                      `${centerX}%`,
+                                    width:
+                                      `${groupWidth}%`,
+                                  }}
+                                >
+                                  <div className="relative mb-1 h-3">
+                                    <div className="absolute left-0 right-0 top-1.5 h-px bg-[#d7e0ef]" />
+                                    <div className="absolute left-0 top-0 h-3 w-px bg-[#d7e0ef]" />
+                                    <div className="absolute right-0 top-0 h-3 w-px bg-[#d7e0ef]" />
+                                  </div>
+
+                                  <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#7d8ba5] sm:text-xs">
+                                    {
+                                      group.label
+                                    }
+                                  </p>
+                                </div>
+                              );
+                            }
+                          );
+                        })()}
+                      </>
+                    );
+                  })()}
+                </div>
+
+                </div>
+
+                {topCategoryNames.length >
+                  0 && (
+                  <div className="mt-3 rounded-2xl bg-[#f7f9fc] p-4">
+                    <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#8995aa]">
+                      Category totals
+                    </p>
+
+                    <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                      {twoMonthCategoryTotals
+                        .map(
+                          (
+                            item,
+                            index
+                          ) => {
+                            const colors =
+                              [
+                                "#18845c",
+                                "#c47a16",
+                                "#8b5cf6",
+                              ];
+
+                            return (
+                              <div
+                                key={
+                                  item.name
+                                }
+                                className="flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-2"
+                              >
+                                <div className="flex min-w-0 items-center gap-2">
+                                  <span
+                                    className="h-2.5 w-2.5 shrink-0 rounded-full"
+                                    style={{
+                                      backgroundColor:
+                                        colors[
+                                          index %
+                                            colors.length
+                                        ],
+                                    }}
+                                  />
+
+                                  <span className="truncate text-xs font-bold text-[#52617d]">
+                                    {
+                                      item.name
+                                    }
+                                  </span>
+                                </div>
+
+                                <span className="shrink-0 text-xs font-black text-[#182442]">
+                                  ₱
+                                  {Number(
+                                    item.amount ||
+                                      0
+                                  ).toLocaleString(
+                                    "en-PH",
+                                    {
+                                      maximumFractionDigits:
+                                        0,
+                                    }
+                                  )}
+                                </span>
+                              </div>
+                            );
                           }
                         )}
-                      </p>
-
-                      <p className="mt-1 text-[10px] font-extrabold text-[#71809a] sm:text-xs">
-                        {item.label}
-                      </p>
                     </div>
-                  ))}
-                </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -1021,73 +1667,6 @@ function Dashboard({
                   </div>
                 )}
               </div>
-            )}
-          </div>
-        </div>
-
-        <div className="app-card p-5 sm:p-6">
-          <h2 className="font-extrabold text-[#182442]">
-            Spending by Category
-          </h2>
-
-          <p className="mt-1 text-xs text-[#8995aa]">
-            See which categories take the largest share.
-          </p>
-
-          <div className="mt-5 space-y-3">
-            {categoryData.length ===
-            0 ? (
-              <p className="rounded-xl bg-[#eef2f8] p-4 text-sm font-bold text-[#8995aa]">
-                Add expenses to see category insights.
-              </p>
-            ) : (
-              categoryData
-                .slice(0, 6)
-                .map(
-                  (item) => {
-                    const max =
-                      categoryData[0]
-                        ?.amount ||
-                      1;
-
-                    return (
-                      <div
-                        key={
-                          item.name
-                        }
-                      >
-                        <div className="flex items-center justify-between gap-3 text-sm">
-                          <span className="font-bold text-[#52617d]">
-                            {item.name}
-                          </span>
-
-                          <span className="font-extrabold text-[#182442]">
-                            ₱
-                            {money(
-                              item.amount
-                            )}
-                          </span>
-                        </div>
-
-                        <div className="mt-2 h-2 overflow-hidden rounded-full bg-[#edf1f7]">
-                          <div
-                            className="h-full rounded-full bg-[#294aad]"
-                            style={{
-                              width: `${Math.max(
-                                (
-                                  item.amount /
-                                  max
-                                ) *
-                                  100,
-                                4
-                              )}%`,
-                            }}
-                          />
-                        </div>
-                      </div>
-                    );
-                  }
-                )
             )}
           </div>
         </div>

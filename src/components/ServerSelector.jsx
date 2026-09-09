@@ -3,6 +3,7 @@ import {
   ChevronDown,
   ChevronRight,
   Clock3,
+  LoaderCircle,
   Plus,
   Server,
   Settings,
@@ -84,6 +85,11 @@ function ServerSelector({
     setTypeSavingId,
   ] = useState(null);
 
+  const [
+    enteringServerId,
+    setEnteringServerId,
+  ] = useState(null);
+
   const normalizeUsername = (
     value = ""
   ) =>
@@ -126,10 +132,21 @@ function ServerSelector({
         return;
       }
 
-      await onSelectServer?.(
-        entryServer,
-        cleanUsername
-      );
+      try {
+        setEnteringServerId(
+          entryServer?.id ||
+            "entering"
+        );
+
+        await onSelectServer?.(
+          entryServer,
+          cleanUsername
+        );
+      } finally {
+        setEnteringServerId(
+          null
+        );
+      }
     };
 
   const normalizeEmail = (
@@ -588,15 +605,23 @@ function ServerSelector({
                                             : "border-[#dce3ef] bg-[#f8faff]"
                                         }`}
                                       >
-                                        <Clock3
-                                          size={17}
-                                          className={
-                                            type !==
-                                            "long-term"
-                                              ? "text-[#294aad]"
-                                              : "text-[#8995aa]"
-                                          }
-                                        />
+                                        {typeSavingId ===
+                                        server.id ? (
+                                          <LoaderCircle
+                                            size={17}
+                                            className="animate-spin text-[#294aad]"
+                                          />
+                                        ) : (
+                                          <Clock3
+                                            size={17}
+                                            className={
+                                              type !==
+                                              "long-term"
+                                                ? "text-[#294aad]"
+                                                : "text-[#8995aa]"
+                                            }
+                                          />
+                                        )}
 
                                         <p className="mt-2 text-xs font-extrabold text-[#182442]">
                                           Temporary
@@ -622,15 +647,23 @@ function ServerSelector({
                                             : "border-[#dce3ef] bg-[#f8faff]"
                                         }`}
                                       >
-                                        <Users
-                                          size={17}
-                                          className={
-                                            type ===
-                                            "long-term"
-                                              ? "text-[#294aad]"
-                                              : "text-[#8995aa]"
-                                          }
-                                        />
+                                        {typeSavingId ===
+                                        server.id ? (
+                                          <LoaderCircle
+                                            size={17}
+                                            className="animate-spin text-[#294aad]"
+                                          />
+                                        ) : (
+                                          <Users
+                                            size={17}
+                                            className={
+                                              type ===
+                                              "long-term"
+                                                ? "text-[#294aad]"
+                                                : "text-[#8995aa]"
+                                            }
+                                          />
+                                        )}
 
                                         <p className="mt-2 text-xs font-extrabold text-[#182442]">
                                           Long-term
@@ -812,9 +845,16 @@ function ServerSelector({
                     }
                     className="app-button-primary flex min-h-12 w-full items-center justify-center gap-2 disabled:opacity-50"
                   >
-                    <Plus
-                      size={17}
-                    />
+                    {creating ? (
+                      <LoaderCircle
+                        size={17}
+                        className="animate-spin"
+                      />
+                    ) : (
+                      <Plus
+                        size={17}
+                      />
+                    )}
                     {creating
                       ? "Creating..."
                       : "Create Workspace"}
@@ -927,12 +967,27 @@ function ServerSelector({
 
               <button
                 type="button"
+                disabled={
+                  Boolean(
+                    enteringServerId
+                  )
+                }
                 onClick={
                   continueIntoWorkspace
                 }
-                className="app-button-primary min-h-12 w-full"
+                className="app-button-primary flex min-h-12 w-full items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Continue to Workspace
+                {enteringServerId ? (
+                  <>
+                    <LoaderCircle
+                      size={18}
+                      className="animate-spin"
+                    />
+                    Entering Workspace...
+                  </>
+                ) : (
+                  "Continue to Workspace"
+                )}
               </button>
 
               <button
