@@ -32,6 +32,20 @@ const money = (value) =>
     }
   );
 
+const isReversionNotification =
+  (item) =>
+    [
+      "payment_reverted",
+      "balance_reduction_reverted",
+    ].includes(
+      item?.type
+    );
+
+const isBalanceReductionRevert =
+  (item) =>
+    item?.type ===
+    "balance_reduction_reverted";
+
 const formatTime = (value) => {
   const date =
     typeof value?.toDate === "function"
@@ -370,7 +384,15 @@ function NotificationCenter({
                         }`}
                       >
                         <div className="flex items-start gap-3">
-                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#e7f7ef] text-[#18845c]">
+                          <div
+                            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
+                              isReversionNotification(
+                                item
+                              )
+                                ? "bg-[#fff4d9] text-[#b78114]"
+                                : "bg-[#e7f7ef] text-[#18845c]"
+                            }`}
+                          >
                             <ReceiptText
                               size={18}
                             />
@@ -424,11 +446,20 @@ function NotificationCenter({
             <div className="flex items-start justify-between gap-3 bg-gradient-to-r from-[#10245f] to-[#294aad] p-5 text-white">
               <div>
                 <p className="text-[10px] font-black uppercase tracking-[0.14em] text-blue-100/65">
-                  Payment Transaction
+                  {isReversionNotification(
+                    selected
+                  )
+                    ? "Balance Update"
+                    : "Payment Transaction"}
                 </p>
 
                 <h3 className="mt-1 text-xl font-black">
-                  Payment received
+                  {selected.title ||
+                    (isReversionNotification(
+                      selected
+                    )
+                      ? "Balance updated"
+                      : "Payment received")}
                 </h3>
 
                 <p className="mt-1 text-sm text-blue-100/75">
@@ -455,7 +486,15 @@ function NotificationCenter({
             <div className="max-h-[72vh] overflow-y-auto p-5">
               <div className="rounded-2xl bg-[#eef3ff] p-4">
                 <p className="text-xs font-bold uppercase tracking-[0.1em] text-[#71809a]">
-                  Amount received
+                  {isReversionNotification(
+                    selected
+                  )
+                    ? isBalanceReductionRevert(
+                        selected
+                      )
+                      ? "Reduction restored"
+                      : "Payment reverted"
+                    : "Amount received"}
                 </p>
                 <p className="mt-1 text-3xl font-black text-[#142a76]">
                   ₱
@@ -465,13 +504,34 @@ function NotificationCenter({
                 </p>
 
                 <p className="mt-2 text-sm font-bold text-[#52617d]">
-                  From{" "}
+                  {isReversionNotification(
+                    selected
+                  )
+                    ? "Changed by"
+                    : "From"}{" "}
                   <span className="text-[#182442]">
                     {selected.senderName ||
                       selected.senderEmail ||
                       "Workspace member"}
                   </span>
                 </p>
+
+                {isReversionNotification(
+                  selected
+                ) &&
+                  selected.revertNote && (
+                  <div className="mt-3 rounded-xl border border-[#eadfbf] bg-[#fffdf7] p-3">
+                    <p className="text-[10px] font-black uppercase tracking-[0.1em] text-[#a37b22]">
+                      Reason
+                    </p>
+
+                    <p className="mt-1 text-xs font-semibold leading-5 text-[#52617d]">
+                      {
+                        selected.revertNote
+                      }
+                    </p>
+                  </div>
+                )}
               </div>
 
               {Array.isArray(

@@ -1369,7 +1369,7 @@ function PersonTotals({
 
       {paymentRequest &&
         createPortal(
-          <div className="fixed inset-0 z-[2147483647] flex items-center justify-center bg-[#071333]/60 p-3 backdrop-blur-sm">
+          <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-[#071333]/60 p-3 backdrop-blur-sm">
             <div className="flex max-h-[calc(100dvh-24px)] w-full max-w-lg flex-col overflow-hidden rounded-[26px] bg-white shadow-[0_30px_90px_rgba(8,24,70,0.32)]">
               <div className="shrink-0 flex items-start justify-between gap-4 bg-gradient-to-r from-[#10245f] to-[#294aad] p-5 text-white sm:p-6">
                 <div>

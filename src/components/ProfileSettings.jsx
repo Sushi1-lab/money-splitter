@@ -1,6 +1,9 @@
 import {
+  ArrowLeftRight,
+  ChevronRight,
   LogOut,
   Save,
+  Server,
   UserRound,
 } from "lucide-react";
 
@@ -34,6 +37,8 @@ function ProfileSettings({
   serverUsername = "",
   onProfileUpdated,
   onSignOut,
+  onChangeServer,
+  onSwitchApp,
 }) {
   const {
     Dialog,
@@ -175,6 +180,90 @@ function ProfileSettings({
   return (
     <>
       <section className="space-y-5">
+        {/* NOTICEABLE QUICK NAVIGATION */}
+        <div className="relative overflow-hidden rounded-[26px] bg-gradient-to-br from-[#10245f] via-[#1b378e] to-[#3d63d2] p-5 text-white shadow-[0_18px_45px_rgba(20,42,118,0.18)] sm:p-6">
+          <div className="pointer-events-none absolute -right-12 -top-12 h-36 w-36 rounded-full bg-white/10" />
+          <div className="pointer-events-none absolute -bottom-16 left-12 h-32 w-32 rounded-full bg-white/5" />
+
+          <div className="relative z-10">
+            <div className="inline-flex items-center gap-2 rounded-full bg-white/12 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.12em] text-blue-100">
+              Quick navigation
+            </div>
+
+            <div className="mt-3">
+              <h2 className="text-xl font-black sm:text-2xl">
+                Switch where you’re working
+              </h2>
+
+              <p className="mt-1 max-w-xl text-xs leading-5 text-blue-100/75">
+                Change your workspace or go back to the app selector without searching through the main screen.
+              </p>
+            </div>
+
+            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={
+                  onChangeServer
+                }
+                className="group flex min-h-[78px] items-center gap-3 rounded-2xl border border-white/15 bg-white/12 p-4 text-left transition hover:bg-white/18"
+              >
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white text-[#294aad] shadow-sm">
+                  <Server
+                    size={21}
+                  />
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <p className="font-black text-white">
+                    Change Workspace
+                  </p>
+
+                  <p className="mt-1 truncate text-[11px] text-blue-100/65">
+                    {activeServer?.name
+                      ? `Current: ${activeServer.name}`
+                      : "Choose another workspace"}
+                  </p>
+                </div>
+
+                <ChevronRight
+                  size={18}
+                  className="shrink-0 text-blue-100/65 transition group-hover:translate-x-0.5"
+                />
+              </button>
+
+              <button
+                type="button"
+                onClick={
+                  onSwitchApp
+                }
+                className="group flex min-h-[78px] items-center gap-3 rounded-2xl border border-white/15 bg-white/12 p-4 text-left transition hover:bg-white/18"
+              >
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white text-[#294aad] shadow-sm">
+                  <ArrowLeftRight
+                    size={21}
+                  />
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <p className="font-black text-white">
+                    Switch App
+                  </p>
+
+                  <p className="mt-1 text-[11px] text-blue-100/65">
+                    Splitter or Personal Finance
+                  </p>
+                </div>
+
+                <ChevronRight
+                  size={18}
+                  className="shrink-0 text-blue-100/65 transition group-hover:translate-x-0.5"
+                />
+              </button>
+            </div>
+          </div>
+        </div>
+
         <form
           onSubmit={
             saveProfile

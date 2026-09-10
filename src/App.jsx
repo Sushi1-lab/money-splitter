@@ -1820,6 +1820,11 @@ function App() {
             )
         );
 
+        await success(
+          "Person Added",
+          `${cleanName} was added to saved people.`
+        );
+
         return newPerson;
       } catch (err) {
         console.error(
@@ -1887,6 +1892,11 @@ function App() {
                 item.id !==
                 person.id
             )
+        );
+
+        await success(
+          "Person Removed",
+          `${person.name} was removed from saved people.`
         );
       } catch (err) {
         console.error(
@@ -2276,6 +2286,11 @@ function App() {
                 id
             )
         );
+
+        await success(
+          "Expense Deleted",
+          "The expense was removed successfully."
+        );
       } catch (err) {
         console.error(
           "Delete split error:",
@@ -2391,6 +2406,12 @@ function App() {
             splitDetails:
               paymentProof?.splitDetails || [],
 
+            creditorUid:
+              paymentProof?.creditorUid || "",
+
+            creditorEmail:
+              paymentProof?.creditorEmail || "",
+
             paidAt:
               serverTimestamp(),
 
@@ -2473,6 +2494,21 @@ function App() {
         }
 
         await fetchSettlements();
+
+        await success(
+          "Marked as Paid",
+          `${debtorName} → ${creditorName} ₱${Number(
+            amount || 0
+          ).toLocaleString(
+            "en-PH",
+            {
+              minimumFractionDigits:
+                2,
+              maximumFractionDigits:
+                2,
+            }
+          )} was marked as paid successfully.`
+        );
       } catch (err) {
         console.error(
           "Mark paid error:",
@@ -2744,6 +2780,21 @@ function App() {
         }
 
         await fetchSettlements();
+
+        await success(
+          "Payment Recorded",
+          `${debtorName} → ${creditorName} ₱${Number(
+            amount || 0
+          ).toLocaleString(
+            "en-PH",
+            {
+              minimumFractionDigits:
+                2,
+              maximumFractionDigits:
+                2,
+            }
+          )} was recorded successfully.`
+        );
       } catch (err) {
         console.error(
           "Net payment error:",
@@ -2849,6 +2900,9 @@ function App() {
                 nextForwardSettled,
               settlementType:
                 "mutual-reduction",
+
+              status:
+                "reduced",
               offsetAmount,
               reciprocalBefore:
                 Number(
@@ -2902,6 +2956,9 @@ function App() {
                 nextReverseSettled,
               settlementType:
                 "mutual-reduction",
+
+              status:
+                "reduced",
               offsetAmount,
               reciprocalBefore:
                 Number(
@@ -3014,6 +3071,21 @@ function App() {
         }
 
         await fetchSettlements();
+
+        await success(
+          "Balances Reduced",
+          `₱${Number(
+            offsetAmount || 0
+          ).toLocaleString(
+            "en-PH",
+            {
+              minimumFractionDigits:
+                2,
+              maximumFractionDigits:
+                2,
+            }
+          )} was deducted from both balances. No money was transferred.`
+        );
       } catch (err) {
         console.error(
           "Mutual balance reduction error:",
@@ -3083,6 +3155,11 @@ function App() {
         );
 
         await fetchSettlements();
+
+        await success(
+          "Balance Restored",
+          "The paid balance is active again."
+        );
       } catch (err) {
         console.error(
           "Restore error:",
@@ -3104,15 +3181,193 @@ function App() {
   // RESTORE FROM TRASH
   // =========================================
 
+  const findServerPersonForNotification =
+    (
+      personName,
+      personKey
+    ) => {
+      const normalizedKey =
+        normalizeName(
+          personKey ||
+            personName ||
+            ""
+        );
+
+      return (
+        serverPeople.find(
+          (person) =>
+            normalizeName(
+              person.name ||
+                ""
+            ) ===
+              normalizedKey
+        ) ||
+        serverPeople.find(
+          (person) =>
+            normalizeName(
+              person.username ||
+                ""
+            ) ===
+              normalizedKey
+        ) ||
+        null
+      );
+    };
+
+  const sendReversionNotification =
+    async ({
+      recipientUid,
+      recipientEmail = "",
+      recipientName = "",
+      settlementId = "",
+      amount = 0,
+      debtorName = "",
+      creditorName = "",
+      note = "",
+      isMutualReduction = false,
+    }) => {
+      if (
+        !recipientUid
+      ) {
+        return;
+      }
+
+      try {
+        await addDoc(
+          collection(
+            db,
+            "users",
+            recipientUid,
+            "notifications"
+          ),
+          {
+            type:
+              isMutualReduction
+                ? "balance_reduction_reverted"
+                : "payment_reverted",
+
+            title:
+              isMutualReduction
+                ? "Balance reduction undone"
+                : "Payment reverted",
+
+            message:
+              isMutualReduction
+                ? `${debtorName} ↔ ${creditorName} balance reduction of ₱${Number(
+                    amount || 0
+                  ).toLocaleString(
+                    "en-PH",
+                    {
+                      minimumFractionDigits:
+                        2,
+                      maximumFractionDigits:
+                        2,
+                    }
+                  )} was undone. The original balances are active again. Reason: ${note}`
+                : `The ₱${Number(
+                    amount || 0
+                  ).toLocaleString(
+                    "en-PH",
+                    {
+                      minimumFractionDigits:
+                        2,
+                      maximumFractionDigits:
+                        2,
+                    }
+                  )} payment from ${debtorName} was reverted, so the balance is active again. Reason: ${note}`,
+
+            senderUid:
+              user.uid,
+
+            senderEmail:
+              user.email ||
+              "",
+
+            senderName:
+              profile?.displayName ||
+              user.displayName ||
+              user.email ||
+              "Workspace member",
+
+            recipientUid,
+
+            recipientEmail,
+
+            recipientName,
+
+            visibility:
+              "recipient-only",
+
+            serverId:
+              activeServer.id,
+
+            serverName:
+              activeServer.name ||
+              "",
+
+            settlementId,
+
+            amount:
+              Number(
+                amount ||
+                  0
+              ),
+
+            debtorName,
+            creditorName,
+
+            revertNote:
+              note,
+
+            read:
+              false,
+
+            createdAt:
+              serverTimestamp(),
+          }
+        );
+      } catch (
+        notificationError
+      ) {
+        console.error(
+          "Reversion notification error:",
+          notificationError
+        );
+      }
+    };
+
   const restoreFromTrash =
     async (
-      settlement
+      settlement,
+      revertNote = ""
     ) => {
       if (
         !settlement?.id
       ) {
         return;
       }
+      const cleanRevertNote =
+        String(
+          revertNote ||
+            ""
+        )
+          .trim()
+          .replace(
+            /\s+/g,
+            " "
+          );
+
+      if (
+        cleanRevertNote.length <
+        3
+      ) {
+        await error(
+          "Reason Required",
+          "Please add a short note explaining why this is being returned to expenses."
+        );
+        return;
+      }
+
 
       const restoringMutualReduction =
         [
@@ -3125,31 +3380,6 @@ function App() {
         settlement
           .displayType ===
           "mutual-reduction";
-
-      const approved =
-        await confirm({
-          type:
-            "warning",
-
-          title:
-            restoringMutualReduction
-              ? "Undo Balance Reduction?"
-              : "Restore Expense?",
-
-          message:
-            restoringMutualReduction
-              ? "This will undo the mutual balance reduction and restore both original balances."
-              : `This will restore the split balance. ${settlement.debtor || "This person"} will owe ${settlement.creditor || "the other person"} again and the expense will appear in Balances.`,
-
-          confirmText:
-            restoringMutualReduction
-              ? "Undo Reduction"
-              : "Restore Expense",
-        });
-
-      if (!approved) {
-        return;
-      }
 
       try {
         setPaymentLoading(
@@ -3168,10 +3398,26 @@ function App() {
             .displayType ===
             "mutual-reduction";
 
+        const revertData = {
+          status:
+            "reverted",
+          revertedNote:
+            cleanRevertNote,
+          revertedByUid:
+            user.uid,
+          revertedByEmail:
+            user.email ||
+            "",
+          revertedAt:
+            serverTimestamp(),
+          updatedAt:
+            serverTimestamp(),
+        };
+
         if (
           isMutualReduction
         ) {
-          const idsToDelete =
+          const idsToUpdate =
             settlement.relatedIds?.length
               ? settlement.relatedIds
               : [
@@ -3187,31 +3433,195 @@ function App() {
           await Promise.all(
             [
               ...new Set(
-                idsToDelete
+                idsToUpdate
               ),
             ].map(
-              (id) =>
-                deleteDoc(
+              (id) => {
+                const existing =
+                  settlements[
+                    id
+                  ] || {};
+
+                return setDoc(
                   doc(
                     db,
                     "servers",
                     activeServer.id,
                     "settlements",
                     id
-                  )
-                )
+                  ),
+                  {
+                    ...revertData,
+                    settledAmount:
+                      0,
+                    revertedFromAmount:
+                      Number(
+                        existing.settledAmount ??
+                          settlement.settledAmount ??
+                          0
+                      ),
+                    revertedReductionAmount:
+                      Number(
+                        existing.offsetAmount ??
+                          settlement.reducedAmount ??
+                          settlement.offsetAmount ??
+                          0
+                      ),
+                  },
+                  {
+                    merge:
+                      true,
+                  }
+                );
+              }
             )
           );
         } else {
-          await deleteDoc(
+          await setDoc(
             doc(
               db,
               "servers",
               activeServer.id,
               "settlements",
               settlement.id
-            )
+            ),
+            {
+              ...revertData,
+              settledAmount:
+                0,
+              revertedFromAmount:
+                Number(
+                  settlement.settledAmount ||
+                    0
+                ),
+            },
+            {
+              merge:
+                true,
+            }
           );
+        }
+
+        if (
+          isMutualReduction
+        ) {
+          const debtorPerson =
+            findServerPersonForNotification(
+              settlement.debtor,
+              settlement.debtorKey
+            );
+
+          const creditorPerson =
+            findServerPersonForNotification(
+              settlement.creditor,
+              settlement.creditorKey
+            );
+
+          const notifiedUids =
+            new Set();
+
+          const recipients =
+            [
+              debtorPerson,
+              creditorPerson,
+            ].filter(
+              (person) =>
+                person?.linkedUid
+            );
+
+          for (
+            const recipient of recipients
+          ) {
+            if (
+              notifiedUids.has(
+                recipient.linkedUid
+              )
+            ) {
+              continue;
+            }
+
+            notifiedUids.add(
+              recipient.linkedUid
+            );
+
+            await sendReversionNotification({
+              recipientUid:
+                recipient.linkedUid,
+              recipientEmail:
+                recipient.linkedEmail ||
+                "",
+              recipientName:
+                recipient.name ||
+                "",
+              settlementId:
+                settlement.id,
+              amount:
+                Number(
+                  settlement.reducedAmount ??
+                    settlement.offsetAmount ??
+                    settlement.revertedReductionAmount ??
+                    settlement.settledAmount ??
+                    0
+                ),
+              debtorName:
+                settlement.debtor ||
+                "Someone",
+              creditorName:
+                settlement.creditor ||
+                "Someone",
+              note:
+                cleanRevertNote,
+              isMutualReduction:
+                true,
+            });
+          }
+        } else {
+          const creditorPerson =
+            findServerPersonForNotification(
+              settlement.creditor,
+              settlement.creditorKey
+            );
+
+          const recipientUid =
+            settlement.creditorUid ||
+            creditorPerson?.linkedUid ||
+            "";
+
+          const recipientEmail =
+            settlement.creditorEmail ||
+            creditorPerson?.linkedEmail ||
+            "";
+
+          if (
+            recipientUid
+          ) {
+            await sendReversionNotification({
+              recipientUid,
+              recipientEmail,
+              recipientName:
+                settlement.creditor ||
+                creditorPerson?.name ||
+                "",
+              settlementId:
+                settlement.id,
+              amount:
+                Number(
+                  settlement.revertedFromAmount ??
+                    settlement.settledAmount ??
+                    0
+                ),
+              debtorName:
+                settlement.debtor ||
+                "Someone",
+              creditorName:
+                settlement.creditor ||
+                "Someone",
+              note:
+                cleanRevertNote,
+              isMutualReduction:
+                false,
+            });
+          }
         }
 
         await fetchSettlements();
@@ -3221,8 +3631,8 @@ function App() {
             ? "Reduction Undone"
             : "Expense Restored",
           isMutualReduction
-            ? "Both original balances are active again."
-            : "The paid record was removed from Trash. The original split balance is active again."
+            ? "Both original balances are active again. Your reason was saved in Reverted."
+            : "The balance is active again and your reason was saved in Reverted."
         );
       } catch (err) {
         console.error(
@@ -3233,6 +3643,134 @@ function App() {
         await error(
           "Unable to Restore",
           "Please try again."
+        );
+      } finally {
+        setPaymentLoading(
+          null
+        );
+      }
+    };
+
+  // =========================================
+  // DELETE ALL REVERTED HISTORY
+  // Workspace creator only
+  // =========================================
+
+  const deleteAllReverted =
+    async () => {
+      const currentUserEmail =
+        normalizeEmail(
+          user?.email
+        );
+
+      const currentOwnerEmail =
+        normalizeEmail(
+          activeServer?.ownerEmail
+        );
+
+      const userIsOwner =
+        (
+          activeServer?.ownerUid &&
+          user?.uid ===
+            activeServer.ownerUid
+        ) ||
+        (
+          currentOwnerEmail &&
+          currentUserEmail ===
+            currentOwnerEmail
+        );
+
+      if (
+        !userIsOwner
+      ) {
+        await error(
+          "Owner Only",
+          "Only the person who created this workspace can delete reverted history."
+        );
+        return;
+      }
+
+      const revertedIds =
+        Object.values(
+          settlements
+        )
+          .filter(
+            (item) =>
+              item?.status ===
+              "reverted"
+          )
+          .map(
+            (item) =>
+              item.id
+          )
+          .filter(
+            Boolean
+          );
+
+      if (
+        revertedIds.length ===
+        0
+      ) {
+        await error(
+          "Nothing to Delete",
+          "There are no reverted records to clear."
+        );
+        return;
+      }
+
+      const approved =
+        await confirm({
+          type:
+            "danger",
+          title:
+            "Delete All Reverted Records?",
+          message:
+            `This will permanently delete ${revertedIds.length} reverted history record${revertedIds.length === 1 ? "" : "s"}. Active expenses and current balances will stay unchanged. This cannot be undone.`,
+          confirmText:
+            "Delete All",
+        });
+
+      if (
+        !approved
+      ) {
+        return;
+      }
+
+      try {
+        setPaymentLoading(
+          "delete-all-reverted"
+        );
+
+        await Promise.all(
+          revertedIds.map(
+            (id) =>
+              deleteDoc(
+                doc(
+                  db,
+                  "servers",
+                  activeServer.id,
+                  "settlements",
+                  id
+                )
+              )
+          )
+        );
+
+        await fetchSettlements();
+
+        await success(
+          "Reverted History Cleared",
+          "All reverted records were permanently deleted. Active expenses were not affected."
+        );
+      } catch (err) {
+        console.error(
+          "Delete reverted history error:",
+          err
+        );
+
+        await error(
+          "Unable to Delete History",
+          "The reverted records could not be deleted. Please try again."
         );
       } finally {
         setPaymentLoading(
@@ -3978,6 +4516,18 @@ function App() {
       ownerEmail ||
     isSuperAdmin;
 
+  const isServerOwner =
+    (
+      activeServer.ownerUid &&
+      user.uid ===
+        activeServer.ownerUid
+    ) ||
+    (
+      ownerEmail &&
+      userEmail ===
+        ownerEmail
+    );
+
   // =========================================
   // NAV
   //
@@ -4169,6 +4719,12 @@ function App() {
               onRestoreFromTrash={
                 restoreFromTrash
               }
+              onDeleteAllReverted={
+                deleteAllReverted
+              }
+              isServerOwner={
+                isServerOwner
+              }
               paymentLoading={
                 paymentLoading
               }
@@ -4251,6 +4807,12 @@ function App() {
             }
             onSignOut={
               handleSignOut
+            }
+            onChangeServer={
+              changeServer
+            }
+            onSwitchApp={
+              switchApp
             }
           />
         );
@@ -4378,34 +4940,6 @@ function App() {
             </button>
           )}
 
-          <button
-            type="button"
-            onClick={
-              switchApp
-            }
-            className="flex min-h-11 w-full items-center gap-3 rounded-xl bg-white/10 px-4 text-sm font-bold transition hover:bg-white/15"
-          >
-            <ArrowLeftRight
-              size={18}
-            />
-
-            Switch App
-          </button>
-
-          <button
-            type="button"
-            onClick={
-              changeServer
-            }
-            className="flex min-h-11 w-full items-center gap-3 rounded-xl bg-white/10 px-4 text-sm font-bold transition hover:bg-white/15"
-          >
-            <Server
-              size={18}
-            />
-
-            Change Server
-          </button>
-
           {/* PROFILE + WALLET */}
 
           <button
@@ -4499,9 +5033,9 @@ function App() {
             </h1>
           </div>
 
-          <div className="flex gap-2">
-            {/* PROFILE + WALLET */}
-
+          {/* Keep profile away from the floating notification bell.
+              The bell occupies the upper-right edge on mobile. */}
+          <div className="mr-14 flex shrink-0 items-center">
             <button
               type="button"
               title="Profile & Wallet"
@@ -4510,7 +5044,12 @@ function App() {
                   "profile"
                 )
               }
-              className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-xl bg-white/15"
+              className={`flex h-11 items-center gap-2 rounded-2xl border border-white/15 px-2.5 transition ${
+                page ===
+                "profile"
+                  ? "bg-white text-[#142a76] shadow-sm"
+                  : "bg-white/15 text-white"
+              }`}
             >
               {profile.photoURL ? (
                 <img
@@ -4519,39 +5058,19 @@ function App() {
                   }
                   alt=""
                   referrerPolicy="no-referrer"
-                  className="h-full w-full object-cover"
+                  className="h-8 w-8 shrink-0 rounded-xl object-cover"
                 />
               ) : (
-                <UserCog
-                  size={20}
-                />
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/10">
+                  <UserCog
+                    size={18}
+                  />
+                </div>
               )}
-            </button>
 
-            <button
-              type="button"
-              title="Switch app"
-              onClick={
-                switchApp
-              }
-              className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/15"
-            >
-              <ArrowLeftRight
-                size={20}
-              />
-            </button>
-
-            <button
-              type="button"
-              title="Change server"
-              onClick={
-                changeServer
-              }
-              className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/15"
-            >
-              <Server
-                size={20}
-              />
+              <span className="hidden max-w-[82px] truncate text-xs font-extrabold min-[390px]:block">
+                Profile
+              </span>
             </button>
           </div>
         </div>

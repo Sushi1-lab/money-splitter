@@ -830,708 +830,263 @@ function Dashboard({
                 </div>
               </div>
 
-              {/* MOBILE CHART: SAME VISUAL STYLE AS DESKTOP, TRANSPOSED */}
+              {/* MOBILE CHART: RESPONSIVE AREA TREND */}
               <div className="md:hidden">
-                <div className="mb-4 flex flex-wrap gap-2">
-                  <div className="inline-flex items-center gap-2 rounded-full bg-[#eef3ff] px-3 py-1.5 text-[11px] font-extrabold text-[#294aad]">
-                    <span className="h-2.5 w-2.5 rounded-full bg-[#294aad]" />
-                    Total
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[11px] font-extrabold uppercase tracking-[0.13em] text-[#8995aa]">
+                      8-week spending
+                    </p>
+                    <p className="mt-1 text-xs font-bold text-[#52617d]">
+                      Weekly movement at a glance
+                    </p>
                   </div>
 
-                  {topCategoryNames
-                    .slice(
-                      0,
-                      3
-                    )
-                    .map(
-                      (
-                        category,
-                        index
-                      ) => {
-                        const swatches =
-                          [
-                            "#18845c",
-                            "#c47a16",
-                            "#8b5cf6",
-                          ];
-
-                        return (
-                          <div
-                            key={
-                              category
-                            }
-                            className="inline-flex items-center gap-2 rounded-full bg-[#f7f9fc] px-3 py-1.5 text-[11px] font-extrabold text-[#52617d]"
-                          >
-                            <span
-                              className="h-2.5 w-2.5 rounded-full"
-                              style={{
-                                backgroundColor:
-                                  swatches[
-                                    index %
-                                      swatches.length
-                                  ],
-                              }}
-                            />
-
-                            <span className="max-w-[110px] truncate">
-                              {
-                                category
-                              }
-                            </span>
-                          </div>
-                        );
-                      }
-                    )}
+                  <div className="shrink-0 rounded-xl bg-[#eef3ff] px-3 py-2 text-right">
+                    <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-[#8995aa]">
+                      Peak
+                    </p>
+                    <p className="text-xs font-black text-[#294aad]">
+                      ₱{Number(maxWeekly || 0).toLocaleString("en-PH", {
+                        maximumFractionDigits: 0,
+                      })}
+                    </p>
+                  </div>
                 </div>
 
-                {(() => {
-                  const rows =
-                    weeklyData.length;
+                <div className="overflow-hidden rounded-[24px] border border-[#dbe4f4] bg-gradient-to-br from-white via-[#fbfcff] to-[#eef3ff] p-3 shadow-[0_12px_30px_rgba(20,42,118,0.07)]">
+                  {(() => {
+                    const width = 360;
+                    const height = 215;
+                    const left = 13;
+                    const right = 13;
+                    const top = 22;
+                    const bottom = 43;
+                    const plotWidth = width - left - right;
+                    const plotHeight = height - top - bottom;
+                    const count = Math.max(weeklyData.length, 1);
 
-                  const chartWidth =
-                    340;
+                    const xFor = (index) =>
+                      count <= 1
+                        ? width / 2
+                        : left + (index / (count - 1)) * plotWidth;
 
-                  const rowGap =
-                    56;
-
-                  const top =
-                    44;
-
-                  const bottom =
-                    28;
-
-                  const left =
-                    76;
-
-                  const right =
-                    42;
-
-                  const chartHeight =
-                    Math.max(
-                      430,
+                    const yFor = (value) =>
                       top +
-                        bottom +
-                        Math.max(
-                          rows -
-                            1,
-                          1
-                        ) *
-                          rowGap
-                    );
+                      plotHeight -
+                      (Number(value || 0) / Math.max(maxWeekly, 1)) *
+                        plotHeight;
 
-                  const innerWidth =
-                    chartWidth -
-                    left -
-                    right;
+                    const points = weeklyData.map((item, index) => ({
+                      x: xFor(index),
+                      y: yFor(item.amount),
+                      item,
+                      index,
+                    }));
 
-                  const innerHeight =
-                    chartHeight -
-                    top -
-                    bottom;
+                    const smoothPath = (rows) => {
+                      if (!rows.length) return "";
+                      if (rows.length === 1)
+                        return `M ${rows[0].x} ${rows[0].y}`;
 
-                  const maxValue =
-                    Math.max(
-                      maxWeekly,
-                      1
-                    );
+                      let d = `M ${rows[0].x} ${rows[0].y}`;
 
-                  const getX =
-                    (value) =>
-                      left +
-                      (
-                        Number(
-                          value ||
-                            0
-                        ) /
-                        maxValue
-                      ) *
-                        innerWidth;
-
-                  const getY =
-                    (index) =>
-                      rows <=
-                      1
-                        ? top +
-                          innerHeight /
-                            2
-                        : top +
-                          (
-                            index /
-                            (
-                              rows -
-                              1
-                            )
-                          ) *
-                            innerHeight;
-
-                  const makePoints =
-                    (getter) =>
-                      weeklyData.map(
-                        (
-                          item,
-                          index
-                        ) => ({
-                          x:
-                            getX(
-                              getter(
-                                item
-                              )
-                            ),
-                          y:
-                            getY(
-                              index
-                            ),
-                          value:
-                            getter(
-                              item
-                            ),
-                          item,
-                        })
-                      );
-
-                  const makeSmoothPath =
-                    (points) => {
-                      if (
-                        points.length ===
-                        0
-                      ) {
-                        return "";
+                      for (let i = 0; i < rows.length - 1; i += 1) {
+                        const a = rows[i];
+                        const b = rows[i + 1];
+                        const middle = (a.x + b.x) / 2;
+                        d += ` C ${middle} ${a.y}, ${middle} ${b.y}, ${b.x} ${b.y}`;
                       }
 
-                      if (
-                        points.length ===
-                        1
-                      ) {
-                        return `M ${points[0].x} ${points[0].y}`;
-                      }
-
-                      let path =
-                        `M ${points[0].x} ${points[0].y}`;
-
-                      for (
-                        let index =
-                          0;
-                        index <
-                        points.length -
-                          1;
-                        index +=
-                          1
-                      ) {
-                        const current =
-                          points[
-                            index
-                          ];
-
-                        const next =
-                          points[
-                            index +
-                              1
-                          ];
-
-                        const midpoint =
-                          (
-                            current.y +
-                            next.y
-                          ) /
-                          2;
-
-                        path +=
-                          ` C ${current.x} ${midpoint}, ${next.x} ${midpoint}, ${next.x} ${next.y}`;
-                      }
-
-                      return path;
+                      return d;
                     };
 
-                  const totalPoints =
-                    makePoints(
-                      (item) =>
-                        item.amount
-                    );
+                    const line = smoothPath(points);
+                    const baseY = top + plotHeight;
+                    const area =
+                      points.length > 0
+                        ? `${line} L ${points[points.length - 1].x} ${baseY} L ${points[0].x} ${baseY} Z`
+                        : "";
 
-                  const totalPath =
-                    makeSmoothPath(
-                      totalPoints
-                    );
-
-                  const areaPath =
-                    totalPoints.length >
-                    0
-                      ? `${totalPath} L ${left} ${totalPoints[totalPoints.length - 1].y} L ${left} ${totalPoints[0].y} Z`
-                      : "";
-
-                  const categoryColors =
-                    [
-                      "#18845c",
-                      "#c47a16",
-                      "#8b5cf6",
-                    ];
-
-                  const categorySeries =
-                    topCategoryNames
-                      .slice(
-                        0,
-                        3
-                      )
-                      .map(
-                        (
-                          category,
-                          categoryIndex
-                        ) => ({
-                          category,
-                          categoryIndex,
-                          points:
-                            makePoints(
-                              (
-                                item
-                              ) =>
-                                item
-                                  .categoryAmounts?.[
-                                  category
-                                ] ||
-                                0
-                            ),
-                        })
-                      );
-
-                  const monthGroups =
-                    [];
-
-                  weeklyData.forEach(
-                    (
-                      item,
-                      index
-                    ) => {
-                      const lastGroup =
-                        monthGroups[
-                          monthGroups.length -
-                            1
-                        ];
-
-                      if (
-                        lastGroup &&
-                        lastGroup.month ===
-                          item.month &&
-                        lastGroup.year ===
-                          item.year
-                      ) {
-                        lastGroup.endIndex =
-                          index;
-                      } else {
-                        monthGroups.push({
-                          month:
-                            item.month,
-                          year:
-                            item.year,
-                          label:
-                            item.monthLabel,
-                          startIndex:
-                            index,
-                          endIndex:
-                            index,
-                        });
-                      }
-                    }
-                  );
-
-                  return (
-                    <div className="overflow-hidden rounded-[20px] border border-[#dbe4f4] bg-gradient-to-r from-white to-[#f7f9ff] shadow-[0_10px_24px_rgba(20,42,118,0.05)]">
+                    return (
                       <svg
-                        viewBox={`0 0 ${chartWidth} ${chartHeight}`}
+                        viewBox={`0 0 ${width} ${height}`}
                         className="block h-auto w-full"
                         role="img"
-                        aria-label="Transposed weekly spending line chart for mobile"
+                        aria-label="Weekly spending trend for the last two months"
                       >
                         <defs>
                           <linearGradient
-                            id="monthlyAreaFillMobile"
+                            id="mobileTrendArea"
+                            x1="0"
+                            y1="0"
+                            x2="0"
+                            y2="1"
+                          >
+                            <stop offset="0%" stopColor="#3d63d2" stopOpacity="0.30" />
+                            <stop offset="70%" stopColor="#6f91ed" stopOpacity="0.08" />
+                            <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+                          </linearGradient>
+
+                          <linearGradient
+                            id="mobileTrendStroke"
                             x1="0"
                             y1="0"
                             x2="1"
                             y2="0"
                           >
-                            <stop
-                              offset="0%"
-                              stopColor="#3d63d2"
-                              stopOpacity="0.02"
-                            />
-                            <stop
-                              offset="100%"
-                              stopColor="#3d63d2"
-                              stopOpacity="0.20"
-                            />
+                            <stop offset="0%" stopColor="#7f9ce8" />
+                            <stop offset="52%" stopColor="#3d63d2" />
+                            <stop offset="100%" stopColor="#142a76" />
                           </linearGradient>
+
+                          <filter id="mobileDotShadow" x="-80%" y="-80%" width="260%" height="260%">
+                            <feDropShadow
+                              dx="0"
+                              dy="2"
+                              stdDeviation="2.5"
+                              floodColor="#142a76"
+                              floodOpacity="0.18"
+                            />
+                          </filter>
                         </defs>
 
-                        {[0, 0.25, 0.5, 0.75, 1].map(
-                          (
-                            ratio
-                          ) => {
-                            const x =
-                              left +
-                              ratio *
-                                innerWidth;
-
-                            return (
-                              <g
-                                key={
-                                  ratio
-                                }
-                              >
-                                <line
-                                  x1={
-                                    x
-                                  }
-                                  y1={
-                                    top -
-                                    10
-                                  }
-                                  x2={
-                                    x
-                                  }
-                                  y2={
-                                    chartHeight -
-                                    bottom +
-                                    4
-                                  }
-                                  stroke={
-                                    ratio ===
-                                    0
-                                      ? "#dce4f1"
-                                      : "#e6ebf4"
-                                  }
-                                  strokeWidth="1"
-                                  strokeDasharray="4 4"
-                                />
-
-                                <text
-                                  x={
-                                    x
-                                  }
-                                  y="19"
-                                  textAnchor="middle"
-                                  fontSize="7"
-                                  fontWeight="700"
-                                  fill="#8995aa"
-                                >
-                                  ₱
-                                  {Math.round(
-                                    maxValue *
-                                      ratio
-                                  ).toLocaleString(
-                                    "en-PH"
-                                  )}
-                                </text>
-                              </g>
-                            );
-                          }
-                        )}
-
-                        {weeklyData.map(
-                          (
-                            item,
-                            index
-                          ) => {
-                            const y =
-                              getY(
-                                index
-                              );
-
-                            return (
-                              <g
-                                key={
-                                  item.key
-                                }
-                              >
-                                <line
-                                  x1={
-                                    left
-                                  }
-                                  y1={
-                                    y
-                                  }
-                                  x2={
-                                    chartWidth -
-                                    right +
-                                    6
-                                  }
-                                  y2={
-                                    y
-                                  }
-                                  stroke="#eef2f7"
-                                  strokeWidth="1"
-                                />
-
-                                <text
-                                  x={
-                                    left -
-                                    9
-                                  }
-                                  y={
-                                    y +
-                                    2.5
-                                  }
-                                  textAnchor="end"
-                                  fontSize="8"
-                                  fontWeight="800"
-                                  fill={
-                                    index ===
-                                    weeklyData.length -
-                                      1
-                                      ? "#294aad"
-                                      : "#52617d"
-                                  }
-                                >
-                                  {item.weekLabel}
-                                </text>
-                              </g>
-                            );
-                          }
-                        )}
-
-                        <path
-                          d={
-                            areaPath
-                          }
-                          fill="url(#monthlyAreaFillMobile)"
-                        />
-
-                        {categorySeries.map(
-                          (
-                            series
-                          ) => (
-                            <path
-                              key={
-                                series.category
-                              }
-                              d={
-                                makeSmoothPath(
-                                  series.points
-                                )
-                              }
-                              fill="none"
-                              stroke={
-                                categoryColors[
-                                  series.categoryIndex %
-                                    categoryColors.length
-                                ]
-                              }
-                              strokeWidth="1.7"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeDasharray="5 4"
+                        {[0, 0.33, 0.66, 1].map((ratio) => {
+                          const y = top + plotHeight * ratio;
+                          return (
+                            <line
+                              key={ratio}
+                              x1={left}
+                              x2={width - right}
+                              y1={y}
+                              y2={y}
+                              stroke="#dfe6f2"
+                              strokeWidth="1"
+                              strokeDasharray="4 6"
                             />
-                          )
+                          );
+                        })}
+
+                        {area && <path d={area} fill="url(#mobileTrendArea)" />}
+
+                        {line && (
+                          <path
+                            d={line}
+                            fill="none"
+                            stroke="url(#mobileTrendStroke)"
+                            strokeWidth="4"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            vectorEffect="non-scaling-stroke"
+                          />
                         )}
 
-                        <path
-                          d={
-                            totalPath
-                          }
-                          fill="none"
-                          stroke="#294aad"
-                          strokeWidth="2.7"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
+                        {points.map((point) => {
+                          const current = point.index === points.length - 1;
+                          const amount = Number(point.item.amount || 0);
 
-                        {categorySeries.map(
-                          (
-                            series
-                          ) =>
-                            series.points.map(
-                              (
-                                point
-                              ) => (
-                                <circle
-                                  key={`${series.category}-${point.item.key}`}
-                                  cx={
-                                    point.x
-                                  }
-                                  cy={
-                                    point.y
-                                  }
-                                  r="3.2"
-                                  fill="white"
-                                  stroke={
-                                    categoryColors[
-                                      series.categoryIndex %
-                                        categoryColors.length
-                                    ]
-                                  }
-                                  strokeWidth="1.7"
-                                />
-                              )
-                            )
-                        )}
-
-                        {totalPoints.map(
-                          (
-                            point,
-                            index
-                          ) => (
-                            <g
-                              key={
-                                point.item
-                                  .key
-                              }
-                            >
+                          return (
+                            <g key={point.item.key}>
                               <circle
-                                cx={
-                                  point.x
-                                }
-                                cy={
-                                  point.y
-                                }
-                                r="5.5"
-                                fill="white"
-                                stroke="#294aad"
-                                strokeWidth="2.5"
+                                cx={point.x}
+                                cy={point.y}
+                                r={current ? 6.2 : 4.2}
+                                fill={current ? "#142a76" : "#ffffff"}
+                                stroke={current ? "#ffffff" : "#3d63d2"}
+                                strokeWidth={current ? 3 : 2.4}
+                                filter="url(#mobileDotShadow)"
                               />
 
-                              <circle
-                                cx={
-                                  point.x
-                                }
-                                cy={
-                                  point.y
-                                }
-                                r="2"
-                                fill="#294aad"
-                              />
+                              {amount > 0 && (
+                                <text
+                                  x={point.x}
+                                  y={Math.max(point.y - 13, 12)}
+                                  textAnchor="middle"
+                                  fontSize="8.5"
+                                  fontWeight="800"
+                                  fill={current ? "#142a76" : "#52617d"}
+                                >
+                                  ₱{amount.toLocaleString("en-PH", {
+                                    maximumFractionDigits: 0,
+                                  })}
+                                </text>
+                              )}
 
                               <text
-                                x={
-                                  Math.min(
-                                    point.x +
-                                      9,
-                                    chartWidth -
-                                      34
-                                  )
-                                }
-                                y={
-                                  point.y -
-                                  8
-                                }
-                                textAnchor="start"
-                                fontSize="7"
-                                fontWeight="800"
-                                fill={
-                                  index ===
-                                  totalPoints.length -
-                                    1
-                                    ? "#294aad"
-                                    : "#52617d"
-                                }
+                                x={point.x}
+                                y={height - 19}
+                                textAnchor="middle"
+                                fontSize="8.3"
+                                fontWeight={current ? "800" : "700"}
+                                fill={current ? "#294aad" : "#71809a"}
                               >
-                                ₱
-                                {Number(
-                                  point.value ||
-                                    0
-                                ).toLocaleString(
-                                  "en-PH",
-                                  {
-                                    maximumFractionDigits:
-                                      0,
-                                  }
-                                )}
+                                {point.item.weekLabel}
+                              </text>
+
+                              <text
+                                x={point.x}
+                                y={height - 7}
+                                textAnchor="middle"
+                                fontSize="7.2"
+                                fontWeight="700"
+                                fill="#a1abbb"
+                              >
+                                {point.item.monthLabel}
                               </text>
                             </g>
-                          )
-                        )}
-
-                        {monthGroups.map(
-                          (
-                            group
-                          ) => {
-                            const y1 =
-                              getY(
-                                group.startIndex
-                              );
-
-                            const y2 =
-                              getY(
-                                group.endIndex
-                              );
-
-                            const centerY =
-                              (
-                                y1 +
-                                y2
-                              ) /
-                              2;
-
-                            return (
-                              <g
-                                key={`${group.year}-${group.month}-mobile`}
-                              >
-                                <line
-                                  x1="10"
-                                  y1={
-                                    y1 -
-                                    14
-                                  }
-                                  x2="10"
-                                  y2={
-                                    y2 +
-                                    14
-                                  }
-                                  stroke="#d7e0ef"
-                                  strokeWidth="1"
-                                />
-
-                                <line
-                                  x1="10"
-                                  y1={
-                                    y1 -
-                                    14
-                                  }
-                                  x2="16"
-                                  y2={
-                                    y1 -
-                                    14
-                                  }
-                                  stroke="#d7e0ef"
-                                  strokeWidth="1"
-                                />
-
-                                <line
-                                  x1="10"
-                                  y1={
-                                    y2 +
-                                    14
-                                  }
-                                  x2="16"
-                                  y2={
-                                    y2 +
-                                    14
-                                  }
-                                  stroke="#d7e0ef"
-                                  strokeWidth="1"
-                                />
-
-                                <text
-                                  x="4"
-                                  y={
-                                    centerY
-                                  }
-                                  textAnchor="middle"
-                                  fontSize="7"
-                                  fontWeight="800"
-                                  fill="#7d8ba5"
-                                  transform={`rotate(-90 4 ${centerY})`}
-                                >
-                                  {
-                                    group.label
-                                  }
-                                </text>
-                              </g>
-                            );
-                          }
-                        )}
+                          );
+                        })}
                       </svg>
+                    );
+                  })()}
+
+                  <div className="border-t border-[#e1e7f1] px-1 pt-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#8995aa]">
+                        Top categories
+                      </p>
+                      <p className="text-[10px] font-bold text-[#9ba6b8]">
+                        2-month total
+                      </p>
                     </div>
-                  );
-                })()}
+
+                    <div className="mt-2 grid grid-cols-3 gap-2">
+                      {topCategoryNames.slice(0, 3).map((category, index) => {
+                        const total = weeklyData.reduce(
+                          (sum, item) =>
+                            sum + Number(item.categoryAmounts?.[category] || 0),
+                          0
+                        );
+
+                        const styles = [
+                          "border-[#ccecdf] from-[#e8f8f2] to-white text-[#167a57]",
+                          "border-[#f0dfbf] from-[#fff3df] to-white text-[#a76510]",
+                          "border-[#e2d7f5] from-[#f2ecff] to-white text-[#7650b9]",
+                        ];
+
+                        return (
+                          <div
+                            key={category}
+                            className={`min-w-0 rounded-2xl border bg-gradient-to-br p-2.5 ${styles[index]}`}
+                          >
+                            <div className="flex min-w-0 items-center gap-1.5">
+                              <span className="h-2 w-2 shrink-0 rounded-full bg-current opacity-70" />
+                              <p className="truncate text-[9px] font-black uppercase tracking-[0.06em]">
+                                {category}
+                              </p>
+                            </div>
+
+                            <p className="mt-1.5 truncate text-xs font-black">
+                              ₱{total.toLocaleString("en-PH", {
+                                maximumFractionDigits: 0,
+                              })}
+                            </p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
               </div>
 
               {/* DESKTOP / TABLET CHART */}
@@ -2213,7 +1768,7 @@ function Dashboard({
                   <div className="pointer-events-none absolute -bottom-14 right-16 h-28 w-28 rounded-full bg-[#3d63d2]/10" />
 
                   <div className="relative z-10 flex flex-col gap-4 sm:flex-row sm:items-center">
-                    <div className="relative shrink-0">
+                    <div className="relative inline-block w-fit shrink-0 self-start">
                       {topCoverers[0]
                         .photoURL ? (
                         <img
@@ -2237,9 +1792,10 @@ function Dashboard({
                         </div>
                       )}
 
-                      <div className="absolute -bottom-2 -right-2 flex h-9 w-9 items-center justify-center rounded-full border-4 border-white bg-[#f4c24f] text-[#6b4a00] shadow">
+                      <div className="absolute bottom-[-7px] right-[-7px] z-20 flex h-10 w-10 items-center justify-center rounded-full border-[4px] border-white bg-gradient-to-br from-[#ffd86a] to-[#f0b92d] text-[#725000] shadow-[0_7px_18px_rgba(105,73,0,0.22)]">
                         <Award
-                          size={16}
+                          size={18}
+                          strokeWidth={2.4}
                         />
                       </div>
                     </div>
