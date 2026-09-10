@@ -49,6 +49,7 @@ import Budgeter from "./components/Budgeter.jsx";
 import FeedbackCenter from "./components/FeedbackCenter.jsx";
 import Dashboard from "./components/Dashboard.jsx";
 import ManageMembers from "./components/ManageMembers.jsx";
+import NotificationCenter from "./components/NotificationCenter.jsx";
 import PersonTotals from "./components/PersonTotals.jsx";
 import ProfileSetup from "./components/ProfileSetup.jsx";
 import ProfileSettings from "./components/ProfileSettings.jsx";
@@ -2387,6 +2388,9 @@ function App() {
             splitIds:
               paymentProof?.splitIds || [],
 
+            splitDetails:
+              paymentProof?.splitDetails || [],
+
             paidAt:
               serverTimestamp(),
 
@@ -2397,6 +2401,74 @@ function App() {
               serverTimestamp(),
           }
         );
+
+        if (
+          paymentProof?.creditorUid
+        ) {
+          try {
+            await addDoc(
+              collection(
+                db,
+                "users",
+                paymentProof.creditorUid,
+                "notifications"
+              ),
+              {
+                type:
+                  "payment_received",
+                title:
+                  "Payment received",
+                message:
+                  `${debtorName} paid you ₱${Number(
+                    amount
+                  ).toLocaleString(
+                    "en-PH",
+                    {
+                      minimumFractionDigits:
+                        2,
+                      maximumFractionDigits:
+                        2,
+                    }
+                  )}.`,
+                senderUid:
+                  user.uid,
+                senderEmail:
+                  user.email || "",
+                senderName:
+                  debtorName,
+                recipientUid:
+                  paymentProof.creditorUid,
+                recipientEmail:
+                  paymentProof.creditorEmail || "",
+                recipientName:
+                  creditorName,
+                serverId:
+                  activeServer.id,
+                serverName:
+                  activeServer.name || "",
+                settlementId:
+                  id,
+                amount:
+                  Number(amount) || 0,
+                paymentProofDataUrl:
+                  paymentProof.paymentProofDataUrl || "",
+                splitIds:
+                  paymentProof.splitIds || [],
+                splitDetails:
+                  paymentProof.splitDetails || [],
+                read:
+                  false,
+                createdAt:
+                  serverTimestamp(),
+              }
+            );
+          } catch (notificationError) {
+            console.error(
+              "Payment notification error:",
+              notificationError
+            );
+          }
+        }
 
         await fetchSettlements();
       } catch (err) {
@@ -2433,6 +2505,9 @@ function App() {
       paymentProofName = "",
       paymentProofType = "",
       splitIds = [],
+      splitDetails = [],
+      creditorUid = "",
+      creditorEmail = "",
     }) => {
       const forwardId =
         getSettlementId(
@@ -2508,6 +2583,7 @@ function App() {
                 user.email || "",
 
               splitIds,
+              splitDetails,
 
               paidAt:
                 serverTimestamp(),
@@ -2600,6 +2676,71 @@ function App() {
         await Promise.all(
           writes
         );
+
+        if (
+          creditorUid
+        ) {
+          try {
+            await addDoc(
+              collection(
+                db,
+                "users",
+                creditorUid,
+                "notifications"
+              ),
+              {
+                type:
+                  "payment_received",
+                title:
+                  "Payment received",
+                message:
+                  `${debtorName} paid you ₱${Number(
+                    amount
+                  ).toLocaleString(
+                    "en-PH",
+                    {
+                      minimumFractionDigits:
+                        2,
+                      maximumFractionDigits:
+                        2,
+                    }
+                  )}.`,
+                senderUid:
+                  user.uid,
+                senderEmail:
+                  user.email || "",
+                senderName:
+                  debtorName,
+                recipientUid:
+                  creditorUid,
+                recipientEmail:
+                  creditorEmail || "",
+                recipientName:
+                  creditorName,
+                serverId:
+                  activeServer.id,
+                serverName:
+                  activeServer.name || "",
+                settlementId:
+                  forwardId,
+                amount:
+                  Number(amount) || 0,
+                paymentProofDataUrl,
+                splitIds,
+                splitDetails,
+                read:
+                  false,
+                createdAt:
+                  serverTimestamp(),
+              }
+            );
+          } catch (notificationError) {
+            console.error(
+              "Payment notification error:",
+              notificationError
+            );
+          }
+        }
 
         await fetchSettlements();
       } catch (err) {
@@ -3977,6 +4118,15 @@ function App() {
           </button>
         </div>
       </aside>
+
+      <NotificationCenter
+        user={
+          user
+        }
+        activeServer={
+          activeServer
+        }
+      />
 
       {/* =====================================
           MOBILE HEADER

@@ -128,6 +128,9 @@ function PersonTotals({
       paymentProofName: paymentProof.name,
       paymentProofType: paymentProof.type,
       splitIds: paymentRequest.splitIds || [],
+      splitDetails: paymentRequest.splitDetails || [],
+      creditorUid: paymentRequest.creditorUid || "",
+      creditorEmail: paymentRequest.creditorEmail || "",
     };
 
     if (paymentRequest.simplified && onMarkNetPaid) {
@@ -1037,10 +1040,30 @@ function PersonTotals({
                                           creditor.forwardRawTotal,
                                         reverseRawTotal:
                                           creditor.reverseRawTotal,
+                                        creditorUid:
+                                          creditor.person?.linkedUid ||
+                                          "",
+                                        creditorEmail:
+                                          creditor.person?.linkedEmail ||
+                                          "",
                                         splitIds:
                                           (creditor.splits || [])
                                             .map((split) => split.id)
                                             .filter(Boolean),
+                                        splitDetails:
+                                          (creditor.splits || []).map(
+                                            (split) => ({
+                                              id: split.id || "",
+                                              description:
+                                                split.description ||
+                                                "Expense",
+                                              category:
+                                                split.category ||
+                                                "Other",
+                                              amount:
+                                                Number(split.amount || 0),
+                                            })
+                                          ),
                                       })
                                     }
                                     className="flex min-h-10 items-center gap-2 rounded-xl bg-[#142a76] px-3 text-xs font-extrabold text-white disabled:opacity-50"
