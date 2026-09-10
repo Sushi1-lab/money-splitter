@@ -4,8 +4,11 @@ import {
   ChevronDown,
   ChevronRight,
   GitCompareArrows,
+  ImagePlus,
   QrCode,
+  Upload,
   WalletCards,
+  X,
 } from "lucide-react";
 
 import { useMemo, useState } from "react";
@@ -25,6 +28,126 @@ function PersonTotals({
 
   const [simplifyBalances, setSimplifyBalances] =
     useState(false);
+
+
+  const [paymentRequest, setPaymentRequest] =
+    useState(null);
+
+  const [paymentProof, setPaymentProof] =
+    useState(null);
+
+  const [paymentProofPreview, setPaymentProofPreview] =
+    useState("");
+
+  const [proofProcessing, setProofProcessing] =
+    useState(false);
+
+  const closePaymentProof = () => {
+    if (proofProcessing) return;
+    setPaymentRequest(null);
+    setPaymentProof(null);
+    setPaymentProofPreview("");
+  };
+
+  const compressPaymentProof = async (file) => {
+    if (!file?.type?.startsWith("image/")) {
+      throw new Error("Please choose an image screenshot.");
+    }
+
+    const dataUrl = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+    const image = await new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = dataUrl;
+    });
+
+    const maxDimension = 1280;
+    const ratio = Math.min(
+      1,
+      maxDimension / Math.max(image.width, image.height)
+    );
+
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(image.width * ratio));
+    canvas.height = Math.max(1, Math.round(image.height * ratio));
+
+    const context = canvas.getContext("2d");
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+    let quality = 0.78;
+    let compressed = canvas.toDataURL("image/jpeg", quality);
+
+    while (compressed.length > 520000 && quality > 0.42) {
+      quality -= 0.08;
+      compressed = canvas.toDataURL("image/jpeg", quality);
+    }
+
+    if (compressed.length > 700000) {
+      throw new Error(
+        "The screenshot is still too large. Please crop it and try again."
+      );
+    }
+
+    return {
+      dataUrl: compressed,
+      name: file.name || "payment-proof.jpg",
+      type: "image/jpeg",
+    };
+  };
+
+  const handlePaymentProofFile = async (file) => {
+    if (!file) return;
+
+    try {
+      setProofProcessing(true);
+      const compressed = await compressPaymentProof(file);
+      setPaymentProof(compressed);
+      setPaymentProofPreview(compressed.dataUrl);
+    } catch (err) {
+      console.error("Payment proof error:", err);
+      window.alert(
+        err?.message || "Unable to prepare this screenshot."
+      );
+    } finally {
+      setProofProcessing(false);
+    }
+  };
+
+  const submitPaymentProof = async () => {
+    if (!paymentRequest || !paymentProof) return;
+
+    const proof = {
+      paymentProofDataUrl: paymentProof.dataUrl,
+      paymentProofName: paymentProof.name,
+      paymentProofType: paymentProof.type,
+      splitIds: paymentRequest.splitIds || [],
+    };
+
+    if (paymentRequest.simplified && onMarkNetPaid) {
+      await onMarkNetPaid({
+        ...paymentRequest,
+        ...proof,
+      });
+    } else {
+      await onMarkPaid?.(
+        paymentRequest.debtorKey,
+        paymentRequest.creditorKey,
+        paymentRequest.amount,
+        paymentRequest.debtorName,
+        paymentRequest.creditorName,
+        proof
+      );
+    }
+
+    closePaymentProof();
+  };
 
   const normalizeName = (name = "") =>
     String(name)
@@ -894,47 +1017,36 @@ function PersonTotals({
                                       paymentLoading ===
                                       loadingId
                                     }
-                                    onClick={() => {
-                                      if (
-                                        creditor.simplified &&
-                                        onMarkNetPaid
-                                      ) {
-                                        onMarkNetPaid({
-                                          debtorKey:
-                                            entry.key,
-                                          creditorKey:
-                                            creditor.key,
-                                          debtorName:
-                                            entry.person
-                                              .name,
-                                          creditorName:
-                                            creditor.person
-                                              .name,
-                                          amount:
-                                            creditor.outstanding,
-                                          forwardRawTotal:
-                                            creditor.forwardRawTotal,
-                                          reverseRawTotal:
-                                            creditor.reverseRawTotal,
-                                        });
-                                      } else {
-                                        onMarkPaid?.(
+                                    onClick={() =>
+                                      setPaymentRequest({
+                                        simplified:
+                                          Boolean(
+                                            creditor.simplified
+                                          ),
+                                        debtorKey:
                                           entry.key,
+                                        creditorKey:
                                           creditor.key,
+                                        debtorName:
+                                          entry.person.name,
+                                        creditorName:
+                                          creditor.person.name,
+                                        amount:
                                           creditor.outstanding,
-                                          entry.person
-                                            .name,
-                                          creditor.person
-                                            .name
-                                        );
-                                      }
-                                    }}
+                                        forwardRawTotal:
+                                          creditor.forwardRawTotal,
+                                        reverseRawTotal:
+                                          creditor.reverseRawTotal,
+                                        splitIds:
+                                          (creditor.splits || [])
+                                            .map((split) => split.id)
+                                            .filter(Boolean),
+                                      })
+                                    }
                                     className="flex min-h-10 items-center gap-2 rounded-xl bg-[#142a76] px-3 text-xs font-extrabold text-white disabled:opacity-50"
                                   >
-                                    <CheckCircle2
-                                      size={15}
-                                    />
-                                    Mark Paid
+                                    <CheckCircle2 size={15} />
+                                    Paid
                                   </button>
 
                                 </div>
@@ -951,6 +1063,113 @@ function PersonTotals({
           </div>
         )}
       </div>
+
+      {paymentRequest && (
+        <div className="fixed inset-0 z-[120] flex items-end justify-center bg-[#071333]/55 p-3 backdrop-blur-sm sm:items-center sm:p-5">
+          <div className="w-full max-w-lg overflow-hidden rounded-[26px] bg-white shadow-[0_30px_90px_rgba(8,24,70,0.28)]">
+            <div className="flex items-start justify-between gap-4 bg-gradient-to-r from-[#10245f] to-[#294aad] p-5 text-white sm:p-6">
+              <div>
+                <p className="text-[11px] font-black uppercase tracking-[0.14em] text-blue-100/65">
+                  Payment confirmation
+                </p>
+                <h3 className="mt-1 text-xl font-black">
+                  Attach payment screenshot
+                </h3>
+                <p className="mt-2 text-sm leading-6 text-blue-100/75">
+                  {paymentRequest.debtorName} → {paymentRequest.creditorName} · ₱{money(paymentRequest.amount)}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={closePaymentProof}
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/12 transition hover:bg-white/20"
+              >
+                <X size={19} />
+              </button>
+            </div>
+
+            <div className="p-5 sm:p-6">
+              <div className="rounded-2xl border border-[#dce4f2] bg-[#f7f9fd] p-4">
+                <p className="text-sm font-extrabold text-[#182442]">
+                  Proof of payment is required
+                </p>
+                <p className="mt-1 text-xs leading-5 text-[#8995aa]">
+                  Upload a screenshot of the QR, e-wallet, or bank payment before this balance can be marked as paid and moved to Paid Expenses.
+                </p>
+              </div>
+
+              <label className="mt-4 block cursor-pointer">
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(event) =>
+                    handlePaymentProofFile(event.target.files?.[0])
+                  }
+                />
+
+                <div className="flex min-h-28 items-center justify-center rounded-2xl border-2 border-dashed border-[#cfd9ea] bg-white p-4 text-center transition hover:border-[#294aad] hover:bg-[#f9fbff]">
+                  {proofProcessing ? (
+                    <div>
+                      <div className="mx-auto h-6 w-6 animate-spin rounded-full border-2 border-[#d7dfed] border-t-[#294aad]" />
+                      <p className="mt-3 text-xs font-extrabold text-[#52617d]">
+                        Preparing screenshot...
+                      </p>
+                    </div>
+                  ) : paymentProofPreview ? (
+                    <div className="w-full">
+                      <img
+                        src={paymentProofPreview}
+                        alt="Payment proof preview"
+                        className="mx-auto max-h-56 rounded-xl object-contain shadow-sm"
+                      />
+                      <p className="mt-3 text-xs font-extrabold text-[#294aad]">
+                        Tap to replace screenshot
+                      </p>
+                    </div>
+                  ) : (
+                    <div>
+                      <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-2xl bg-[#eef3ff] text-[#294aad]">
+                        <ImagePlus size={21} />
+                      </div>
+                      <p className="mt-3 text-sm font-extrabold text-[#182442]">
+                        Upload payment screenshot
+                      </p>
+                      <p className="mt-1 text-xs text-[#8995aa]">
+                        PNG, JPG, or phone screenshot
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </label>
+
+              <button
+                type="button"
+                disabled={
+                  !paymentProof ||
+                  proofProcessing ||
+                  Boolean(paymentLoading)
+                }
+                onClick={submitPaymentProof}
+                className="mt-5 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#142a76] px-5 text-sm font-black text-white transition hover:bg-[#10245f] disabled:cursor-not-allowed disabled:opacity-45"
+              >
+                {paymentLoading ? (
+                  <>
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/35 border-t-white" />
+                    Marking Paid...
+                  </>
+                ) : (
+                  <>
+                    <Upload size={17} />
+                    Mark as Paid & Move to Trash
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

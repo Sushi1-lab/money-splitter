@@ -1,13 +1,20 @@
 import {
+  Eye,
   RotateCcw,
   Trash2,
+  X,
 } from "lucide-react";
+
+import { useState } from "react";
 
 function TrashPanel({
   settlements = {},
   onRestoreFromTrash,
   paymentLoading,
 }) {
+  const [proofToView, setProofToView] =
+    useState(null);
+
   const archived = Object.values(
     settlements
   )
@@ -144,26 +151,46 @@ function TrashPanel({
                             item.settledAmount
                           )}
                         </p>
+
+                        {item.paymentProofUploadedByEmail && (
+                          <p className="mt-2 text-[11px] leading-5 text-[#8995aa]">
+                            Proof attached by{" "}
+                            <span className="font-extrabold text-[#52617d]">
+                              {item.paymentProofUploadedByEmail}
+                            </span>
+                          </p>
+                        )}
                       </div>
 
-                      <button
-                        type="button"
-                        disabled={
-                          paymentLoading ===
-                          item.id
-                        }
-                        onClick={() =>
-                          onRestoreFromTrash?.(
-                            item
-                          )
-                        }
-                        className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#eef2f8] px-4 text-xs font-extrabold text-[#52617d] disabled:opacity-50"
-                      >
-                        <RotateCcw
-                          size={15}
-                        />
-                        Restore Expense
-                      </button>
+                      <div className="grid gap-2 sm:shrink-0">
+                        {item.paymentProofDataUrl && (
+                          <button
+                            type="button"
+                            onClick={() => setProofToView(item)}
+                            className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#eef3ff] px-4 text-xs font-extrabold text-[#294aad]"
+                          >
+                            <Eye size={15} />
+                            View Payment Proof
+                          </button>
+                        )}
+
+                        <button
+                          type="button"
+                          disabled={
+                            paymentLoading ===
+                            item.id
+                          }
+                          onClick={() =>
+                            onRestoreFromTrash?.(
+                              item
+                            )
+                          }
+                          className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#eef2f8] px-4 text-xs font-extrabold text-[#52617d] disabled:opacity-50"
+                        >
+                          <RotateCcw size={15} />
+                          Restore Expense
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )
@@ -172,6 +199,45 @@ function TrashPanel({
           )}
         </div>
       </div>
+
+      {proofToView && (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-[#071333]/60 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-2xl overflow-hidden rounded-[24px] bg-white shadow-[0_30px_90px_rgba(8,24,70,0.30)]">
+            <div className="flex items-center justify-between gap-3 border-b border-[#e3e8f0] p-4 sm:p-5">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.1em] text-[#8995aa]">
+                  Payment Proof
+                </p>
+                <p className="mt-1 font-extrabold text-[#182442]">
+                  {proofToView.debtor || "Someone"} → {proofToView.creditor || "Someone"}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setProofToView(null)}
+                className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#eef2f8] text-[#52617d]"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="p-4 sm:p-5">
+              <img
+                src={proofToView.paymentProofDataUrl}
+                alt="Payment proof"
+                className="mx-auto max-h-[70vh] w-auto max-w-full rounded-2xl object-contain"
+              />
+
+              {proofToView.paymentProofUploadedByEmail && (
+                <p className="mt-4 text-center text-xs text-[#8995aa]">
+                  Attached by {proofToView.paymentProofUploadedByEmail}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

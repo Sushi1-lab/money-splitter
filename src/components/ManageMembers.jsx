@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import {
   collection,
@@ -12,7 +12,6 @@ import {
   ArrowLeft,
   ChevronDown,
   ChevronRight,
-  LoaderCircle,
   ShieldCheck,
   Trash2,
   UserMinus,
@@ -44,14 +43,15 @@ function ManageMembers({
     useState(false);
 
   const [
-    removingMember,
-    setRemovingMember,
-  ] = useState(null);
-
-  const [
     showMembers,
     setShowMembers,
   ] = useState(false);
+
+  const [
+    memberUsernames,
+    setMemberUsernames,
+  ] = useState({});
+
 
   const {
     Dialog,
@@ -83,6 +83,90 @@ function ManageMembers({
   const canManage =
     owner ||
     isSuperAdmin;
+
+  useEffect(() => {
+    const loadMemberUsernames =
+      async () => {
+        if (
+          !server?.id
+        ) {
+          setMemberUsernames(
+            {}
+          );
+          return;
+        }
+
+        try {
+          const snapshot =
+            await getDocs(
+              collection(
+                db,
+                "servers",
+                server.id,
+                "usernames"
+              )
+            );
+
+          const byEmail =
+            {};
+
+          snapshot.docs.forEach(
+            (item) => {
+              const data =
+                item.data();
+
+              const savedEmail =
+                String(
+                  data?.email ||
+                    ""
+                )
+                  .trim()
+                  .toLowerCase();
+
+              const savedUsername =
+                String(
+                  data?.username ||
+                    item.id ||
+                    ""
+                )
+                  .trim()
+                  .replace(
+                    /^@+/,
+                    ""
+                  );
+
+              if (
+                savedEmail &&
+                savedUsername
+              ) {
+                byEmail[
+                  savedEmail
+                ] =
+                  savedUsername;
+              }
+            }
+          );
+
+          setMemberUsernames(
+            byEmail
+          );
+        } catch (err) {
+          console.error(
+            "Member username loading error:",
+            err
+          );
+
+          setMemberUsernames(
+            {}
+          );
+        }
+      };
+
+    loadMemberUsernames();
+  }, [
+    server?.id,
+    members.join("|"),
+  ]);
 
   const addMember =
     async () => {
@@ -203,9 +287,6 @@ function ManageMembers({
 
       try {
         setSaving(true);
-        setRemovingMember(
-          member
-        );
 
         const updated =
           members.filter(
@@ -250,9 +331,6 @@ function ManageMembers({
         );
       } finally {
         setSaving(false);
-        setRemovingMember(
-          null
-        );
       }
     };
 
@@ -491,23 +569,14 @@ function ManageMembers({
                       onClick={
                         addMember
                       }
-                      className="app-button-primary flex min-h-12 items-center justify-center gap-2 px-5 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="app-button-primary flex min-h-12 items-center justify-center gap-2 px-5 disabled:opacity-50"
                     >
-                      {saving &&
-                      !removingMember ? (
-                        <LoaderCircle
-                          size={17}
-                          className="animate-spin"
-                        />
-                      ) : (
-                        <UserPlus
-                          size={17}
-                        />
-                      )}
+                      <UserPlus
+                        size={17}
+                      />
 
-                      {saving &&
-                      !removingMember
-                        ? "Adding..."
+                      {saving
+                        ? "Saving..."
                         : "Add"}
                     </button>
                   </div>
@@ -541,6 +610,14 @@ function ManageMembers({
                             .toLowerCase() ===
                           currentEmail;
 
+                        const workspaceUsername =
+                          memberUsernames[
+                            member
+                              .trim()
+                              .toLowerCase()
+                          ] ||
+                          "";
+
                         return (
                           <div
                             key={
@@ -555,7 +632,13 @@ function ManageMembers({
                                 }
                               </p>
 
-                              <div className="mt-1 flex flex-wrap gap-1.5">
+                              {workspaceUsername && (
+                                <p className="mt-1 text-xs font-extrabold text-[#52617d]">
+                                  @{workspaceUsername}
+                                </p>
+                              )}
+
+                              <div className="mt-1.5 flex flex-wrap gap-1.5">
                                 {isOwner && (
                                   <span className="rounded-full bg-[#dce6ff] px-2 py-0.5 text-[10px] font-extrabold text-[#142a76]">
                                     Owner
@@ -585,17 +668,9 @@ function ManageMembers({
                                   }
                                   className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#ffeded] text-[#cf4646] transition hover:bg-[#ffe1e1] disabled:opacity-50"
                                 >
-                                  {removingMember ===
-                                  member ? (
-                                    <LoaderCircle
-                                      size={18}
-                                      className="animate-spin"
-                                    />
-                                  ) : (
-                                    <UserMinus
-                                      size={18}
-                                    />
-                                  )}
+                                  <UserMinus
+                                    size={18}
+                                  />
                                 </button>
                               )}
                           </div>
@@ -634,19 +709,11 @@ function ManageMembers({
                 onClick={
                   deleteServer
                 }
-                className="mt-5 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#cf4646] px-5 font-bold text-white transition hover:bg-[#ba3f3f] disabled:cursor-not-allowed disabled:opacity-50"
+                className="mt-5 min-h-12 w-full rounded-xl bg-[#cf4646] px-5 font-bold text-white transition hover:bg-[#ba3f3f] disabled:opacity-50"
               >
-                {deleting ? (
-                  <>
-                    <LoaderCircle
-                      size={18}
-                      className="animate-spin"
-                    />
-                    Deleting...
-                  </>
-                ) : (
-                  "Delete Workspace"
-                )}
+                {deleting
+                  ? "Deleting..."
+                  : "Delete Workspace"}
               </button>
             </section>
           )}

@@ -610,6 +610,12 @@ function Dashboard({
             rating,
             message:
               feedbackText.trim(),
+            source:
+              "Splitter",
+            appSource:
+              "splitter",
+            appName:
+              "Splitter",
             userUid:
               user?.uid ||
               "",
@@ -656,6 +662,11 @@ function Dashboard({
     <>
       <section className="space-y-5">
         <div className="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-[#10245f] via-[#1b378e] to-[#3d63d2] p-6 text-white shadow-[0_20px_50px_rgba(20,42,118,0.18)] sm:p-8">
+          <div className="pointer-events-none absolute -right-12 -top-12 h-40 w-40 rounded-full bg-white/10 animate-pulse" />
+          <div className="pointer-events-none absolute right-24 top-10 h-3 w-3 rounded-full bg-white/40 animate-pulse" />
+          <div className="pointer-events-none absolute bottom-6 right-12 h-24 w-24 rounded-full border border-white/15 animate-pulse" />
+          <div className="pointer-events-none absolute bottom-10 right-32 h-8 w-8 rounded-full border border-white/10 animate-pulse" />
+
           <div className="absolute -right-14 -top-14 h-44 w-44 rounded-full bg-white/10" />
           <div className="absolute -bottom-20 right-20 h-48 w-48 rounded-full border-[28px] border-white/5" />
 
@@ -1691,11 +1702,11 @@ function Dashboard({
 
               <div>
                 <h3 className="font-extrabold text-[#182442]">
-                  Rate Money Splitter
+                  Rate Splitter
                 </h3>
 
                 <p className="mt-1 text-xs text-[#8995aa]">
-                  Click 1–5 stars and leave feedback
+                  Rate your Splitter experience and leave optional feedback
                 </p>
               </div>
             </div>
@@ -1777,6 +1788,14 @@ function Dashboard({
                   ? "Submitting..."
                   : "Submit Feedback"}
               </button>
+
+              <p className="mt-3 text-center text-xs text-[#8995aa]">
+                This submission will be tagged as coming from{" "}
+                <span className="font-extrabold text-[#294aad]">
+                  Splitter
+                </span>
+                .
+              </p>
             </div>
           )}
         </div>

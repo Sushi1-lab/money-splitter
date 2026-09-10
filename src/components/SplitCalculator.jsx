@@ -937,20 +937,49 @@ function SplitCalculator({
                 Category
               </label>
 
-              <select
-                value={
-                  category
-                }
-                onChange={(
-                  event
-                ) =>
-                  setCategory(
-                    event.target
-                      .value
-                  )
-                }
-                className="app-input"
-              >
+              <div className="relative">
+
+
+                <select
+
+
+                  value={
+
+
+                    category
+
+
+                  }
+
+
+                  onChange={(
+
+
+                    event
+
+
+                  ) =>
+
+
+                    setCategory(
+
+
+                      event.target
+
+
+                        .value
+
+
+                    )
+
+
+                  }
+
+
+                  className="app-input appearance-none pr-12 font-bold text-[#182442] transition focus:border-[#3d63d2] focus:ring-4 focus:ring-[#3d63d2]/10"
+
+
+                >
                 {categories.map(
                   (item) => (
                     <option
@@ -965,7 +994,37 @@ function SplitCalculator({
                     </option>
                   )
                 )}
-              </select>
+              
+
+                </select>
+
+
+
+                <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
+
+
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#eef3ff] text-[#294aad]">
+
+
+                    <ChevronDown
+
+
+                      size={16}
+
+
+                      strokeWidth={2.5}
+
+
+                    />
+
+
+                  </div>
+
+
+                </div>
+
+
+              </div>
             </div>
           </div>
 
@@ -996,20 +1055,49 @@ function SplitCalculator({
               Who Covered?
             </label>
 
-            <select
-              value={
-                payerKey
-              }
-              onChange={(
-                event
-              ) =>
-                setPayerKey(
-                  event.target
-                    .value
-                )
-              }
-              className="app-input"
-            >
+            <div className="relative">
+
+
+              <select
+
+
+                value={
+
+
+                  payerKey
+
+
+                }
+
+
+                onChange={(
+
+
+                  event
+
+
+                ) =>
+
+
+                  setPayerKey(
+
+
+                    event.target
+
+
+                      .value
+
+
+                  )
+
+
+                }
+
+
+                className="app-input appearance-none pr-12 font-bold text-[#182442] transition focus:border-[#3d63d2] focus:ring-4 focus:ring-[#3d63d2]/10"
+
+
+              >
               <option value="">
                 Select person
               </option>
@@ -1034,7 +1122,37 @@ function SplitCalculator({
                   </option>
                 )
               )}
-            </select>
+            
+
+              </select>
+
+
+
+              <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
+
+
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#eef3ff] text-[#294aad]">
+
+
+                  <ChevronDown
+
+
+                    size={16}
+
+
+                    strokeWidth={2.5}
+
+
+                  />
+
+
+                </div>
+
+
+              </div>
+
+
+            </div>
           </div>
 
           <div>

@@ -1,4 +1,6 @@
 import {
+  ArrowLeft,
+  ArrowLeftRight,
   AtSign,
   ChevronDown,
   ChevronRight,
@@ -21,6 +23,8 @@ import {
   addDoc,
   collection,
   doc,
+  getDoc,
+  getDocs,
   serverTimestamp,
   updateDoc,
 } from "firebase/firestore";
@@ -39,6 +43,7 @@ function ServerSelector({
   onSelectServer,
   onRefreshServers,
   onManageServer,
+  onSwitchApp,
 }) {
   const {
     Dialog,
@@ -76,6 +81,16 @@ function ServerSelector({
   );
 
   const [
+    lockedWorkspaceUsername,
+    setLockedWorkspaceUsername,
+  ] = useState("");
+
+  const [
+    checkingWorkspaceUsername,
+    setCheckingWorkspaceUsername,
+  ] = useState(false);
+
+  const [
     typeEditorServerId,
     setTypeEditorServerId,
   ] = useState(null);
@@ -101,16 +116,150 @@ function ServerSelector({
       .slice(0, 20);
 
   const openWorkspaceEntry =
-    (server) => {
+    async (server) => {
       setEntryServer(
         server
       );
 
-      setEntryUsername(
+      const fallbackUsername =
         normalizeUsername(
           profile?.username || ""
-        )
+        );
+
+      setEntryUsername(
+        fallbackUsername
       );
+
+      setLockedWorkspaceUsername(
+        ""
+      );
+
+      if (
+        !server?.id ||
+        !user?.email
+      ) {
+        return;
+      }
+
+      try {
+        setCheckingWorkspaceUsername(
+          true
+        );
+
+        const currentEmail =
+          normalizeEmail(
+            user.email
+          );
+
+        const snapshot =
+          await getDocs(
+            collection(
+              db,
+              "servers",
+              server.id,
+              "usernames"
+            )
+          );
+
+        const registeredEntry =
+          snapshot.docs.find(
+            (item) => {
+              const data =
+                item.data();
+
+              return (
+                normalizeEmail(
+                  data?.email ||
+                    ""
+                ) ===
+                currentEmail
+              );
+            }
+          );
+
+        let registeredUsername =
+          "";
+
+        if (
+          registeredEntry
+        ) {
+          registeredUsername =
+            normalizeUsername(
+              registeredEntry.data()
+                ?.username ||
+                registeredEntry.id ||
+                ""
+            );
+        }
+
+        // Migration fallback:
+        // Older workspaces may only have the username on a people record.
+        if (
+          !registeredUsername
+        ) {
+          const peopleSnapshot =
+            await getDocs(
+              collection(
+                db,
+                "servers",
+                server.id,
+                "people"
+              )
+            );
+
+          const linkedPerson =
+            peopleSnapshot.docs.find(
+              (item) => {
+                const data =
+                  item.data();
+
+                return (
+                  normalizeEmail(
+                    data?.linkedEmail ||
+                      ""
+                  ) ===
+                    currentEmail &&
+                  normalizeUsername(
+                    data?.username ||
+                      ""
+                  )
+                );
+              }
+            );
+
+          if (
+            linkedPerson
+          ) {
+            registeredUsername =
+              normalizeUsername(
+                linkedPerson.data()
+                  ?.username ||
+                  ""
+              );
+          }
+        }
+
+        if (
+          registeredUsername
+        ) {
+          setLockedWorkspaceUsername(
+            registeredUsername
+          );
+
+          setEntryUsername(
+            registeredUsername
+          );
+        }
+      } catch (err) {
+        console.error(
+          "Existing workspace username lookup error:",
+          err
+        );
+      } finally {
+        setCheckingWorkspaceUsername(
+          false
+        );
+      }
     };
 
   const continueIntoWorkspace =
@@ -138,9 +287,197 @@ function ServerSelector({
             "entering"
         );
 
+        const currentEmail =
+          normalizeEmail(
+            user?.email
+          );
+
+        if (
+          entryServer?.id
+        ) {
+          const usernamesSnapshot =
+            await getDocs(
+              collection(
+                db,
+                "servers",
+                entryServer.id,
+                "usernames"
+              )
+            );
+
+          const emailRegisteredEntry =
+            usernamesSnapshot.docs.find(
+              (item) => {
+                const data =
+                  item.data();
+
+                return (
+                  normalizeEmail(
+                    data?.email ||
+                      ""
+                  ) ===
+                  currentEmail
+                );
+              }
+            );
+
+          if (
+            emailRegisteredEntry
+          ) {
+            const registeredUsername =
+              normalizeUsername(
+                emailRegisteredEntry.data()
+                  ?.username ||
+                  emailRegisteredEntry.id ||
+                  ""
+              );
+
+            if (
+              registeredUsername &&
+              registeredUsername !==
+                cleanUsername
+            ) {
+              setLockedWorkspaceUsername(
+                registeredUsername
+              );
+
+              setEntryUsername(
+                registeredUsername
+              );
+
+              await error(
+                "Workspace Username Cannot Be Changed",
+                `Your email is already registered as @${registeredUsername} in this workspace. Once a workspace username is registered, it cannot be changed.`
+              );
+
+              return;
+            }
+          } else {
+            const approved =
+              await confirm({
+                type:
+                  "warning",
+                title:
+                  "Confirm Your Workspace Username",
+                message:
+                  `You are about to register @${cleanUsername} for ${entryServer?.name || "this workspace"}. This username will be permanently linked to ${currentEmail} in this workspace and cannot be changed later.`,
+                confirmText:
+                  `Use @${cleanUsername}`,
+              });
+
+            if (
+              !approved
+            ) {
+              return;
+            }
+          }
+
+          const usernameRef =
+            doc(
+              db,
+              "servers",
+              entryServer.id,
+              "usernames",
+              cleanUsername
+            );
+
+          const usernameSnapshot =
+            await getDoc(
+              usernameRef
+            );
+
+          if (
+            usernameSnapshot.exists()
+          ) {
+            const registeredEmail =
+              normalizeEmail(
+                usernameSnapshot.data()
+                  ?.email ||
+                  ""
+              );
+
+            if (
+              registeredEmail &&
+              registeredEmail !==
+                currentEmail
+            ) {
+              await error(
+                "Username Already Registered",
+                `@${cleanUsername} is already connected to another registered email in this workspace. Please choose a different username.`
+              );
+
+              return;
+            }
+          }
+
+          // Migration-safe fallback for older workspace members
+          // whose usernames may only exist in the people collection.
+          const peopleSnapshot =
+            await getDocs(
+              collection(
+                db,
+                "servers",
+                entryServer.id,
+                "people"
+              )
+            );
+
+          const conflictingPerson =
+            peopleSnapshot.docs.find(
+              (item) => {
+                const data =
+                  item.data();
+
+                const savedUsername =
+                  normalizeUsername(
+                    data?.username ||
+                      ""
+                  );
+
+                const savedEmail =
+                  normalizeEmail(
+                    data?.linkedEmail ||
+                      ""
+                  );
+
+                return (
+                  savedUsername ===
+                    cleanUsername &&
+                  savedEmail &&
+                  savedEmail !==
+                    currentEmail
+                );
+              }
+            );
+
+          if (
+            conflictingPerson
+          ) {
+            await error(
+              "Username Already Registered",
+              `@${cleanUsername} is already connected to another registered email in this workspace. Please choose a different username.`
+            );
+
+            return;
+          }
+        }
+
         await onSelectServer?.(
           entryServer,
           cleanUsername
+        );
+      } catch (err) {
+        console.error(
+          "Workspace username validation error:",
+          err
+        );
+
+        await error(
+          "Unable to Verify Username",
+          err?.code ===
+            "permission-denied"
+            ? "Firestore blocked the username check. Please make sure your updated Firestore rules are published."
+            : "We couldn't verify this username right now. Please try again."
         );
       } finally {
         setEnteringServerId(
@@ -363,6 +700,21 @@ function ServerSelector({
     <>
       <main className="min-h-[100dvh] bg-[#eaf0fa] px-4 py-6 sm:px-6 sm:py-10">
         <div className="mx-auto max-w-5xl">
+          <div className="mb-4">
+            <button
+              type="button"
+              onClick={
+                onSwitchApp
+              }
+              className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-white px-4 text-sm font-extrabold text-[#52617d] shadow-sm transition hover:bg-[#f7f9fd]"
+            >
+              <ArrowLeft
+                size={18}
+              />
+              Back
+            </button>
+          </div>
+
           <div className="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-[#10245f] via-[#1b378e] to-[#3d63d2] p-6 text-white shadow-[0_20px_50px_rgba(20,42,118,0.18)] sm:p-8">
             <div className="absolute -right-14 -top-14 h-44 w-44 rounded-full bg-white/10" />
 
@@ -898,11 +1250,21 @@ function ServerSelector({
                 </p>
 
                 <h2 className="mt-1 text-2xl font-extrabold">
-                  Choose your workspace username
+                  {lockedWorkspaceUsername
+                    ? "Your workspace username"
+                    : "Choose your workspace username"}
                 </h2>
 
                 <p className="mt-2 text-sm leading-6 text-blue-100/75">
-                  This is how members of <span className="font-extrabold text-white">{entryServer.name}</span> will recognize you.
+                  {lockedWorkspaceUsername ? (
+                    <>
+                      Your email is already registered in <span className="font-extrabold text-white">{entryServer.name}</span>.
+                    </>
+                  ) : (
+                    <>
+                      This is how members of <span className="font-extrabold text-white">{entryServer.name}</span> will recognize you.
+                    </>
+                  )}
                 </p>
               </div>
             </div>
@@ -933,6 +1295,12 @@ function ServerSelector({
                     value={
                       entryUsername
                     }
+                    disabled={
+                      checkingWorkspaceUsername ||
+                      Boolean(
+                        lockedWorkspaceUsername
+                      )
+                    }
                     onChange={(
                       event
                     ) =>
@@ -944,24 +1312,61 @@ function ServerSelector({
                       )
                     }
                     maxLength={20}
-                    autoFocus
-                    className="app-input app-input-icon"
+                    autoFocus={
+                      !lockedWorkspaceUsername
+                    }
+                    className={`app-input app-input-icon ${
+                      lockedWorkspaceUsername
+                        ? "cursor-not-allowed bg-[#f1f4f9] text-[#71809a]"
+                        : ""
+                    }`}
                     placeholder="marl"
                   />
                 </div>
 
-                <p className="mt-2 text-xs leading-5 text-[#8995aa]">
-                  You can change this before entering. If the same username is already used by a different email in this workspace, Money Splitter will ask you to choose another one.
-                </p>
+                {checkingWorkspaceUsername ? (
+                  <div className="mt-3 flex items-center gap-2 rounded-xl bg-[#eef3ff] px-3.5 py-3 text-xs font-extrabold text-[#294aad]">
+                    <LoaderCircle
+                      size={15}
+                      className="animate-spin"
+                    />
+                    Checking your workspace registration...
+                  </div>
+                ) : lockedWorkspaceUsername ? (
+                  <div className="mt-3 rounded-xl border border-[#d8e2f6] bg-[#eef3ff] p-3.5">
+                    <p className="text-xs font-black uppercase tracking-[0.08em] text-[#294aad]">
+                      Already registered
+                    </p>
+
+                    <p className="mt-1.5 text-sm font-bold leading-5 text-[#52617d]">
+                      {user?.email} is already registered in this workspace as
+                      <span className="font-black text-[#182442]">
+                        {" "}@{lockedWorkspaceUsername}
+                      </span>.
+                    </p>
+
+                    <p className="mt-2 text-xs leading-5 text-[#71809a]">
+                      This workspace username is permanent and cannot be changed. If you want to use a different username in this workspace, you must sign in with a different email address.
+                    </p>
+                  </div>
+                ) : (
+                  <p className="mt-2 text-xs leading-5 text-[#8995aa]">
+                    Choose carefully. The first username you register in this workspace will be permanently linked to your email and cannot be changed later.
+                  </p>
+                )}
               </div>
 
               <div className="rounded-2xl bg-[#f7f9fd] p-4">
                 <p className="text-xs font-extrabold text-[#52617d]">
-                  Username rules
+                  {lockedWorkspaceUsername
+                    ? "Permanent workspace username"
+                    : "Username rules"}
                 </p>
 
                 <p className="mt-1 text-xs leading-5 text-[#8995aa]">
-                  Same username + same email is allowed. The same username can also be used in other workspaces.
+                  {lockedWorkspaceUsername
+                    ? `This email is permanently linked to @${lockedWorkspaceUsername} for ${entryServer?.name || "this workspace"}. To use another username here, use a different email account.`
+                    : "One email can have only one username per workspace. Once registered, that workspace username is permanent. You may still use a different username in another workspace."}
                 </p>
               </div>
 
@@ -970,7 +1375,8 @@ function ServerSelector({
                 disabled={
                   Boolean(
                     enteringServerId
-                  )
+                  ) ||
+                  checkingWorkspaceUsername
                 }
                 onClick={
                   continueIntoWorkspace
@@ -985,6 +1391,16 @@ function ServerSelector({
                     />
                     Entering Workspace...
                   </>
+                ) : checkingWorkspaceUsername ? (
+                  <>
+                    <LoaderCircle
+                      size={18}
+                      className="animate-spin"
+                    />
+                    Checking Registration...
+                  </>
+                ) : lockedWorkspaceUsername ? (
+                  "Enter Workspace"
                 ) : (
                   "Continue to Workspace"
                 )}

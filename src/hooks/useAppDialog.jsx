@@ -1,8 +1,16 @@
-import { useState } from "react";
+import {
+  useCallback,
+  useRef,
+  useState,
+} from "react";
+
 import AppDialog from "../components/AppDialog.jsx";
 
 function useAppDialog() {
-  const [dialog, setDialog] = useState({
+  const [
+    dialog,
+    setDialog,
+  ] = useState({
     open: false,
     type: "info",
     title: "",
@@ -10,98 +18,194 @@ function useAppDialog() {
     confirmText: "OK",
     cancelText: "Cancel",
     showCancel: false,
-    resolve: null,
   });
 
-  const closeDialog = (result) => {
-    if (dialog.resolve) {
-      dialog.resolve(result);
-    }
+  const resolveRef =
+    useRef(null);
 
-    setDialog((current) => ({
-      ...current,
-      open: false,
-      resolve: null,
-    }));
-  };
+  const closeDialog =
+    useCallback(
+      (result) => {
+        const resolver =
+          resolveRef.current;
 
-  const showDialog = ({
-    type = "info",
-    title = "Money Splitter",
-    message = "",
-    confirmText = "OK",
-    cancelText = "Cancel",
-    showCancel = false,
-  }) => {
-    return new Promise((resolve) => {
-      setDialog({
-        open: true,
-        type,
+        resolveRef.current =
+          null;
+
+        setDialog(
+          (current) => ({
+            ...current,
+            open: false,
+          })
+        );
+
+        resolver?.(
+          result
+        );
+      },
+      []
+    );
+
+  const showDialog =
+    useCallback(
+      ({
+        type = "info",
+        title = "Money Manager",
+        message = "",
+        confirmText = "OK",
+        cancelText = "Cancel",
+        showCancel = false,
+      }) =>
+        new Promise(
+          (resolve) => {
+            // If another lightweight notification is currently
+            // open, finish it before showing the next one.
+            if (
+              resolveRef.current
+            ) {
+              resolveRef.current(
+                false
+              );
+            }
+
+            resolveRef.current =
+              resolve;
+
+            setDialog({
+              open: true,
+              type,
+              title,
+              message,
+              confirmText,
+              cancelText,
+              showCancel,
+            });
+          }
+        ),
+      []
+    );
+
+  const success =
+    useCallback(
+      (
+        title,
+        message
+      ) =>
+        showDialog({
+          type:
+            "success",
+          title,
+          message,
+          confirmText:
+            "Done",
+        }),
+      [
+        showDialog,
+      ]
+    );
+
+  const error =
+    useCallback(
+      (
+        title,
+        message
+      ) =>
+        showDialog({
+          type:
+            "error",
+          title,
+          message,
+          confirmText:
+            "OK",
+        }),
+      [
+        showDialog,
+      ]
+    );
+
+  const info =
+    useCallback(
+      (
+        title,
+        message
+      ) =>
+        showDialog({
+          type:
+            "info",
+          title,
+          message,
+          confirmText:
+            "OK",
+        }),
+      [
+        showDialog,
+      ]
+    );
+
+  const warning =
+    useCallback(
+      (
+        title,
+        message
+      ) =>
+        showDialog({
+          type:
+            "warning",
+          title,
+          message,
+          confirmText:
+            "OK",
+        }),
+      [
+        showDialog,
+      ]
+    );
+
+  const confirm =
+    useCallback(
+      ({
+        type = "warning",
         title,
         message,
-        confirmText,
-        cancelText,
-        showCancel,
-        resolve,
-      });
-    });
-  };
+        confirmText = "Confirm",
+        cancelText = "Cancel",
+      }) =>
+        showDialog({
+          type,
+          title,
+          message,
+          confirmText,
+          cancelText,
+          showCancel:
+            true,
+        }),
+      [
+        showDialog,
+      ]
+    );
 
-  const success = (title, message) =>
-    showDialog({
-      type: "success",
-      title,
-      message,
-      confirmText: "Done",
-    });
-
-  const error = (title, message) =>
-    showDialog({
-      type: "error",
-      title,
-      message,
-      confirmText: "OK",
-    });
-
-  const info = (title, message) =>
-    showDialog({
-      type: "info",
-      title,
-      message,
-      confirmText: "OK",
-    });
-
-  const warning = (title, message) =>
-    showDialog({
-      type: "warning",
-      title,
-      message,
-      confirmText: "OK",
-    });
-
-  const confirm = ({
-    type = "warning",
-    title,
-    message,
-    confirmText = "Confirm",
-    cancelText = "Cancel",
-  }) =>
-    showDialog({
-      type,
-      title,
-      message,
-      confirmText,
-      cancelText,
-      showCancel: true,
-    });
-
-  const Dialog = () => (
-    <AppDialog
-      {...dialog}
-      onConfirm={() => closeDialog(true)}
-      onCancel={() => closeDialog(false)}
-    />
-  );
+  const Dialog =
+    useCallback(
+      () => (
+        <AppDialog
+          {...dialog}
+          onConfirm={() =>
+            closeDialog(
+              true
+            )
+          }
+          onCancel={() =>
+            closeDialog(
+              false
+            )
+          }
+        />
+      ),
+      [
+        dialog,
+        closeDialog,
+      ]
+    );
 
   return {
     Dialog,

@@ -24,6 +24,7 @@ import {
 } from "firebase/auth";
 
 import {
+  ArrowLeftRight,
   CircleDollarSign,
   History,
   LayoutDashboard,
@@ -43,6 +44,9 @@ import {
 } from "./firebase.js";
 
 import AuthScreen from "./components/AuthScreen.jsx";
+import AppChoice from "./components/AppChoice.jsx";
+import Budgeter from "./components/Budgeter.jsx";
+import FeedbackCenter from "./components/FeedbackCenter.jsx";
 import Dashboard from "./components/Dashboard.jsx";
 import ManageMembers from "./components/ManageMembers.jsx";
 import PersonTotals from "./components/PersonTotals.jsx";
@@ -60,6 +64,13 @@ function App() {
   const [
     user,
     setUser,
+  ] = useState(
+    null
+  );
+
+  const [
+    appMode,
+    setAppMode,
   ] = useState(
     null
   );
@@ -290,6 +301,10 @@ function App() {
             !firebaseUser
           ) {
             setProfile(
+              null
+            );
+
+            setAppMode(
               null
             );
 
@@ -679,6 +694,61 @@ function App() {
         );
 
       try {
+        // FIRST: enforce one permanent username per email in this workspace.
+        // If this email already owns a username, that exact username must be reused.
+        const usernamesSnapshot =
+          await getDocs(
+            collection(
+              db,
+              "servers",
+              server.id,
+              "usernames"
+            )
+          );
+
+        const existingEmailRegistration =
+          usernamesSnapshot.docs.find(
+            (item) => {
+              const data =
+                item.data();
+
+              return (
+                normalizeEmail(
+                  data?.email ||
+                    ""
+                ) ===
+                currentEmail
+              );
+            }
+          );
+
+        if (
+          existingEmailRegistration
+        ) {
+          const existingUsername =
+            normalizeUsername(
+              existingEmailRegistration.data()
+                ?.username ||
+                existingEmailRegistration.id ||
+                ""
+            );
+
+          if (
+            existingUsername &&
+            existingUsername !==
+              cleanUsername
+          ) {
+            return {
+              ok: false,
+              emailLocked: true,
+              lockedUsername:
+                existingUsername,
+              message:
+                `Your email is already permanently registered as @${existingUsername} in this workspace. You cannot switch to another username.`,
+            };
+          }
+        }
+
         // Migration-safe check:
         // Existing servers may already have usernames stored
         // on people documents before the per-server username
@@ -893,6 +963,22 @@ function App() {
       }
 
       if (
+        result.emailLocked
+      ) {
+        setServerUsername(
+          result.lockedUsername ||
+            ""
+        );
+
+        await error(
+          "Workspace Username Locked",
+          result.message
+        );
+
+        return;
+      }
+
+      if (
         result.conflict
       ) {
         setPendingServer(
@@ -946,6 +1032,15 @@ function App() {
       if (
         !result.ok
       ) {
+        if (
+          result.emailLocked
+        ) {
+          setPendingUsername(
+            result.lockedUsername ||
+              ""
+          );
+        }
+
         setUsernameConflictMessage(
           result.message
         );
@@ -2222,45 +2317,14 @@ function App() {
       creditorKey,
       amount,
       debtorName,
-      creditorName
+      creditorName,
+      paymentProof = {}
     ) => {
       const id =
         getSettlementId(
           debtorKey,
           creditorKey
         );
-
-      const approved =
-        await confirm({
-          type:
-            "info",
-
-          title:
-            "Mark as Paid?",
-
-          message:
-            `${debtorName} paid ${creditorName} ₱${Number(
-              amount
-            ).toLocaleString(
-              "en-PH",
-              {
-                minimumFractionDigits:
-                  2,
-
-                maximumFractionDigits:
-                  2,
-              }
-            )}.`,
-
-          confirmText:
-            "Mark Paid",
-        });
-
-      if (
-        !approved
-      ) {
-        return;
-      }
 
       try {
         setPaymentLoading(
@@ -2304,6 +2368,31 @@ function App() {
               user.email ||
               "",
 
+
+            paymentProofDataUrl:
+              paymentProof?.paymentProofDataUrl || "",
+
+            paymentProofName:
+              paymentProof?.paymentProofName || "",
+
+            paymentProofType:
+              paymentProof?.paymentProofType || "",
+
+            paymentProofUploadedByUid:
+              user.uid,
+
+            paymentProofUploadedByEmail:
+              user.email || "",
+
+            splitIds:
+              paymentProof?.splitIds || [],
+
+            paidAt:
+              serverTimestamp(),
+
+            trashedAt:
+              serverTimestamp(),
+
             updatedAt:
               serverTimestamp(),
           }
@@ -2340,6 +2429,10 @@ function App() {
       amount,
       forwardRawTotal,
       reverseRawTotal,
+      paymentProofDataUrl = "",
+      paymentProofName = "",
+      paymentProofType = "",
+      splitIds = [],
     }) => {
       const forwardId =
         getSettlementId(
@@ -2352,36 +2445,6 @@ function App() {
           creditorKey,
           debtorKey
         );
-
-      const approved =
-        await confirm({
-          type:
-            "info",
-
-          title:
-            "Settle Simplified Balance?",
-
-          message:
-            `${debtorName} will settle the net balance with ${creditorName} for ₱${Number(
-              amount
-            ).toLocaleString(
-              "en-PH",
-              {
-                minimumFractionDigits:
-                  2,
-
-                maximumFractionDigits:
-                  2,
-              }
-            )}. The mutual debts in both directions will be treated as settled.`,
-
-          confirmText:
-            "Settle Net Balance",
-        });
-
-      if (!approved) {
-        return;
-      }
 
       try {
         setPaymentLoading(
@@ -2433,6 +2496,24 @@ function App() {
               updatedByEmail:
                 user.email ||
                 "",
+
+              paymentProofDataUrl,
+              paymentProofName,
+              paymentProofType,
+
+              paymentProofUploadedByUid:
+                user.uid,
+
+              paymentProofUploadedByEmail:
+                user.email || "",
+
+              splitIds,
+
+              paidAt:
+                serverTimestamp(),
+
+              trashedAt:
+                serverTimestamp(),
 
               updatedAt:
                 serverTimestamp(),
@@ -2490,6 +2571,24 @@ function App() {
                 updatedByEmail:
                   user.email ||
                   "",
+
+                paymentProofDataUrl,
+                paymentProofName,
+                paymentProofType,
+
+                paymentProofUploadedByUid:
+                  user.uid,
+
+                paymentProofUploadedByEmail:
+                  user.email || "",
+
+                splitIds,
+
+                paidAt:
+                  serverTimestamp(),
+
+                trashedAt:
+                  serverTimestamp(),
 
                 updatedAt:
                   serverTimestamp(),
@@ -2817,6 +2916,72 @@ function App() {
     };
 
   // =========================================
+  // SWITCH APP
+  // =========================================
+
+  const switchApp =
+    () => {
+      setAppMode(
+        null
+      );
+
+      setActiveServer(
+        null
+      );
+
+      setServerUsername(
+        ""
+      );
+
+      setPendingServer(
+        null
+      );
+
+      setPendingUsername(
+        ""
+      );
+
+      setServerToManage(
+        null
+      );
+
+      setServerPeople(
+        []
+      );
+
+      setSavedSplits(
+        []
+      );
+
+      setSettlements(
+        {}
+      );
+
+      setWalletPerson(
+        null
+      );
+
+      setOpenSplitId(
+        null
+      );
+
+      setEditingSplit(
+        null
+      );
+
+      setPage(
+        "dashboard"
+      );
+
+      window.scrollTo({
+        top:
+          0,
+        behavior:
+          "smooth",
+      });
+    };
+
+  // =========================================
   // CHANGE SERVER
   // =========================================
 
@@ -3022,6 +3187,110 @@ function App() {
   }
 
   // =========================================
+  // CHOOSE APP
+  // =========================================
+
+  if (
+    !appMode
+  ) {
+    return (
+      <>
+        <AppChoice
+          user={
+            user
+          }
+          profile={
+            profile
+          }
+          onChooseSplitter={() =>
+            setAppMode(
+              "splitter"
+            )
+          }
+          onChooseBudgeter={() =>
+            setAppMode(
+              "budgeter"
+            )
+          }
+          onChooseFeedback={() =>
+            setAppMode(
+              "feedback"
+            )
+          }
+          isSuperAdmin={
+            isSuperAdmin
+          }
+          onSignOut={
+            handleSignOut
+          }
+        />
+
+        <Dialog />
+      </>
+    );
+  }
+
+  // =========================================
+  // FEEDBACK CENTER
+  // =========================================
+
+  if (
+    appMode ===
+    "feedback"
+  ) {
+    return (
+      <>
+        <FeedbackCenter
+          user={
+            user
+          }
+          profile={
+            profile
+          }
+          isSuperAdmin={
+            isSuperAdmin
+          }
+          onBack={
+            switchApp
+          }
+        />
+
+        <Dialog />
+      </>
+    );
+  }
+
+  // =========================================
+  // BUDGETER
+  // =========================================
+
+  if (
+    appMode ===
+    "budgeter"
+  ) {
+    return (
+      <>
+        <Budgeter
+          user={
+            user
+          }
+          profile={
+            profile
+          }
+          onSwitchApp={
+            switchApp
+          }
+          onSignOut={
+            handleSignOut
+          }
+        />
+
+        <Dialog />
+      </>
+    );
+  }
+
+  // =========================================
   // MANAGE SERVER
   // =========================================
 
@@ -3088,6 +3357,9 @@ function App() {
           }
           onManageServer={
             setServerToManage
+          }
+          onSwitchApp={
+            switchApp
           }
         />
 
@@ -3316,6 +3588,9 @@ function App() {
             }
             serverPeople={
               serverPeople
+            }
+            onNavigate={
+              setPage
             }
           />
         );
@@ -3612,6 +3887,20 @@ function App() {
           <button
             type="button"
             onClick={
+              switchApp
+            }
+            className="flex min-h-11 w-full items-center gap-3 rounded-xl bg-white/10 px-4 text-sm font-bold transition hover:bg-white/15"
+          >
+            <ArrowLeftRight
+              size={18}
+            />
+
+            Switch App
+          </button>
+
+          <button
+            type="button"
+            onClick={
               changeServer
             }
             className="flex min-h-11 w-full items-center gap-3 rounded-xl bg-white/10 px-4 text-sm font-bold transition hover:bg-white/15"
@@ -3734,6 +4023,19 @@ function App() {
                   size={20}
                 />
               )}
+            </button>
+
+            <button
+              type="button"
+              title="Switch app"
+              onClick={
+                switchApp
+              }
+              className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/15"
+            >
+              <ArrowLeftRight
+                size={20}
+              />
             </button>
 
             <button
