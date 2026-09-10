@@ -3,6 +3,7 @@ import {
   ChevronDown,
   ChevronRight,
   ImagePlus,
+  LoaderCircle,
   Percent,
   Plus,
   ReceiptText,
@@ -85,6 +86,11 @@ function SplitCalculator({
 
   const [receiptBase64, setReceiptBase64] =
     useState(null);
+
+  const [
+    processingReceipt,
+    setProcessingReceipt,
+  ] = useState(false);
 
   const personKey = (person) =>
     person.id ||
@@ -398,37 +404,226 @@ function SplitCalculator({
       0
     );
 
+  const compressReceiptImage =
+    (file) =>
+      new Promise(
+        (resolve, reject) => {
+          const reader =
+            new FileReader();
+
+          reader.onload = (
+            event
+          ) => {
+            const image =
+              new Image();
+
+            image.onload = () => {
+              try {
+                let width =
+                  image.width;
+
+                let height =
+                  image.height;
+
+                const maxDimension =
+                  1100;
+
+                const ratio =
+                  Math.min(
+                    maxDimension /
+                      width,
+                    maxDimension /
+                      height,
+                    1
+                  );
+
+                width =
+                  Math.round(
+                    width *
+                      ratio
+                  );
+
+                height =
+                  Math.round(
+                    height *
+                      ratio
+                  );
+
+                const canvas =
+                  document.createElement(
+                    "canvas"
+                  );
+
+                canvas.width =
+                  width;
+
+                canvas.height =
+                  height;
+
+                const context =
+                  canvas.getContext(
+                    "2d"
+                  );
+
+                if (!context) {
+                  reject(
+                    new Error(
+                      "Canvas is unavailable."
+                    )
+                  );
+                  return;
+                }
+
+                context.drawImage(
+                  image,
+                  0,
+                  0,
+                  width,
+                  height
+                );
+
+                const compressed =
+                  canvas.toDataURL(
+                    "image/jpeg",
+                    0.68
+                  );
+
+                resolve(
+                  compressed
+                );
+              } catch (err) {
+                reject(err);
+              }
+            };
+
+            image.onerror = () =>
+              reject(
+                new Error(
+                  "The image could not be processed."
+                )
+              );
+
+            image.src =
+              event.target.result;
+          };
+
+          reader.onerror = () =>
+            reject(
+              new Error(
+                "The image could not be read."
+              )
+            );
+
+          reader.readAsDataURL(
+            file
+          );
+        }
+      );
+
   const handleReceipt =
-    (event) => {
+    async (
+      event
+    ) => {
       const file =
         event.target
           .files?.[0];
 
-      if (!file) return;
+      if (!file) {
+        return;
+      }
 
       if (
         !file.type.startsWith(
           "image/"
         )
       ) {
-        warning(
+        await warning(
           "Invalid Image",
           "Please choose an image file."
         );
+
+        event.target.value =
+          "";
+
         return;
       }
 
-      const reader =
-        new FileReader();
+      const maxOriginalSize =
+        15 *
+        1024 *
+        1024;
 
-      reader.onload = () =>
-        setReceiptBase64(
-          reader.result
+      if (
+        file.size >
+        maxOriginalSize
+      ) {
+        await warning(
+          "Receipt Too Large",
+          "Please choose an image smaller than 15 MB."
         );
 
-      reader.readAsDataURL(
-        file
-      );
+        event.target.value =
+          "";
+
+        return;
+      }
+
+      try {
+        setProcessingReceipt(
+          true
+        );
+
+        const compressed =
+          await compressReceiptImage(
+            file
+          );
+
+        const estimatedBytes =
+          Math.ceil(
+            compressed.length *
+              0.75
+          );
+
+        const maxStoredReceiptBytes =
+          650 *
+          1024;
+
+        if (
+          estimatedBytes >
+          maxStoredReceiptBytes
+        ) {
+          await warning(
+            "Receipt Still Too Large",
+            "This receipt is still too large after compression. Try cropping the image or taking a closer photo."
+          );
+
+          event.target.value =
+            "";
+
+          return;
+        }
+
+        setReceiptBase64(
+          compressed
+        );
+      } catch (err) {
+        console.error(
+          "Receipt processing error:",
+          err
+        );
+
+        await warning(
+          "Unable to Process Receipt",
+          "Please try another image."
+        );
+
+        event.target.value =
+          "";
+      } finally {
+        setProcessingReceipt(
+          false
+        );
+      }
     };
 
   const addPerson =
@@ -1142,17 +1337,36 @@ function SplitCalculator({
               </span>
             </label>
 
-            <label className="flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-[#b9c6e5] bg-[#eef3ff] text-sm font-bold text-[#294aad]">
-              <ImagePlus
-                size={18}
-              />
-              {receiptBase64
+            <label
+              className={`flex min-h-12 items-center justify-center gap-2 rounded-xl border border-dashed border-[#b9c6e5] bg-[#eef3ff] text-sm font-bold text-[#294aad] ${
+                processingReceipt
+                  ? "cursor-not-allowed opacity-60"
+                  : "cursor-pointer"
+              }`}
+            >
+              {processingReceipt ? (
+                <LoaderCircle
+                  size={18}
+                  className="animate-spin"
+                />
+              ) : (
+                <ImagePlus
+                  size={18}
+                />
+              )}
+
+              {processingReceipt
+                ? "Processing Receipt..."
+                : receiptBase64
                 ? "Replace Receipt"
                 : "Add Receipt Image"}
 
               <input
                 type="file"
                 accept="image/*"
+                disabled={
+                  processingReceipt
+                }
                 onChange={
                   handleReceipt
                 }
@@ -1205,14 +1419,26 @@ function SplitCalculator({
             <button
               type="submit"
               disabled={
-                saving
+                saving ||
+                processingReceipt
               }
               className="app-button-primary flex min-h-12 flex-1 items-center justify-center gap-2 disabled:opacity-50"
             >
-              <Save
-                size={18}
-              />
-              {saving
+              {saving ||
+              processingReceipt ? (
+                <LoaderCircle
+                  size={18}
+                  className="animate-spin"
+                />
+              ) : (
+                <Save
+                  size={18}
+                />
+              )}
+
+              {processingReceipt
+                ? "Processing Receipt..."
+                : saving
                 ? "Saving..."
                 : editingSplit
                 ? "Update Expense"
