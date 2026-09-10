@@ -15,49 +15,192 @@ function TrashPanel({
   const [proofToView, setProofToView] =
     useState(null);
 
-  const archived = Object.values(
-    settlements
-  )
-    .filter(
+  const getMillis =
+    (value) => {
+      if (
+        value?.toMillis
+      ) {
+        return value.toMillis();
+      }
+
+      if (
+        value?.seconds
+      ) {
+        return (
+          value.seconds *
+          1000
+        );
+      }
+
+      return 0;
+    };
+
+  const isMutualReduction =
+    (item) =>
+      [
+        "mutual-reduction",
+        "mutual-offset",
+      ].includes(
+        item?.settlementType
+      );
+
+  const rawArchived =
+    Object.values(
+      settlements
+    ).filter(
       (item) =>
         Number(
           item?.settledAmount ||
             0
         ) > 0
-    )
-    .sort((a, b) => {
-      const getMillis = (
-        value
-      ) => {
-        if (
-          value?.toMillis
-        ) {
-          return value.toMillis();
+    );
+
+  const archived =
+    (() => {
+      const normalItems = [];
+      const mutualGroups =
+        new Map();
+
+      rawArchived.forEach(
+        (item) => {
+          if (
+            !isMutualReduction(
+              item
+            )
+          ) {
+            normalItems.push(
+              item
+            );
+            return;
+          }
+
+          const debtorKey =
+            String(
+              item.debtorKey ||
+                item.debtor ||
+                ""
+            )
+              .trim()
+              .toLowerCase();
+
+          const creditorKey =
+            String(
+              item.creditorKey ||
+                item.creditor ||
+                ""
+            )
+              .trim()
+              .toLowerCase();
+
+          const pairKey =
+            [
+              debtorKey,
+              creditorKey,
+            ]
+              .sort()
+              .join("__");
+
+          const existing =
+            mutualGroups.get(
+              pairKey
+            );
+
+          if (!existing) {
+            mutualGroups.set(
+              pairKey,
+              {
+                ...item,
+                displayType:
+                  "mutual-reduction",
+                pairKey,
+                relatedIds: [
+                  item.id,
+                ].filter(Boolean),
+                reducedAmount:
+                  Number(
+                    item.offsetAmount ??
+                      item.netPaymentAmount ??
+                      item.settledAmount ??
+                      0
+                  ),
+              }
+            );
+            return;
+          }
+
+          existing.relatedIds =
+            [
+              ...new Set([
+                ...(
+                  existing.relatedIds ||
+                  []
+                ),
+                item.id,
+              ]),
+            ].filter(Boolean);
+
+          existing.reducedAmount =
+            Math.max(
+              Number(
+                existing.reducedAmount ||
+                  0
+              ),
+              Number(
+                item.offsetAmount ??
+                  item.netPaymentAmount ??
+                  item.settledAmount ??
+                  0
+              )
+            );
+
+          const existingTime =
+            getMillis(
+              existing.trashedAt ||
+                existing.reducedAt ||
+                existing.updatedAt
+            );
+
+          const itemTime =
+            getMillis(
+              item.trashedAt ||
+                item.reducedAt ||
+                item.updatedAt
+            );
+
+          if (
+            itemTime >
+            existingTime
+          ) {
+            existing.trashedAt =
+              item.trashedAt;
+            existing.reducedAt =
+              item.reducedAt;
+            existing.updatedAt =
+              item.updatedAt;
+          }
         }
-
-        if (
-          value?.seconds
-        ) {
-          return (
-            value.seconds *
-            1000
-          );
-        }
-
-        return 0;
-      };
-
-      return (
-        getMillis(
-          b.trashedAt ||
-            b.updatedAt
-        ) -
-        getMillis(
-          a.trashedAt ||
-            a.updatedAt
-        )
       );
-    });
+
+      return [
+        ...normalItems,
+        ...mutualGroups.values(),
+      ].sort(
+        (
+          a,
+          b
+        ) =>
+          getMillis(
+            b.trashedAt ||
+              b.reducedAt ||
+              b.updatedAt
+          ) -
+          getMillis(
+            a.trashedAt ||
+              a.reducedAt ||
+              a.updatedAt
+          )
+      );
+    })();
 
   const money = (
     value
@@ -90,7 +233,7 @@ function TrashPanel({
             </h2>
 
             <p className="mt-1 text-xs leading-5 text-[#8995aa]">
-              Every balance you mark as paid appears here immediately. Restore one to make its original split balance active again.
+              Paid balances and mutual balance reductions appear here. Mutual reductions are shown once, even though both sides are updated.
             </p>
           </div>
         </div>
@@ -124,9 +267,23 @@ function TrashPanel({
                   >
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                       <div className="min-w-0 flex-1">
-                        <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-[#e7f7ef] px-3 py-1.5 text-[11px] font-extrabold text-[#18845c]">
-                          <span className="h-2 w-2 rounded-full bg-[#18845c]" />
-                          Paid
+                        <div className={`mb-2 inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-[11px] font-extrabold ${
+                          item.displayType ===
+                          "mutual-reduction"
+                            ? "bg-[#eef3ff] text-[#294aad]"
+                            : "bg-[#e7f7ef] text-[#18845c]"
+                        }`}>
+                          <span className={`h-2 w-2 rounded-full ${
+                            item.displayType ===
+                            "mutual-reduction"
+                              ? "bg-[#294aad]"
+                              : "bg-[#18845c]"
+                          }`} />
+
+                          {item.displayType ===
+                          "mutual-reduction"
+                            ? "Balances Reduced"
+                            : "Paid"}
                         </div>
 
                         <p className="font-extrabold text-[#182442]">
@@ -134,7 +291,10 @@ function TrashPanel({
                             item.debtor ||
                             "Someone"
                           }{" "}
-                          →{" "}
+                          {item.displayType ===
+                          "mutual-reduction"
+                            ? "↔"
+                            : "→"}{" "}
                           {
                             item.creditor ||
                             "Someone"
@@ -142,17 +302,32 @@ function TrashPanel({
                         </p>
 
                         <p className="mt-1 text-xs text-[#8995aa]">
-                          Paid amount
+                          {item.displayType ===
+                          "mutual-reduction"
+                            ? "Amount deducted from both balances"
+                            : "Paid amount"}
                         </p>
 
                         <p className="mt-1 text-lg font-black text-[#294aad]">
                           ₱
                           {money(
-                            item.settledAmount
+                            item.displayType ===
+                            "mutual-reduction"
+                              ? item.reducedAmount
+                              : item.settledAmount
                           )}
                         </p>
 
-                        {item.paymentProofUploadedByEmail && (
+                        {item.displayType ===
+                          "mutual-reduction" && (
+                          <p className="mt-2 max-w-xl text-[11px] leading-5 text-[#71809a]">
+                            No money was transferred. This amount was simply deducted from what both people owed each other.
+                          </p>
+                        )}
+
+                        {item.displayType !==
+                          "mutual-reduction" &&
+                          item.paymentProofUploadedByEmail && (
                           <p className="mt-2 text-[11px] leading-5 text-[#8995aa]">
                             Proof attached by{" "}
                             <span className="font-extrabold text-[#52617d]">
@@ -163,7 +338,9 @@ function TrashPanel({
                       </div>
 
                       <div className="grid gap-2 sm:shrink-0">
-                        {item.paymentProofDataUrl && (
+                        {item.displayType !==
+                          "mutual-reduction" &&
+                          item.paymentProofDataUrl && (
                           <button
                             type="button"
                             onClick={() => setProofToView(item)}
@@ -188,7 +365,10 @@ function TrashPanel({
                           className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#eef2f8] px-4 text-xs font-extrabold text-[#52617d] disabled:opacity-50"
                         >
                           <RotateCcw size={15} />
-                          Restore Expense
+                          {item.displayType ===
+                          "mutual-reduction"
+                            ? "Undo Reduction"
+                            : "Restore Expense"}
                         </button>
                       </div>
                     </div>

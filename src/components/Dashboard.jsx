@@ -830,7 +830,712 @@ function Dashboard({
                 </div>
               </div>
 
-              <div className="w-full overflow-x-auto pb-2">
+              {/* MOBILE CHART: SAME VISUAL STYLE AS DESKTOP, TRANSPOSED */}
+              <div className="md:hidden">
+                <div className="mb-4 flex flex-wrap gap-2">
+                  <div className="inline-flex items-center gap-2 rounded-full bg-[#eef3ff] px-3 py-1.5 text-[11px] font-extrabold text-[#294aad]">
+                    <span className="h-2.5 w-2.5 rounded-full bg-[#294aad]" />
+                    Total
+                  </div>
+
+                  {topCategoryNames
+                    .slice(
+                      0,
+                      3
+                    )
+                    .map(
+                      (
+                        category,
+                        index
+                      ) => {
+                        const swatches =
+                          [
+                            "#18845c",
+                            "#c47a16",
+                            "#8b5cf6",
+                          ];
+
+                        return (
+                          <div
+                            key={
+                              category
+                            }
+                            className="inline-flex items-center gap-2 rounded-full bg-[#f7f9fc] px-3 py-1.5 text-[11px] font-extrabold text-[#52617d]"
+                          >
+                            <span
+                              className="h-2.5 w-2.5 rounded-full"
+                              style={{
+                                backgroundColor:
+                                  swatches[
+                                    index %
+                                      swatches.length
+                                  ],
+                              }}
+                            />
+
+                            <span className="max-w-[110px] truncate">
+                              {
+                                category
+                              }
+                            </span>
+                          </div>
+                        );
+                      }
+                    )}
+                </div>
+
+                {(() => {
+                  const rows =
+                    weeklyData.length;
+
+                  const chartWidth =
+                    340;
+
+                  const rowGap =
+                    56;
+
+                  const top =
+                    44;
+
+                  const bottom =
+                    28;
+
+                  const left =
+                    76;
+
+                  const right =
+                    42;
+
+                  const chartHeight =
+                    Math.max(
+                      430,
+                      top +
+                        bottom +
+                        Math.max(
+                          rows -
+                            1,
+                          1
+                        ) *
+                          rowGap
+                    );
+
+                  const innerWidth =
+                    chartWidth -
+                    left -
+                    right;
+
+                  const innerHeight =
+                    chartHeight -
+                    top -
+                    bottom;
+
+                  const maxValue =
+                    Math.max(
+                      maxWeekly,
+                      1
+                    );
+
+                  const getX =
+                    (value) =>
+                      left +
+                      (
+                        Number(
+                          value ||
+                            0
+                        ) /
+                        maxValue
+                      ) *
+                        innerWidth;
+
+                  const getY =
+                    (index) =>
+                      rows <=
+                      1
+                        ? top +
+                          innerHeight /
+                            2
+                        : top +
+                          (
+                            index /
+                            (
+                              rows -
+                              1
+                            )
+                          ) *
+                            innerHeight;
+
+                  const makePoints =
+                    (getter) =>
+                      weeklyData.map(
+                        (
+                          item,
+                          index
+                        ) => ({
+                          x:
+                            getX(
+                              getter(
+                                item
+                              )
+                            ),
+                          y:
+                            getY(
+                              index
+                            ),
+                          value:
+                            getter(
+                              item
+                            ),
+                          item,
+                        })
+                      );
+
+                  const makeSmoothPath =
+                    (points) => {
+                      if (
+                        points.length ===
+                        0
+                      ) {
+                        return "";
+                      }
+
+                      if (
+                        points.length ===
+                        1
+                      ) {
+                        return `M ${points[0].x} ${points[0].y}`;
+                      }
+
+                      let path =
+                        `M ${points[0].x} ${points[0].y}`;
+
+                      for (
+                        let index =
+                          0;
+                        index <
+                        points.length -
+                          1;
+                        index +=
+                          1
+                      ) {
+                        const current =
+                          points[
+                            index
+                          ];
+
+                        const next =
+                          points[
+                            index +
+                              1
+                          ];
+
+                        const midpoint =
+                          (
+                            current.y +
+                            next.y
+                          ) /
+                          2;
+
+                        path +=
+                          ` C ${current.x} ${midpoint}, ${next.x} ${midpoint}, ${next.x} ${next.y}`;
+                      }
+
+                      return path;
+                    };
+
+                  const totalPoints =
+                    makePoints(
+                      (item) =>
+                        item.amount
+                    );
+
+                  const totalPath =
+                    makeSmoothPath(
+                      totalPoints
+                    );
+
+                  const areaPath =
+                    totalPoints.length >
+                    0
+                      ? `${totalPath} L ${left} ${totalPoints[totalPoints.length - 1].y} L ${left} ${totalPoints[0].y} Z`
+                      : "";
+
+                  const categoryColors =
+                    [
+                      "#18845c",
+                      "#c47a16",
+                      "#8b5cf6",
+                    ];
+
+                  const categorySeries =
+                    topCategoryNames
+                      .slice(
+                        0,
+                        3
+                      )
+                      .map(
+                        (
+                          category,
+                          categoryIndex
+                        ) => ({
+                          category,
+                          categoryIndex,
+                          points:
+                            makePoints(
+                              (
+                                item
+                              ) =>
+                                item
+                                  .categoryAmounts?.[
+                                  category
+                                ] ||
+                                0
+                            ),
+                        })
+                      );
+
+                  const monthGroups =
+                    [];
+
+                  weeklyData.forEach(
+                    (
+                      item,
+                      index
+                    ) => {
+                      const lastGroup =
+                        monthGroups[
+                          monthGroups.length -
+                            1
+                        ];
+
+                      if (
+                        lastGroup &&
+                        lastGroup.month ===
+                          item.month &&
+                        lastGroup.year ===
+                          item.year
+                      ) {
+                        lastGroup.endIndex =
+                          index;
+                      } else {
+                        monthGroups.push({
+                          month:
+                            item.month,
+                          year:
+                            item.year,
+                          label:
+                            item.monthLabel,
+                          startIndex:
+                            index,
+                          endIndex:
+                            index,
+                        });
+                      }
+                    }
+                  );
+
+                  return (
+                    <div className="overflow-hidden rounded-[20px] border border-[#dbe4f4] bg-gradient-to-r from-white to-[#f7f9ff] shadow-[0_10px_24px_rgba(20,42,118,0.05)]">
+                      <svg
+                        viewBox={`0 0 ${chartWidth} ${chartHeight}`}
+                        className="block h-auto w-full"
+                        role="img"
+                        aria-label="Transposed weekly spending line chart for mobile"
+                      >
+                        <defs>
+                          <linearGradient
+                            id="monthlyAreaFillMobile"
+                            x1="0"
+                            y1="0"
+                            x2="1"
+                            y2="0"
+                          >
+                            <stop
+                              offset="0%"
+                              stopColor="#3d63d2"
+                              stopOpacity="0.02"
+                            />
+                            <stop
+                              offset="100%"
+                              stopColor="#3d63d2"
+                              stopOpacity="0.20"
+                            />
+                          </linearGradient>
+                        </defs>
+
+                        {[0, 0.25, 0.5, 0.75, 1].map(
+                          (
+                            ratio
+                          ) => {
+                            const x =
+                              left +
+                              ratio *
+                                innerWidth;
+
+                            return (
+                              <g
+                                key={
+                                  ratio
+                                }
+                              >
+                                <line
+                                  x1={
+                                    x
+                                  }
+                                  y1={
+                                    top -
+                                    10
+                                  }
+                                  x2={
+                                    x
+                                  }
+                                  y2={
+                                    chartHeight -
+                                    bottom +
+                                    4
+                                  }
+                                  stroke={
+                                    ratio ===
+                                    0
+                                      ? "#dce4f1"
+                                      : "#e6ebf4"
+                                  }
+                                  strokeWidth="1"
+                                  strokeDasharray="4 4"
+                                />
+
+                                <text
+                                  x={
+                                    x
+                                  }
+                                  y="19"
+                                  textAnchor="middle"
+                                  fontSize="7"
+                                  fontWeight="700"
+                                  fill="#8995aa"
+                                >
+                                  ₱
+                                  {Math.round(
+                                    maxValue *
+                                      ratio
+                                  ).toLocaleString(
+                                    "en-PH"
+                                  )}
+                                </text>
+                              </g>
+                            );
+                          }
+                        )}
+
+                        {weeklyData.map(
+                          (
+                            item,
+                            index
+                          ) => {
+                            const y =
+                              getY(
+                                index
+                              );
+
+                            return (
+                              <g
+                                key={
+                                  item.key
+                                }
+                              >
+                                <line
+                                  x1={
+                                    left
+                                  }
+                                  y1={
+                                    y
+                                  }
+                                  x2={
+                                    chartWidth -
+                                    right +
+                                    6
+                                  }
+                                  y2={
+                                    y
+                                  }
+                                  stroke="#eef2f7"
+                                  strokeWidth="1"
+                                />
+
+                                <text
+                                  x={
+                                    left -
+                                    9
+                                  }
+                                  y={
+                                    y +
+                                    2.5
+                                  }
+                                  textAnchor="end"
+                                  fontSize="8"
+                                  fontWeight="800"
+                                  fill={
+                                    index ===
+                                    weeklyData.length -
+                                      1
+                                      ? "#294aad"
+                                      : "#52617d"
+                                  }
+                                >
+                                  {item.weekLabel}
+                                </text>
+                              </g>
+                            );
+                          }
+                        )}
+
+                        <path
+                          d={
+                            areaPath
+                          }
+                          fill="url(#monthlyAreaFillMobile)"
+                        />
+
+                        {categorySeries.map(
+                          (
+                            series
+                          ) => (
+                            <path
+                              key={
+                                series.category
+                              }
+                              d={
+                                makeSmoothPath(
+                                  series.points
+                                )
+                              }
+                              fill="none"
+                              stroke={
+                                categoryColors[
+                                  series.categoryIndex %
+                                    categoryColors.length
+                                ]
+                              }
+                              strokeWidth="1.7"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeDasharray="5 4"
+                            />
+                          )
+                        )}
+
+                        <path
+                          d={
+                            totalPath
+                          }
+                          fill="none"
+                          stroke="#294aad"
+                          strokeWidth="2.7"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+
+                        {categorySeries.map(
+                          (
+                            series
+                          ) =>
+                            series.points.map(
+                              (
+                                point
+                              ) => (
+                                <circle
+                                  key={`${series.category}-${point.item.key}`}
+                                  cx={
+                                    point.x
+                                  }
+                                  cy={
+                                    point.y
+                                  }
+                                  r="3.2"
+                                  fill="white"
+                                  stroke={
+                                    categoryColors[
+                                      series.categoryIndex %
+                                        categoryColors.length
+                                    ]
+                                  }
+                                  strokeWidth="1.7"
+                                />
+                              )
+                            )
+                        )}
+
+                        {totalPoints.map(
+                          (
+                            point,
+                            index
+                          ) => (
+                            <g
+                              key={
+                                point.item
+                                  .key
+                              }
+                            >
+                              <circle
+                                cx={
+                                  point.x
+                                }
+                                cy={
+                                  point.y
+                                }
+                                r="5.5"
+                                fill="white"
+                                stroke="#294aad"
+                                strokeWidth="2.5"
+                              />
+
+                              <circle
+                                cx={
+                                  point.x
+                                }
+                                cy={
+                                  point.y
+                                }
+                                r="2"
+                                fill="#294aad"
+                              />
+
+                              <text
+                                x={
+                                  Math.min(
+                                    point.x +
+                                      9,
+                                    chartWidth -
+                                      34
+                                  )
+                                }
+                                y={
+                                  point.y -
+                                  8
+                                }
+                                textAnchor="start"
+                                fontSize="7"
+                                fontWeight="800"
+                                fill={
+                                  index ===
+                                  totalPoints.length -
+                                    1
+                                    ? "#294aad"
+                                    : "#52617d"
+                                }
+                              >
+                                ₱
+                                {Number(
+                                  point.value ||
+                                    0
+                                ).toLocaleString(
+                                  "en-PH",
+                                  {
+                                    maximumFractionDigits:
+                                      0,
+                                  }
+                                )}
+                              </text>
+                            </g>
+                          )
+                        )}
+
+                        {monthGroups.map(
+                          (
+                            group
+                          ) => {
+                            const y1 =
+                              getY(
+                                group.startIndex
+                              );
+
+                            const y2 =
+                              getY(
+                                group.endIndex
+                              );
+
+                            const centerY =
+                              (
+                                y1 +
+                                y2
+                              ) /
+                              2;
+
+                            return (
+                              <g
+                                key={`${group.year}-${group.month}-mobile`}
+                              >
+                                <line
+                                  x1="10"
+                                  y1={
+                                    y1 -
+                                    14
+                                  }
+                                  x2="10"
+                                  y2={
+                                    y2 +
+                                    14
+                                  }
+                                  stroke="#d7e0ef"
+                                  strokeWidth="1"
+                                />
+
+                                <line
+                                  x1="10"
+                                  y1={
+                                    y1 -
+                                    14
+                                  }
+                                  x2="16"
+                                  y2={
+                                    y1 -
+                                    14
+                                  }
+                                  stroke="#d7e0ef"
+                                  strokeWidth="1"
+                                />
+
+                                <line
+                                  x1="10"
+                                  y1={
+                                    y2 +
+                                    14
+                                  }
+                                  x2="16"
+                                  y2={
+                                    y2 +
+                                    14
+                                  }
+                                  stroke="#d7e0ef"
+                                  strokeWidth="1"
+                                />
+
+                                <text
+                                  x="4"
+                                  y={
+                                    centerY
+                                  }
+                                  textAnchor="middle"
+                                  fontSize="7"
+                                  fontWeight="800"
+                                  fill="#7d8ba5"
+                                  transform={`rotate(-90 4 ${centerY})`}
+                                >
+                                  {
+                                    group.label
+                                  }
+                                </text>
+                              </g>
+                            );
+                          }
+                        )}
+                      </svg>
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* DESKTOP / TABLET CHART */}
+              <div className="hidden w-full overflow-x-auto pb-2 md:block">
                 <div className="mx-auto min-w-[900px] max-w-[1100px]">
                 <div className="mb-4 flex flex-wrap gap-2">
                   <div className="inline-flex items-center gap-2 rounded-full bg-[#eef3ff] px-3 py-1.5 text-[11px] font-extrabold text-[#294aad]">

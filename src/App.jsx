@@ -2440,6 +2440,8 @@ function App() {
                   paymentProof.creditorUid,
                 recipientEmail:
                   paymentProof.creditorEmail || "",
+                visibility:
+                  "recipient-only",
                 recipientName:
                   creditorName,
                 serverId:
@@ -2501,9 +2503,6 @@ function App() {
       amount,
       forwardRawTotal,
       reverseRawTotal,
-      paymentProofDataUrl = "",
-      paymentProofName = "",
-      paymentProofType = "",
       splitIds = [],
       splitDetails = [],
       creditorUid = "",
@@ -2715,6 +2714,8 @@ function App() {
                   creditorUid,
                 recipientEmail:
                   creditorEmail || "",
+                visibility:
+                  "recipient-only",
                 recipientName:
                   creditorName,
                 serverId:
@@ -2752,6 +2753,276 @@ function App() {
         await error(
           "Payment Update Failed",
           "We couldn't settle the simplified balance."
+        );
+      } finally {
+        setPaymentLoading(
+          null
+        );
+      }
+    };
+
+  // =========================================
+  // REDUCE MUTUAL BALANCES
+  // =========================================
+
+  const offsetMutualDebt =
+    async ({
+      debtorKey,
+      creditorKey,
+      debtorName,
+      creditorName,
+      amount,
+      forwardCurrentSettled = 0,
+      reverseCurrentSettled = 0,
+      reciprocalOutstanding = 0,
+      offsetRemaining = 0,
+      paymentProofDataUrl = "",
+      paymentProofName = "",
+      paymentProofType = "",
+      splitIds = [],
+      splitDetails = [],
+      creditorUid = "",
+      creditorEmail = "",
+    }) => {
+      const offsetAmount =
+        Number(amount) || 0;
+
+      if (
+        offsetAmount <=
+        0
+      ) {
+        return;
+      }
+
+      const forwardId =
+        getSettlementId(
+          debtorKey,
+          creditorKey
+        );
+
+      const reverseId =
+        getSettlementId(
+          creditorKey,
+          debtorKey
+        );
+
+      try {
+        setPaymentLoading(
+          forwardId
+        );
+
+        const nextForwardSettled =
+          Number(
+            forwardCurrentSettled
+          ) +
+          offsetAmount;
+
+        const nextReverseSettled =
+          Number(
+            reverseCurrentSettled
+          ) +
+          offsetAmount;
+
+        await Promise.all([
+          setDoc(
+            doc(
+              db,
+              "servers",
+              activeServer.id,
+              "settlements",
+              forwardId
+            ),
+            {
+              debtorKey:
+                normalizeName(
+                  debtorKey
+                ),
+              creditorKey:
+                normalizeName(
+                  creditorKey
+                ),
+              debtor:
+                debtorName,
+              creditor:
+                creditorName,
+              settledAmount:
+                nextForwardSettled,
+              settlementType:
+                "mutual-reduction",
+              offsetAmount,
+              reciprocalBefore:
+                Number(
+                  reciprocalOutstanding
+                ) || 0,
+              reciprocalAfter:
+                Number(
+                  offsetRemaining
+                ) || 0,
+              updatedByUid:
+                user.uid,
+              updatedByEmail:
+                user.email || "",
+              splitIds,
+              splitDetails,
+              reducedAt:
+                serverTimestamp(),
+              trashedAt:
+                serverTimestamp(),
+              updatedAt:
+                serverTimestamp(),
+            },
+            {
+              merge:
+                true,
+            }
+          ),
+
+          setDoc(
+            doc(
+              db,
+              "servers",
+              activeServer.id,
+              "settlements",
+              reverseId
+            ),
+            {
+              debtorKey:
+                normalizeName(
+                  creditorKey
+                ),
+              creditorKey:
+                normalizeName(
+                  debtorKey
+                ),
+              debtor:
+                creditorName,
+              creditor:
+                debtorName,
+              settledAmount:
+                nextReverseSettled,
+              settlementType:
+                "mutual-reduction",
+              offsetAmount,
+              reciprocalBefore:
+                Number(
+                  reciprocalOutstanding
+                ) || 0,
+              reciprocalAfter:
+                Number(
+                  offsetRemaining
+                ) || 0,
+              updatedByUid:
+                user.uid,
+              updatedByEmail:
+                user.email || "",
+              splitIds,
+              splitDetails,
+              reducedAt:
+                serverTimestamp(),
+              trashedAt:
+                serverTimestamp(),
+              updatedAt:
+                serverTimestamp(),
+            },
+            {
+              merge:
+                true,
+            }
+          ),
+        ]);
+
+        if (
+          creditorUid
+        ) {
+          try {
+            await addDoc(
+              collection(
+                db,
+                "users",
+                creditorUid,
+                "notifications"
+              ),
+              {
+                type:
+                  "mutual_balance_reduction",
+                title:
+                  "Balances reduced",
+                message:
+                  `${debtorName} used ₱${offsetAmount.toLocaleString(
+                    "en-PH",
+                    {
+                      minimumFractionDigits:
+                        2,
+                      maximumFractionDigits:
+                        2,
+                    }
+                  )} of the amount you owe each other to reduce both balances. Your remaining balance to ${debtorName} is ₱${Number(
+                    offsetRemaining
+                  ).toLocaleString(
+                    "en-PH",
+                    {
+                      minimumFractionDigits:
+                        2,
+                      maximumFractionDigits:
+                        2,
+                    }
+                  )}. No money was transferred.`,
+                senderUid:
+                  user.uid,
+                senderEmail:
+                  user.email || "",
+                senderName:
+                  debtorName,
+                recipientUid:
+                  creditorUid,
+                recipientEmail:
+                  creditorEmail || "",
+                visibility:
+                  "recipient-only",
+                recipientName:
+                  creditorName,
+                serverId:
+                  activeServer.id,
+                serverName:
+                  activeServer.name || "",
+                settlementId:
+                  forwardId,
+                relatedSettlementId:
+                  reverseId,
+                amount:
+                  offsetAmount,
+                remainingMutualDebt:
+                  Number(
+                    offsetRemaining
+                  ) || 0,
+                splitIds,
+                splitDetails,
+                read:
+                  false,
+                createdAt:
+                  serverTimestamp(),
+              }
+            );
+          } catch (
+            notificationError
+          ) {
+            console.error(
+              "Offset notification error:",
+              notificationError
+            );
+          }
+        }
+
+        await fetchSettlements();
+      } catch (err) {
+        console.error(
+          "Mutual balance reduction error:",
+          err
+        );
+
+        await error(
+          "Balance Reduction Failed",
+          "We couldn't reduce the mutual balances."
         );
       } finally {
         setPaymentLoading(
@@ -2843,19 +3114,37 @@ function App() {
         return;
       }
 
+      const restoringMutualReduction =
+        [
+          "mutual-reduction",
+          "mutual-offset",
+        ].includes(
+          settlement
+            .settlementType
+        ) ||
+        settlement
+          .displayType ===
+          "mutual-reduction";
+
       const approved =
         await confirm({
           type:
             "warning",
 
           title:
-            "Restore Expense?",
+            restoringMutualReduction
+              ? "Undo Balance Reduction?"
+              : "Restore Expense?",
 
           message:
-            `This will restore the split balance. ${settlement.debtor || "This person"} will owe ${settlement.creditor || "the other person"} again and the expense will appear in Balances.`,
+            restoringMutualReduction
+              ? "This will undo the mutual balance reduction and restore both original balances."
+              : `This will restore the split balance. ${settlement.debtor || "This person"} will owe ${settlement.creditor || "the other person"} again and the expense will appear in Balances.`,
 
           confirmText:
-            "Restore Expense",
+            restoringMutualReduction
+              ? "Undo Reduction"
+              : "Restore Expense",
         });
 
       if (!approved) {
@@ -2867,21 +3156,73 @@ function App() {
           settlement.id
         );
 
-        await deleteDoc(
-          doc(
-            db,
-            "servers",
-            activeServer.id,
-            "settlements",
-            settlement.id
-          )
-        );
+        const isMutualReduction =
+          [
+            "mutual-reduction",
+            "mutual-offset",
+          ].includes(
+            settlement
+              .settlementType
+          ) ||
+          settlement
+            .displayType ===
+            "mutual-reduction";
+
+        if (
+          isMutualReduction
+        ) {
+          const idsToDelete =
+            settlement.relatedIds?.length
+              ? settlement.relatedIds
+              : [
+                  settlement.id,
+                  getSettlementId(
+                    settlement.creditorKey ||
+                      settlement.creditor,
+                    settlement.debtorKey ||
+                      settlement.debtor
+                  ),
+                ].filter(Boolean);
+
+          await Promise.all(
+            [
+              ...new Set(
+                idsToDelete
+              ),
+            ].map(
+              (id) =>
+                deleteDoc(
+                  doc(
+                    db,
+                    "servers",
+                    activeServer.id,
+                    "settlements",
+                    id
+                  )
+                )
+            )
+          );
+        } else {
+          await deleteDoc(
+            doc(
+              db,
+              "servers",
+              activeServer.id,
+              "settlements",
+              settlement.id
+            )
+          );
+        }
 
         await fetchSettlements();
 
         await success(
-          "Expense Restored",
-          "The paid record was removed from Trash. The original split balance is active again."
+          isMutualReduction
+            ? "Reduction Undone"
+            : "Expense Restored",
+          isMutualReduction
+            ? "Both original balances are active again."
+            : "The paid record was removed from Trash. The original split balance is active again."
         );
       } catch (err) {
         console.error(
@@ -3794,6 +4135,18 @@ function App() {
               }
               onMarkNetPaid={
                 markNetPaid
+              }
+              onOffsetMutualDebt={
+                offsetMutualDebt
+              }
+              currentUser={
+                user
+              }
+              currentProfile={
+                profile
+              }
+              currentServerUsername={
+                serverUsername
               }
               onRestorePayment={
                 restorePayment

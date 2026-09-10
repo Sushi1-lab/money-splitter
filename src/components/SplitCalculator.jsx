@@ -3,6 +3,7 @@ import {
   ChevronDown,
   ChevronRight,
   ImagePlus,
+  ListChecks,
   LoaderCircle,
   Percent,
   Plus,
@@ -73,6 +74,10 @@ function SplitCalculator({
     useState("equal");
 
   const [percentages, setPercentages] =
+    useState({});
+
+
+  const [detailedAmounts, setDetailedAmounts] =
     useState({});
 
   const [showSavedPeople, setShowSavedPeople] =
@@ -192,23 +197,53 @@ function SplitCalculator({
 
     setSelectedKeys(keys);
 
+    const savedSplitMode =
+      editingSplit.splitMode ||
+      "";
+
+    const hasDetailedAmounts =
+      savedSplitMode ===
+      "detailed";
+
     const hasPercentages =
-      participants.some(
-        (item) =>
-          Number.isFinite(
+      !hasDetailedAmounts &&
+      (
+        savedSplitMode ===
+          "percentage" ||
+        participants.some(
+          (item) =>
+            Number.isFinite(
+              Number(
+                item.percentage
+              )
+            ) &&
             Number(
               item.percentage
-            )
-          )
+            ) !==
+              Number(
+                (
+                  100 /
+                  Math.max(
+                    participants.length,
+                    1
+                  )
+                ).toFixed(
+                  4
+                )
+              )
+        )
       );
 
     setSplitMode(
-      hasPercentages
-        ? "percentage"
-        : "equal"
+      hasDetailedAmounts
+        ? "detailed"
+        : hasPercentages
+          ? "percentage"
+          : "equal"
     );
 
     const nextPercentages = {};
+    const nextDetailedAmounts = {};
 
     participants.forEach(
       (participant) => {
@@ -224,11 +259,23 @@ function SplitCalculator({
           );
 
         if (match) {
+          const key =
+            personKey(
+              match
+            );
+
           nextPercentages[
-            personKey(match)
+            key
           ] =
             Number(
               participant.percentage
+            ) || 0;
+
+          nextDetailedAmounts[
+            key
+          ] =
+            Number(
+              participant.amount
             ) || 0;
         }
       }
@@ -236,6 +283,10 @@ function SplitCalculator({
 
     setPercentages(
       nextPercentages
+    );
+
+    setDetailedAmounts(
+      nextDetailedAmounts
     );
 
     setReceiptBase64(
@@ -255,6 +306,7 @@ function SplitCalculator({
     setSelectedKeys([]);
     setSplitMode("equal");
     setPercentages({});
+    setDetailedAmounts({});
     setReceiptBase64(null);
   };
 
@@ -282,6 +334,20 @@ function SplitCalculator({
               };
 
               delete copy[key];
+              return copy;
+            }
+          );
+
+          setDetailedAmounts(
+            (values) => {
+              const copy = {
+                ...values,
+              };
+
+              delete copy[
+                key
+              ];
+
               return copy;
             }
           );
@@ -400,6 +466,21 @@ function SplitCalculator({
         Number(
           percentages[key] ||
             0
+        ),
+      0
+    );
+
+
+  const detailedTotal =
+    uniqueKeys(
+      selectedKeys
+    ).reduce(
+      (sum, key) =>
+        sum +
+        Number(
+          detailedAmounts[
+            key
+          ] || 0
         ),
       0
     );
@@ -686,6 +767,25 @@ function SplitCalculator({
         return;
       }
 
+      if (
+        splitMode ===
+          "detailed" &&
+        Math.abs(
+          detailedTotal -
+            total
+        ) > 0.01
+      ) {
+        await warning(
+          "Detailed Amounts Must Match Total",
+          `Your assigned amounts total ₱${detailedTotal.toFixed(
+            2
+          )}, but the expense total is ₱${total.toFixed(
+            2
+          )}.`
+        );
+        return;
+      }
+
       if (!payerKey) {
         await warning(
           "Who Covered?",
@@ -742,6 +842,13 @@ function SplitCalculator({
             const person =
               peopleByKey[key];
 
+            const detailedAmount =
+              Number(
+                detailedAmounts[
+                  key
+                ] || 0
+              );
+
             const percentage =
               splitMode ===
               "percentage"
@@ -750,14 +857,26 @@ function SplitCalculator({
                       key
                     ] || 0
                   )
-                : Number(
-                    (
-                      100 /
-                      cleanSelectedKeys.length
-                    ).toFixed(
-                      4
+                : splitMode ===
+                    "detailed"
+                  ? (
+                      total >
+                      0
+                        ? (
+                            detailedAmount /
+                            total
+                          ) *
+                          100
+                        : 0
                     )
-                  );
+                  : Number(
+                      (
+                        100 /
+                        cleanSelectedKeys.length
+                      ).toFixed(
+                        4
+                      )
+                    );
 
             const amount =
               splitMode ===
@@ -767,7 +886,10 @@ function SplitCalculator({
                     percentage /
                     100
                   )
-                : equalAmount;
+                : splitMode ===
+                    "detailed"
+                  ? detailedAmount
+                  : equalAmount;
 
             return {
               id:
@@ -937,49 +1059,20 @@ function SplitCalculator({
                 Category
               </label>
 
-              <div className="relative">
-
-
-                <select
-
-
-                  value={
-
-
-                    category
-
-
-                  }
-
-
-                  onChange={(
-
-
-                    event
-
-
-                  ) =>
-
-
-                    setCategory(
-
-
-                      event.target
-
-
-                        .value
-
-
-                    )
-
-
-                  }
-
-
-                  className="app-input appearance-none pr-12 font-bold text-[#182442] transition focus:border-[#3d63d2] focus:ring-4 focus:ring-[#3d63d2]/10"
-
-
-                >
+              <select
+                value={
+                  category
+                }
+                onChange={(
+                  event
+                ) =>
+                  setCategory(
+                    event.target
+                      .value
+                  )
+                }
+                className="app-input"
+              >
                 {categories.map(
                   (item) => (
                     <option
@@ -994,37 +1087,7 @@ function SplitCalculator({
                     </option>
                   )
                 )}
-              
-
-                </select>
-
-
-
-                <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
-
-
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#eef3ff] text-[#294aad]">
-
-
-                    <ChevronDown
-
-
-                      size={16}
-
-
-                      strokeWidth={2.5}
-
-
-                    />
-
-
-                  </div>
-
-
-                </div>
-
-
-              </div>
+              </select>
             </div>
           </div>
 
@@ -1055,49 +1118,20 @@ function SplitCalculator({
               Who Covered?
             </label>
 
-            <div className="relative">
-
-
-              <select
-
-
-                value={
-
-
-                  payerKey
-
-
-                }
-
-
-                onChange={(
-
-
-                  event
-
-
-                ) =>
-
-
-                  setPayerKey(
-
-
-                    event.target
-
-
-                      .value
-
-
-                  )
-
-
-                }
-
-
-                className="app-input appearance-none pr-12 font-bold text-[#182442] transition focus:border-[#3d63d2] focus:ring-4 focus:ring-[#3d63d2]/10"
-
-
-              >
+            <select
+              value={
+                payerKey
+              }
+              onChange={(
+                event
+              ) =>
+                setPayerKey(
+                  event.target
+                    .value
+                )
+              }
+              className="app-input"
+            >
               <option value="">
                 Select person
               </option>
@@ -1122,37 +1156,7 @@ function SplitCalculator({
                   </option>
                 )
               )}
-            
-
-              </select>
-
-
-
-              <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
-
-
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#eef3ff] text-[#294aad]">
-
-
-                  <ChevronDown
-
-
-                    size={16}
-
-
-                    strokeWidth={2.5}
-
-
-                  />
-
-
-                </div>
-
-
-              </div>
-
-
-            </div>
+            </select>
           </div>
 
           <div>
@@ -1160,7 +1164,7 @@ function SplitCalculator({
               Split Method
             </label>
 
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               <button
                 type="button"
                 onClick={() =>
@@ -1197,8 +1201,151 @@ function SplitCalculator({
                 />
                 Percentage
               </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setSplitMode(
+                    "detailed"
+                  )
+                }
+                className={`flex min-h-12 items-center justify-center gap-1.5 rounded-xl border px-2 text-xs font-extrabold sm:text-sm ${
+                  splitMode ===
+                  "detailed"
+                    ? "border-[#294aad] bg-[#e4ebff] text-[#142a76]"
+                    : "border-[#dce3ef] bg-[#f7f9fd] text-[#71809a]"
+                }`}
+              >
+                <ListChecks
+                  size={16}
+                />
+                Detailed
+              </button>
             </div>
           </div>
+
+          {splitMode ===
+            "detailed" && (
+            <div className="rounded-2xl border border-[#cfdaf1] bg-[#f8faff] p-4">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <p className="text-sm font-black text-[#182442]">
+                    Detailed Split
+                  </p>
+
+                  <p className="mt-1 text-xs leading-5 text-[#8995aa]">
+                    Enter the exact amount covered for each selected person.
+                  </p>
+                </div>
+
+                <div className="text-left sm:text-right">
+                  <p className="text-[10px] font-black uppercase tracking-[0.1em] text-[#8995aa]">
+                    Assigned
+                  </p>
+
+                  <p className={`mt-1 text-sm font-black ${
+                    Math.abs(
+                      detailedTotal -
+                        Number(
+                          totalAmount ||
+                            0
+                        )
+                    ) <=
+                    0.01
+                      ? "text-[#18845c]"
+                      : "text-[#c65d3a]"
+                  }`}>
+                    ₱{detailedTotal.toFixed(
+                      2
+                    )} / ₱{Number(
+                      totalAmount ||
+                        0
+                    ).toFixed(
+                      2
+                    )}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-4 grid gap-3">
+                {uniqueKeys(
+                  selectedKeys
+                ).length ===
+                0 ? (
+                  <p className="rounded-xl bg-white p-3 text-xs font-bold text-[#8995aa]">
+                    Select people below first, then enter each person's exact amount.
+                  </p>
+                ) : (
+                  uniqueKeys(
+                    selectedKeys
+                  ).map(
+                    (key) => {
+                      const person =
+                        peopleByKey[
+                          key
+                        ];
+
+                      return (
+                        <div
+                          key={
+                            key
+                          }
+                          className="grid grid-cols-[1fr_130px] items-center gap-3 rounded-xl border border-[#e1e7f0] bg-white p-3"
+                        >
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-extrabold text-[#182442]">
+                              {person?.name ||
+                                "Person"}
+                            </p>
+
+                            <p className="mt-0.5 text-[10px] text-[#8995aa]">
+                              Exact share
+                            </p>
+                          </div>
+
+                          <div className="relative">
+                            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs font-black text-[#71809a]">
+                              ₱
+                            </span>
+
+                            <input
+                              type="number"
+                              inputMode="decimal"
+                              min="0"
+                              step="0.01"
+                              value={
+                                detailedAmounts[
+                                  key
+                                ] ??
+                                ""
+                              }
+                              onChange={(
+                                event
+                              ) =>
+                                setDetailedAmounts(
+                                  (
+                                    current
+                                  ) => ({
+                                    ...current,
+                                    [key]:
+                                      event
+                                        .target
+                                        .value,
+                                  })
+                                )
+                              }
+                              className="app-input w-full pl-7 text-right font-extrabold"
+                              placeholder="0.00"
+                            />
+                          </div>
+                        </div>
+                      );
+                    }
+                  )
+                )}
+              </div>
+            </div>
+          )}
 
           <div className="overflow-hidden rounded-2xl border border-[#dce3ef]">
             <button

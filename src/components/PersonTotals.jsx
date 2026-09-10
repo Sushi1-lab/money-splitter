@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 
 import { useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 
 function PersonTotals({
   savedSplits = [],
@@ -19,6 +20,10 @@ function PersonTotals({
   settlements = {},
   onMarkPaid,
   onMarkNetPaid,
+  onOffsetMutualDebt,
+  currentUser,
+  currentProfile = null,
+  currentServerUsername = "",
   onViewWallet,
   paymentLoading,
   getSettlementId,
@@ -133,7 +138,10 @@ function PersonTotals({
       creditorEmail: paymentRequest.creditorEmail || "",
     };
 
-    if (paymentRequest.simplified && onMarkNetPaid) {
+    if (
+      paymentRequest.simplified &&
+      onMarkNetPaid
+    ) {
       await onMarkNetPaid({
         ...paymentRequest,
         ...proof,
@@ -703,6 +711,131 @@ function PersonTotals({
       ? simplifiedDebtPeople
       : rawDebtPeople;
 
+  const normalizeEmail =
+    (email = "") =>
+      String(email)
+        .trim()
+        .toLowerCase();
+
+  const isCurrentPerson =
+    (person) => {
+      if (!person) {
+        return false;
+      }
+
+      const currentUid =
+        currentUser?.uid ||
+        "";
+
+      const currentEmail =
+        normalizeEmail(
+          currentUser?.email ||
+            ""
+        );
+
+      const currentUsername =
+        normalizeName(
+          currentServerUsername ||
+            currentProfile?.username ||
+            ""
+        );
+
+      const currentDisplayName =
+        normalizeName(
+          currentProfile?.displayName ||
+            currentUser?.displayName ||
+            ""
+        );
+
+      const personUid =
+        person.linkedUid ||
+        "";
+
+      const personEmail =
+        normalizeEmail(
+          person.linkedEmail ||
+            ""
+        );
+
+      const personUsername =
+        normalizeName(
+          person.username ||
+            ""
+        );
+
+      const personName =
+        normalizeName(
+          person.name ||
+            ""
+        );
+
+      if (
+        currentUid &&
+        personUid &&
+        currentUid ===
+          personUid
+      ) {
+        return true;
+      }
+
+      if (
+        currentEmail &&
+        personEmail &&
+        currentEmail ===
+          personEmail
+      ) {
+        return true;
+      }
+
+      if (
+        currentUsername &&
+        personUsername &&
+        currentUsername ===
+          personUsername
+      ) {
+        return true;
+      }
+
+      if (
+        currentUsername &&
+        personName &&
+        currentUsername ===
+          personName
+      ) {
+        return true;
+      }
+
+      if (
+        currentDisplayName &&
+        personName &&
+        currentDisplayName ===
+          personName
+      ) {
+        return true;
+      }
+
+      return false;
+    };
+
+  const getReciprocalDebt =
+    (
+      debtorKey,
+      creditorKey
+    ) => {
+      const reverseEntry =
+        rawDebtPeople.find(
+          (entry) =>
+            entry.key ===
+            creditorKey
+        );
+
+      return reverseEntry?.creditors?.find(
+        (creditor) =>
+          creditor.key ===
+          debtorKey
+      ) || null;
+    };
+
   const togglePerson = (
     key
   ) => {
@@ -773,7 +906,7 @@ function PersonTotals({
             </p>
 
             <p className="mt-1 text-xs leading-5 text-[#71809a]">
-              Example: if A owes B ₱1,000 and B owes A ₱300, only A → B ₱700 is shown. This is optional and does not change your original expenses.
+              Example: if A owes B ₱1,000 and B owes A ₱300, the smaller ₱300 can reduce both balances, leaving only A → B ₱700. No money is transferred.
             </p>
           </div>
         )}
@@ -884,6 +1017,61 @@ function PersonTotals({
                                 creditor.key
                               );
 
+                            const reciprocalDebt =
+                              !creditor.simplified
+                                ? getReciprocalDebt(
+                                    entry.key,
+                                    creditor.key
+                                  )
+                                : null;
+
+                            const myDebtAmount =
+                              Number(
+                                creditor.outstanding ||
+                                  0
+                              );
+
+                            const theirDebtAmount =
+                              Number(
+                                reciprocalDebt?.outstanding ||
+                                  0
+                              );
+
+                            const mutualPayAmount =
+                              reciprocalDebt
+                                ? Math.min(
+                                    myDebtAmount,
+                                    theirDebtAmount
+                                  )
+                                : 0;
+
+                            // Only the person who owes the SMALLER amount
+                            // gets the Reduce Balances option.
+                            const canOffset =
+                              !creditor.simplified &&
+                              reciprocalDebt &&
+                              myDebtAmount >
+                                0.009 &&
+                              theirDebtAmount >
+                                0.009 &&
+                              myDebtAmount <
+                                theirDebtAmount -
+                                  0.009;
+
+                            const offsetRemaining =
+                              canOffset
+                                ? Math.max(
+                                    theirDebtAmount -
+                                      myDebtAmount,
+                                    0
+                                  )
+                                : 0;
+
+                            const myRemainingAfterOffset =
+                              canOffset
+                                ? 0
+                                : myDebtAmount;
+
                             return (
                               <div
                                 key={
@@ -971,7 +1159,23 @@ function PersonTotals({
                                     </div>
                                   )}
 
-                                <div className="mt-4 flex flex-wrap gap-2">
+                                {canOffset && (
+                                  <div className="mt-4 rounded-xl border border-[#d6e2fb] bg-[#eef3ff] p-3">
+                                    <p className="text-xs font-black text-[#142a76]">
+                                      You can reduce both balances without sending money.
+                                    </p>
+
+                                    <p className="mt-1 text-xs leading-5 text-[#71809a]">
+                                      This is the smaller mutual balance. Reduce ₱{money(
+                                        myDebtAmount
+                                      )} from both sides. {entry.person.name}'s balance becomes ₱0.00, and {creditor.person.name}'s balance becomes ₱{money(
+                                        offsetRemaining
+                                      )}. No money is transferred.
+                                    </p>
+                                  </div>
+                                )}
+
+                                <div className="relative z-20 mt-4 grid w-full gap-2 sm:flex sm:flex-wrap">
                                   {creditor.person
                                     .linkedUid && (
                                     <button
@@ -1005,12 +1209,84 @@ function PersonTotals({
                                           }
                                         )
                                       }
-                                      className="flex min-h-10 items-center gap-2 rounded-xl bg-[#eef3ff] px-3 text-xs font-extrabold text-[#294aad]"
+                                      className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#eef3ff] px-4 text-sm font-extrabold text-[#294aad] touch-manipulation sm:min-h-10 sm:w-auto sm:px-3 sm:text-xs"
                                     >
                                       <QrCode
                                         size={15}
                                       />
                                       View Wallet
+                                    </button>
+                                  )}
+
+                                  {canOffset && (
+                                    <button
+                                      type="button"
+                                      disabled={
+                                        paymentLoading ===
+                                        loadingId
+                                      }
+                                      onClick={() =>
+                                        onOffsetMutualDebt?.({
+                                          debtorKey:
+                                            entry.key,
+                                          creditorKey:
+                                            creditor.key,
+                                          debtorName:
+                                            entry.person.name,
+                                          creditorName:
+                                            creditor.person.name,
+                                          amount:
+                                            myDebtAmount,
+                                          forwardCurrentSettled:
+                                            creditor.settled,
+                                          reverseCurrentSettled:
+                                            reciprocalDebt.settled,
+                                          reciprocalOutstanding:
+                                            reciprocalDebt.outstanding,
+                                          offsetRemaining,
+                                          myRemainingAfterOffset,
+                                          creditorUid:
+                                            creditor.person?.linkedUid ||
+                                            "",
+                                          creditorEmail:
+                                            creditor.person?.linkedEmail ||
+                                            "",
+                                          splitIds:
+                                            (creditor.splits || [])
+                                              .map(
+                                                (split) =>
+                                                  split.id
+                                              )
+                                              .filter(
+                                                Boolean
+                                              ),
+                                          splitDetails:
+                                            (creditor.splits || []).map(
+                                              (split) => ({
+                                                id:
+                                                  split.id ||
+                                                  "",
+                                                description:
+                                                  split.description ||
+                                                  "Expense",
+                                                category:
+                                                  split.category ||
+                                                  "Other",
+                                                amount:
+                                                  Number(
+                                                    split.amount ||
+                                                      0
+                                                  ),
+                                              })
+                                            ),
+                                        })
+                                      }
+                                      className="flex min-h-12 w-full touch-manipulation items-center justify-center gap-2 rounded-xl bg-[#18845c] px-4 text-sm font-extrabold text-white disabled:pointer-events-none disabled:opacity-50 sm:min-h-10 sm:w-auto sm:px-3 sm:text-xs"
+                                    >
+                                      <GitCompareArrows
+                                        size={15}
+                                      />
+                                      Reduce Both Balances
                                     </button>
                                   )}
 
@@ -1066,11 +1342,15 @@ function PersonTotals({
                                           ),
                                       })
                                     }
-                                    className="flex min-h-10 items-center gap-2 rounded-xl bg-[#142a76] px-3 text-xs font-extrabold text-white disabled:opacity-50"
+                                    className="relative z-30 flex min-h-12 w-full touch-manipulation items-center justify-center gap-2 rounded-xl bg-[#142a76] px-4 text-sm font-extrabold text-white disabled:pointer-events-none disabled:opacity-50 sm:min-h-10 sm:w-auto sm:px-3 sm:text-xs"
                                   >
                                     <CheckCircle2 size={15} />
                                     Paid
                                   </button>
+
+                                  <p className="text-center text-[11px] leading-5 text-[#8995aa] sm:hidden">
+                                    Tap Paid, attach your payment screenshot, then confirm.
+                                  </p>
 
                                 </div>
                               </div>
@@ -1087,112 +1367,116 @@ function PersonTotals({
         )}
       </div>
 
-      {paymentRequest && (
-        <div className="fixed inset-0 z-[120] flex items-end justify-center bg-[#071333]/55 p-3 backdrop-blur-sm sm:items-center sm:p-5">
-          <div className="w-full max-w-lg overflow-hidden rounded-[26px] bg-white shadow-[0_30px_90px_rgba(8,24,70,0.28)]">
-            <div className="flex items-start justify-between gap-4 bg-gradient-to-r from-[#10245f] to-[#294aad] p-5 text-white sm:p-6">
-              <div>
-                <p className="text-[11px] font-black uppercase tracking-[0.14em] text-blue-100/65">
-                  Payment confirmation
-                </p>
-                <h3 className="mt-1 text-xl font-black">
-                  Attach payment screenshot
-                </h3>
-                <p className="mt-2 text-sm leading-6 text-blue-100/75">
-                  {paymentRequest.debtorName} → {paymentRequest.creditorName} · ₱{money(paymentRequest.amount)}
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={closePaymentProof}
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/12 transition hover:bg-white/20"
-              >
-                <X size={19} />
-              </button>
-            </div>
-
-            <div className="p-5 sm:p-6">
-              <div className="rounded-2xl border border-[#dce4f2] bg-[#f7f9fd] p-4">
-                <p className="text-sm font-extrabold text-[#182442]">
-                  Proof of payment is required
-                </p>
-                <p className="mt-1 text-xs leading-5 text-[#8995aa]">
-                  Upload a screenshot of the QR, e-wallet, or bank payment before this balance can be marked as paid and moved to Paid Expenses.
-                </p>
-              </div>
-
-              <label className="mt-4 block cursor-pointer">
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(event) =>
-                    handlePaymentProofFile(event.target.files?.[0])
-                  }
-                />
-
-                <div className="flex min-h-28 items-center justify-center rounded-2xl border-2 border-dashed border-[#cfd9ea] bg-white p-4 text-center transition hover:border-[#294aad] hover:bg-[#f9fbff]">
-                  {proofProcessing ? (
-                    <div>
-                      <div className="mx-auto h-6 w-6 animate-spin rounded-full border-2 border-[#d7dfed] border-t-[#294aad]" />
-                      <p className="mt-3 text-xs font-extrabold text-[#52617d]">
-                        Preparing screenshot...
-                      </p>
-                    </div>
-                  ) : paymentProofPreview ? (
-                    <div className="w-full">
-                      <img
-                        src={paymentProofPreview}
-                        alt="Payment proof preview"
-                        className="mx-auto max-h-56 rounded-xl object-contain shadow-sm"
-                      />
-                      <p className="mt-3 text-xs font-extrabold text-[#294aad]">
-                        Tap to replace screenshot
-                      </p>
-                    </div>
-                  ) : (
-                    <div>
-                      <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-2xl bg-[#eef3ff] text-[#294aad]">
-                        <ImagePlus size={21} />
-                      </div>
-                      <p className="mt-3 text-sm font-extrabold text-[#182442]">
-                        Upload payment screenshot
-                      </p>
-                      <p className="mt-1 text-xs text-[#8995aa]">
-                        PNG, JPG, or phone screenshot
-                      </p>
-                    </div>
-                  )}
+      {paymentRequest &&
+        createPortal(
+          <div className="fixed inset-0 z-[2147483647] flex items-center justify-center bg-[#071333]/60 p-3 backdrop-blur-sm">
+            <div className="flex max-h-[calc(100dvh-24px)] w-full max-w-lg flex-col overflow-hidden rounded-[26px] bg-white shadow-[0_30px_90px_rgba(8,24,70,0.32)]">
+              <div className="shrink-0 flex items-start justify-between gap-4 bg-gradient-to-r from-[#10245f] to-[#294aad] p-5 text-white sm:p-6">
+                <div>
+                  <p className="text-[11px] font-black uppercase tracking-[0.14em] text-blue-100/65">
+                    Payment confirmation
+                  </p>
+                  <h3 className="mt-1 text-xl font-black">
+                    Attach payment screenshot
+                  </h3>
+                  <p className="mt-2 text-sm leading-6 text-blue-100/75">
+                    {paymentRequest.debtorName} → {paymentRequest.creditorName} · ₱{money(paymentRequest.amount)}
+                  </p>
                 </div>
-              </label>
 
-              <button
-                type="button"
-                disabled={
-                  !paymentProof ||
-                  proofProcessing ||
-                  Boolean(paymentLoading)
-                }
-                onClick={submitPaymentProof}
-                className="mt-5 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#142a76] px-5 text-sm font-black text-white transition hover:bg-[#10245f] disabled:cursor-not-allowed disabled:opacity-45"
-              >
-                {paymentLoading ? (
-                  <>
-                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/35 border-t-white" />
-                    Marking Paid...
-                  </>
-                ) : (
-                  <>
-                    <Upload size={17} />
-                    Mark as Paid & Move to Trash
-                  </>
-                )}
-              </button>
+                <button
+                  type="button"
+                  onClick={closePaymentProof}
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/12 transition hover:bg-white/20"
+                >
+                  <X size={19} />
+                </button>
+              </div>
+
+              <div className="min-h-0 flex-1 overflow-y-auto p-5 sm:p-6">
+                <div className="rounded-2xl border border-[#dce4f2] bg-[#f7f9fd] p-4">
+                  <p className="text-sm font-extrabold text-[#182442]">
+                    Proof of payment is required
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-[#8995aa]">
+                    Upload a screenshot of the QR, e-wallet, or bank payment before this balance can be marked as paid and moved to Paid Expenses.
+                  </p>
+                </div>
+
+                <label className="mt-4 block cursor-pointer">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(event) =>
+                      handlePaymentProofFile(event.target.files?.[0])
+                    }
+                  />
+
+                  <div className="flex min-h-28 items-center justify-center rounded-2xl border-2 border-dashed border-[#cfd9ea] bg-white p-4 text-center transition hover:border-[#294aad] hover:bg-[#f9fbff]">
+                    {proofProcessing ? (
+                      <div>
+                        <div className="mx-auto h-6 w-6 animate-spin rounded-full border-2 border-[#d7dfed] border-t-[#294aad]" />
+                        <p className="mt-3 text-xs font-extrabold text-[#52617d]">
+                          Preparing screenshot...
+                        </p>
+                      </div>
+                    ) : paymentProofPreview ? (
+                      <div className="w-full">
+                        <img
+                          src={paymentProofPreview}
+                          alt="Payment proof preview"
+                          className="mx-auto max-h-48 rounded-xl object-contain shadow-sm"
+                        />
+                        <p className="mt-3 text-xs font-extrabold text-[#294aad]">
+                          Tap to replace screenshot
+                        </p>
+                      </div>
+                    ) : (
+                      <div>
+                        <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-2xl bg-[#eef3ff] text-[#294aad]">
+                          <ImagePlus size={21} />
+                        </div>
+                        <p className="mt-3 text-sm font-extrabold text-[#182442]">
+                          Upload payment screenshot
+                        </p>
+                        <p className="mt-1 text-xs text-[#8995aa]">
+                          PNG, JPG, or phone screenshot
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </label>
+              </div>
+
+              <div className="shrink-0 border-t border-[#e6ebf3] bg-white p-4 pb-[max(16px,env(safe-area-inset-bottom))] sm:p-5">
+                <button
+                  type="button"
+                  disabled={
+                    !paymentProof ||
+                    proofProcessing ||
+                    Boolean(paymentLoading)
+                  }
+                  onClick={submitPaymentProof}
+                  className="flex min-h-14 w-full touch-manipulation items-center justify-center gap-2 rounded-xl bg-[#142a76] px-5 text-sm font-black text-white shadow-[0_10px_30px_rgba(20,42,118,0.20)] transition hover:bg-[#10245f] disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-45"
+                >
+                  {paymentLoading ? (
+                    <>
+                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/35 border-t-white" />
+                      Marking Paid...
+                    </>
+                  ) : (
+                    <>
+                      <Upload size={17} />
+                      Mark as Paid & Move to Trash
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
     </section>
   );
 }

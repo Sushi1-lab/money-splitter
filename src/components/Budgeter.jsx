@@ -86,6 +86,39 @@ const monthKeyFromDate = (
     date.getMonth() + 1
   ).padStart(2, "0")}`;
 
+const formatMonthLabel = (monthKey) => {
+  if (!monthKey) {
+    return "";
+  }
+
+  const [
+    year,
+    month,
+  ] =
+    String(monthKey)
+      .split("-")
+      .map(Number);
+
+  if (
+    !year ||
+    !month
+  ) {
+    return monthKey;
+  }
+
+  return new Date(
+    year,
+    month - 1,
+    1
+  ).toLocaleDateString(
+    "en-PH",
+    {
+      month: "long",
+      year: "numeric",
+    }
+  );
+};
+
 const todayInput = () => {
   const now =
     new Date();
@@ -223,6 +256,74 @@ function Budgeter({
       new Date()
     )
   );
+
+
+  const monthOptions =
+    useMemo(() => {
+      const now =
+        new Date();
+
+      const rows = [];
+
+      for (
+        let offset = -12;
+        offset <= 12;
+        offset += 1
+      ) {
+        const date =
+          new Date(
+            now.getFullYear(),
+            now.getMonth() +
+              offset,
+            1
+          );
+
+        const key =
+          monthKeyFromDate(
+            date
+          );
+
+        rows.push({
+          key,
+          label:
+            formatMonthLabel(
+              key
+            ),
+        });
+      }
+
+      if (
+        selectedMonth &&
+        !rows.some(
+          (item) =>
+            item.key ===
+            selectedMonth
+        )
+      ) {
+        rows.push({
+          key:
+            selectedMonth,
+          label:
+            formatMonthLabel(
+              selectedMonth
+            ),
+        });
+
+        rows.sort(
+          (
+            a,
+            b
+          ) =>
+            a.key.localeCompare(
+              b.key
+            )
+        );
+      }
+
+      return rows;
+    }, [
+      selectedMonth,
+    ]);
 
   const {
     Dialog,
@@ -778,11 +879,13 @@ function Budgeter({
               date
             ),
           label:
-            date.toLocaleString(
+            date.toLocaleDateString(
               "en-PH",
               {
                 month:
                   "short",
+                year:
+                  "2-digit",
               }
             ),
           income:
@@ -1474,7 +1577,110 @@ function Budgeter({
               />
             </div>
 
-            <div className="mt-7 flex h-52 items-end justify-between gap-2">
+            {/* MOBILE: easier-to-read comparison rows */}
+            <div className="mt-6 space-y-4 sm:hidden">
+              {sixMonthData.map(
+                (item) => {
+                  const incomeWidth =
+                    Math.max(
+                      item.income
+                        ? 8
+                        : 2,
+                      (
+                        item.income /
+                        maxSixMonth
+                      ) *
+                        100
+                    );
+
+                  const expenseWidth =
+                    Math.max(
+                      item.expense
+                        ? 8
+                        : 2,
+                      (
+                        item.expense /
+                        maxSixMonth
+                      ) *
+                        100
+                    );
+
+                  return (
+                    <div
+                      key={
+                        item.key
+                      }
+                      className="rounded-2xl border border-[#e2e8f1] bg-[#f9fbff] p-4"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-xs font-black text-[#52617d]">
+                          {item.label}
+                        </p>
+
+                        <p className="text-[10px] font-bold text-[#8995aa]">
+                          Income vs Expense
+                        </p>
+                      </div>
+
+                      <div className="mt-3 space-y-2.5">
+                        <div>
+                          <div className="mb-1 flex items-center justify-between gap-2">
+                            <span className="text-[10px] font-bold text-[#71809a]">
+                              Income
+                            </span>
+
+                            <span className="text-[10px] font-black text-[#294aad]">
+                              ₱
+                              {money(
+                                item.income
+                              )}
+                            </span>
+                          </div>
+
+                          <div className="h-2.5 overflow-hidden rounded-full bg-[#e6ebf4]">
+                            <div
+                              className="h-full rounded-full bg-[#3d63d2] transition-all duration-700"
+                              style={{
+                                width:
+                                  `${incomeWidth}%`,
+                              }}
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="mb-1 flex items-center justify-between gap-2">
+                            <span className="text-[10px] font-bold text-[#71809a]">
+                              Expense
+                            </span>
+
+                            <span className="text-[10px] font-black text-[#52617d]">
+                              ₱
+                              {money(
+                                item.expense
+                              )}
+                            </span>
+                          </div>
+
+                          <div className="h-2.5 overflow-hidden rounded-full bg-[#e6ebf4]">
+                            <div
+                              className="h-full rounded-full bg-[#aebbd4] transition-all duration-700"
+                              style={{
+                                width:
+                                  `${expenseWidth}%`,
+                              }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+              )}
+            </div>
+
+            {/* TABLET / DESKTOP: original grouped bars */}
+            <div className="mt-7 hidden h-52 items-end justify-between gap-2 sm:flex">
               {sixMonthData.map(
                 (item) => (
                   <div
@@ -1875,7 +2081,7 @@ function Budgeter({
                     )
                   }
                   placeholder="₱0.00"
-                  className="app-input"
+                  className="app-input min-w-0 w-full"
                 />
               </div>
 
@@ -2061,7 +2267,7 @@ function Budgeter({
                     0 &&
                   !editingBudget
                 }
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-white px-4 text-sm font-black text-[#142a76] transition hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-white px-4 text-sm font-black text-[#142a76] transition hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
               >
                 <Plus
                   size={17}
@@ -2072,7 +2278,7 @@ function Budgeter({
           </div>
 
           <div className="p-4 sm:p-6">
-            <div className="flex flex-col gap-3 rounded-2xl border border-[#dce3ef] bg-[#f8faff] p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="grid gap-4 rounded-2xl border border-[#dce3ef] bg-[#f8faff] p-4 sm:grid-cols-[1fr_auto] sm:items-center">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.12em] text-[#8995aa]">
                   Budget Month
@@ -2083,33 +2289,58 @@ function Budgeter({
                 </p>
               </div>
 
-              <input
-                type="month"
-                value={
-                  selectedMonth
-                }
-                onChange={(
-                  event
-                ) => {
-                  setSelectedMonth(
-                    event.target
-                      .value
-                  );
+              <div className="relative w-full sm:w-[240px]">
+                <select
+                  value={
+                    selectedMonth
+                  }
+                  onChange={(
+                    event
+                  ) => {
+                    setSelectedMonth(
+                      event.target
+                        .value
+                    );
 
-                  setShowBudgetForm(
-                    false
-                  );
+                    setShowBudgetForm(
+                      false
+                    );
 
-                  setEditingBudget(
-                    null
-                  );
+                    setEditingBudget(
+                      null
+                    );
 
-                  setBudgetLimit(
-                    ""
-                  );
-                }}
-                className="app-input w-full sm:w-[220px]"
-              />
+                    setBudgetLimit(
+                      ""
+                    );
+                  }}
+                  className="app-input w-full appearance-none pr-12 font-extrabold text-[#182442]"
+                >
+                  {monthOptions.map(
+                    (item) => (
+                      <option
+                        key={
+                          item.key
+                        }
+                        value={
+                          item.key
+                        }
+                      >
+                        {item.label}
+                      </option>
+                    )
+                  )}
+                </select>
+
+                <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#eef3ff] text-[#294aad]">
+                    <ChevronDown
+                      size={16}
+                      strokeWidth={2.5}
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
 
             {showBudgetForm && (
@@ -2120,7 +2351,7 @@ function Budgeter({
                 className="mt-5 overflow-hidden rounded-[22px] border border-[#cfdaf1] bg-white shadow-[0_14px_34px_rgba(31,53,108,0.08)]"
               >
                 <div className="border-b border-[#e3e8f0] bg-[#eef3ff] px-4 py-4 sm:px-5">
-                  <div className="flex items-start justify-between gap-3">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div>
                       <p className="text-xs font-black uppercase tracking-[0.12em] text-[#71809a]">
                         {editingBudget
