@@ -463,28 +463,28 @@ function TrashPanel({
     );
 
   return (
-    <section className="mt-4">
-      <div className="app-card overflow-hidden">
-        <div className="flex items-center gap-3 border-b border-[#e3e8f0] p-5 sm:p-6">
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#ffe8e8] text-[#b94343]">
+    <section className="mt-3 w-full min-w-0">
+      <div className="app-card min-w-0 overflow-hidden">
+        <div className="flex items-start gap-3 border-b border-[#e3e8f0] p-4 sm:items-center sm:p-6">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#ffe8e8] text-[#b94343] sm:h-11 sm:w-11">
             <Trash2
               size={21}
             />
           </div>
 
-          <div>
-            <h2 className="font-extrabold text-[#182442]">
+          <div className="min-w-0 flex-1">
+            <h2 className="text-[17px] font-extrabold leading-6 text-[#182442] sm:text-base">
               Paid Expenses
             </h2>
 
-            <p className="mt-1 text-xs leading-5 text-[#8995aa]">
-              Paid balances and mutual balance reductions appear here. Mutual reductions are shown once, even though both sides are updated.
+            <p className="mt-1 text-[12px] leading-5 text-[#8995aa]">
+              Paid balances and mutual reductions appear here. Mutual reductions are shown once, even when both sides are updated.
             </p>
           </div>
         </div>
 
-        <div className="p-4 sm:p-6">
-          <div className="mb-5 grid grid-cols-2 gap-2 rounded-2xl bg-[#eef2f8] p-1.5">
+        <div className="p-4 pb-28 sm:p-6 sm:pb-6">
+          <div className="mb-5 grid w-full grid-cols-2 gap-1 rounded-[18px] bg-[#eef2f8] p-1.5">
             <button
               type="button"
               onClick={() =>
@@ -492,19 +492,28 @@ function TrashPanel({
                   "paid"
                 )
               }
-              className={`min-h-11 rounded-xl px-3 text-sm font-extrabold transition ${
+              className={`min-w-0 rounded-[14px] px-2 py-2.5 transition ${
                 viewMode ===
                 "paid"
-                  ? "bg-white text-[#142a76] shadow-sm"
+                  ? "bg-white text-[#142a76] shadow-[0_3px_10px_rgba(20,42,118,0.10)]"
                   : "text-[#71809a]"
               }`}
             >
-              Paid / Reduced
-              <span className="ml-2 rounded-full bg-[#eef3ff] px-2 py-0.5 text-[10px] font-black text-[#294aad]">
-                {
-                  archived.length
-                }
-              </span>
+              <div className="flex min-w-0 items-center justify-center gap-2">
+                <span className="truncate text-[13px] font-extrabold sm:hidden">
+                  Completed
+                </span>
+
+                <span className="hidden truncate text-sm font-extrabold sm:inline">
+                  Paid / Reduced
+                </span>
+
+                <span className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-[#e9efff] px-1.5 text-[9px] font-black leading-none text-[#294aad]">
+                  {
+                    archived.length
+                  }
+                </span>
+              </div>
             </button>
 
             <button
@@ -514,19 +523,24 @@ function TrashPanel({
                   "reverted"
                 )
               }
-              className={`min-h-11 rounded-xl px-3 text-sm font-extrabold transition ${
+              className={`min-w-0 rounded-[14px] px-2 py-2.5 transition ${
                 viewMode ===
                 "reverted"
-                  ? "bg-white text-[#142a76] shadow-sm"
+                  ? "bg-white text-[#142a76] shadow-[0_3px_10px_rgba(20,42,118,0.10)]"
                   : "text-[#71809a]"
               }`}
             >
-              Reverted
-              <span className="ml-2 rounded-full bg-[#fff4d9] px-2 py-0.5 text-[10px] font-black text-[#b78114]">
-                {
-                  reverted.length
-                }
-              </span>
+              <div className="flex min-w-0 items-center justify-center gap-2">
+                <span className="truncate text-[13px] font-extrabold sm:text-sm">
+                  Reverted
+                </span>
+
+                <span className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-[#fff0c9] px-1.5 text-[9px] font-black leading-none text-[#b78114]">
+                  {
+                    reverted.length
+                  }
+                </span>
+              </div>
             </button>
           </div>
 
@@ -571,7 +585,7 @@ function TrashPanel({
           "paid" ? (
           archived.length ===
           0 ? (
-            <div className="rounded-2xl bg-[#f7f9fc] p-6 text-center">
+            <div className="flex min-h-[220px] flex-col items-center justify-center rounded-2xl bg-[#f7f9fc] px-5 py-8 text-center">
               <Trash2
                 size={28}
                 className="mx-auto text-[#aab4c4]"
@@ -710,7 +724,7 @@ function TrashPanel({
           ) : (
             reverted.length ===
             0 ? (
-              <div className="rounded-2xl bg-[#f7f9fc] p-7 text-center">
+              <div className="flex min-h-[220px] flex-col items-center justify-center rounded-2xl bg-[#f7f9fc] px-5 py-8 text-center">
                 <RotateCcw
                   size={28}
                   className="mx-auto text-[#aab4c4]"

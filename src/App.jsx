@@ -647,6 +647,208 @@ function App() {
   // SERVER-SCOPED USERNAME
   // =========================================
 
+  // =========================================
+  // AUTO-SYNC WORKSPACE USER TO SAVED PEOPLE
+  // =========================================
+  //
+  // Every registered workspace account also appears in:
+  // servers/{serverId}/people
+  //
+  // Registered account:
+  //   name: username
+  //   username: username
+  //   linkedUid: Firebase UID
+  //   linkedEmail: login email
+  //
+  // Manual people remain supported with linkedEmail = null.
+
+  const ensureWorkspaceUserInSavedPeople =
+    async (
+      server,
+      workspaceUsername
+    ) => {
+      if (
+        !server?.id ||
+        !user?.uid ||
+        !user?.email
+      ) {
+        return null;
+      }
+
+      const cleanUsername =
+        normalizeUsername(
+          workspaceUsername
+        );
+
+      const currentEmail =
+        normalizeEmail(
+          user.email
+        );
+
+      if (
+        !cleanUsername ||
+        !currentEmail
+      ) {
+        return null;
+      }
+
+      try {
+        const peopleRef =
+          collection(
+            db,
+            "servers",
+            server.id,
+            "people"
+          );
+
+        const snapshot =
+          await getDocs(
+            peopleRef
+          );
+
+        // Prefer a record already linked to this email.
+        let existing =
+          snapshot.docs.find(
+            (item) =>
+              normalizeEmail(
+                item.data()
+                  ?.linkedEmail ||
+                  ""
+              ) ===
+              currentEmail
+          );
+
+        // If a person was manually added earlier with the same
+        // username/name and has no email yet, reuse that record
+        // instead of creating a duplicate.
+        if (
+          !existing
+        ) {
+          existing =
+            snapshot.docs.find(
+              (item) => {
+                const data =
+                  item.data();
+
+                const savedUsername =
+                  normalizeUsername(
+                    data?.username ||
+                      ""
+                  );
+
+                const savedName =
+                  normalizeName(
+                    data?.name ||
+                      ""
+                  );
+
+                const hasLinkedEmail =
+                  Boolean(
+                    normalizeEmail(
+                      data?.linkedEmail ||
+                        ""
+                    )
+                  );
+
+                return (
+                  !hasLinkedEmail &&
+                  (
+                    savedUsername ===
+                      cleanUsername ||
+                    savedName ===
+                      normalizeName(
+                        cleanUsername
+                      )
+                  )
+                );
+              }
+            );
+        }
+
+        const linkedData = {
+          name:
+            cleanUsername,
+
+          normalizedName:
+            normalizeName(
+              cleanUsername
+            ),
+
+          username:
+            cleanUsername,
+
+          linkedUid:
+            user.uid,
+
+          linkedEmail:
+            currentEmail,
+
+          photoURL:
+            profile?.photoURL ||
+            user?.photoURL ||
+            null,
+
+          personType:
+            "workspace-member",
+
+          updatedAt:
+            serverTimestamp(),
+        };
+
+        if (
+          existing
+        ) {
+          await setDoc(
+            existing.ref,
+            linkedData,
+            {
+              merge:
+                true,
+            }
+          );
+
+          return {
+            id:
+              existing.id,
+            ...existing.data(),
+            ...linkedData,
+          };
+        }
+
+        const reference =
+          await addDoc(
+            peopleRef,
+            {
+              ...linkedData,
+
+              createdByUid:
+                user.uid,
+
+              createdByEmail:
+                currentEmail,
+
+              createdAt:
+                serverTimestamp(),
+            }
+          );
+
+        return {
+          id:
+            reference.id,
+          ...linkedData,
+        };
+      } catch (err) {
+        console.error(
+          "Workspace user → saved person sync error:",
+          err
+        );
+
+        // Do not block workspace entry if only this convenience
+        // sync fails. The normal people fetch can try again later.
+        return null;
+      }
+    };
+
   const reserveServerUsername =
     async (
       server,
@@ -852,6 +1054,11 @@ function App() {
               }
             );
 
+            await ensureWorkspaceUserInSavedPeople(
+              server,
+              cleanUsername
+            );
+
             return {
               ok: true,
               username:
@@ -889,6 +1096,11 @@ function App() {
             updatedAt:
               serverTimestamp(),
           }
+        );
+
+        await ensureWorkspaceUserInSavedPeople(
+          server,
+          cleanUsername
         );
 
         return {
@@ -1700,6 +1912,9 @@ function App() {
               photoURL:
                 null,
 
+              personType:
+                "manual",
+
               createdByUid:
                 user.uid,
 
@@ -1734,6 +1949,9 @@ function App() {
 
             photoURL:
               null,
+
+            personType:
+              "manual",
           };
 
         const displayName =

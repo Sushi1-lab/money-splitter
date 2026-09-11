@@ -2,9 +2,12 @@ import {
   ArrowDownCircle,
   ArrowLeftRight,
   ArrowUpCircle,
+  Activity,
   CalendarDays,
   ChevronDown,
   CircleDollarSign,
+  Gauge,
+  Lightbulb,
   LayoutDashboard,
   LoaderCircle,
   LogOut,
@@ -13,11 +16,14 @@ import {
   Plus,
   ReceiptText,
   Save,
+  Search,
   Star,
+  X,
   Target,
   Trash2,
   TrendingDown,
   TrendingUp,
+  Zap,
   WalletCards,
 } from "lucide-react";
 
@@ -85,39 +91,6 @@ const monthKeyFromDate = (
   `${date.getFullYear()}-${String(
     date.getMonth() + 1
   ).padStart(2, "0")}`;
-
-const formatMonthLabel = (monthKey) => {
-  if (!monthKey) {
-    return "";
-  }
-
-  const [
-    year,
-    month,
-  ] =
-    String(monthKey)
-      .split("-")
-      .map(Number);
-
-  if (
-    !year ||
-    !month
-  ) {
-    return monthKey;
-  }
-
-  return new Date(
-    year,
-    month - 1,
-    1
-  ).toLocaleDateString(
-    "en-PH",
-    {
-      month: "long",
-      year: "numeric",
-    }
-  );
-};
 
 const todayInput = () => {
   const now =
@@ -196,6 +169,26 @@ function Budgeter({
   ] = useState(null);
 
   const [
+    editingTransaction,
+    setEditingTransaction,
+  ] = useState(null);
+
+  const [
+    transactionFilter,
+    setTransactionFilter,
+  ] = useState("all");
+
+  const [
+    transactionSearch,
+    setTransactionSearch,
+  ] = useState("");
+
+  const [
+    historyMonth,
+    setHistoryMonth,
+  ] = useState("all");
+
+  const [
     type,
     setType,
   ] = useState(
@@ -256,74 +249,6 @@ function Budgeter({
       new Date()
     )
   );
-
-
-  const monthOptions =
-    useMemo(() => {
-      const now =
-        new Date();
-
-      const rows = [];
-
-      for (
-        let offset = -12;
-        offset <= 12;
-        offset += 1
-      ) {
-        const date =
-          new Date(
-            now.getFullYear(),
-            now.getMonth() +
-              offset,
-            1
-          );
-
-        const key =
-          monthKeyFromDate(
-            date
-          );
-
-        rows.push({
-          key,
-          label:
-            formatMonthLabel(
-              key
-            ),
-        });
-      }
-
-      if (
-        selectedMonth &&
-        !rows.some(
-          (item) =>
-            item.key ===
-            selectedMonth
-        )
-      ) {
-        rows.push({
-          key:
-            selectedMonth,
-          label:
-            formatMonthLabel(
-              selectedMonth
-            ),
-        });
-
-        rows.sort(
-          (
-            a,
-            b
-          ) =>
-            a.key.localeCompare(
-              b.key
-            )
-        );
-      }
-
-      return rows;
-    }, [
-      selectedMonth,
-    ]);
 
   const {
     Dialog,
@@ -643,6 +568,291 @@ function Budgeter({
       0
     );
 
+  const previousMonthKey =
+    useMemo(() => {
+      const now =
+        new Date();
+
+      return monthKeyFromDate(
+        new Date(
+          now.getFullYear(),
+          now.getMonth() - 1,
+          1
+        )
+      );
+    }, []);
+
+  const previousMonthExpenses =
+    useMemo(
+      () =>
+        transactions
+          .filter(
+            (item) => {
+              const key =
+                item.monthKey ||
+                monthKeyFromDate(
+                  dateValue(
+                    item.date ||
+                      item.createdAt
+                  )
+                );
+
+              return (
+                item.type ===
+                  "expense" &&
+                key ===
+                  previousMonthKey
+              );
+            }
+          )
+          .reduce(
+            (sum, item) =>
+              sum +
+              Number(
+                item.amount ||
+                  0
+              ),
+            0
+          ),
+      [
+        transactions,
+        previousMonthKey,
+      ]
+    );
+
+  const currentBudgetSpent =
+    useMemo(
+      () =>
+        currentBudgets.reduce(
+          (sum, item) =>
+            sum +
+            Number(
+              categorySpending.find(
+                (entry) =>
+                  entry.name ===
+                  item.category
+              )?.value ||
+                0
+            ),
+          0
+        ),
+      [
+        currentBudgets,
+        categorySpending,
+      ]
+    );
+
+  const budgetUsagePercent =
+    totalBudget > 0
+      ? Math.round(
+          (currentBudgetSpent /
+            totalBudget) *
+            100
+        )
+      : 0;
+
+  const savingsRate =
+    stats.monthIncome > 0
+      ? Math.round(
+          (Math.max(
+            stats.monthRemaining,
+            0
+          ) /
+            stats.monthIncome) *
+            100
+        )
+      : 0;
+
+  const monthlyHealthScore =
+    useMemo(() => {
+      let score = 50;
+
+      if (
+        stats.monthIncome > 0
+      ) {
+        const spendingRatio =
+          stats.monthExpenses /
+          stats.monthIncome;
+
+        if (
+          spendingRatio <=
+          0.7
+        ) {
+          score += 25;
+        } else if (
+          spendingRatio <=
+          0.9
+        ) {
+          score += 15;
+        } else if (
+          spendingRatio <=
+          1
+        ) {
+          score += 5;
+        } else {
+          score -= 20;
+        }
+      }
+
+      if (
+        totalBudget > 0
+      ) {
+        if (
+          budgetUsagePercent <=
+          80
+        ) {
+          score += 15;
+        } else if (
+          budgetUsagePercent <=
+          100
+        ) {
+          score += 5;
+        } else {
+          score -= 15;
+        }
+      }
+
+      if (
+        stats.monthRemaining >
+        0
+      ) {
+        score += 10;
+      } else if (
+        stats.monthRemaining <
+        0
+      ) {
+        score -= 10;
+      }
+
+      return Math.max(
+        0,
+        Math.min(
+          100,
+          Math.round(
+            score
+          )
+        )
+      );
+    }, [
+      stats.monthIncome,
+      stats.monthExpenses,
+      stats.monthRemaining,
+      totalBudget,
+      budgetUsagePercent,
+    ]);
+
+  const expenseChangePercent =
+    previousMonthExpenses > 0
+      ? Math.round(
+          ((stats.monthExpenses -
+            previousMonthExpenses) /
+            previousMonthExpenses) *
+            100
+        )
+      : null;
+
+  const topSpendingCategory =
+    categorySpending[
+      0
+    ] ||
+    null;
+
+  const recentActivity =
+    useMemo(
+      () =>
+        [...transactions]
+          .sort(
+            (
+              a,
+              b
+            ) =>
+              dateValue(
+                b.date ||
+                  b.createdAt
+              ).getTime() -
+              dateValue(
+                a.date ||
+                  a.createdAt
+              ).getTime()
+          )
+          .slice(
+            0,
+            5
+          ),
+      [
+        transactions,
+      ]
+    );
+
+  const smartInsights =
+    useMemo(
+      () => {
+        const insights =
+          [];
+
+        if (
+          expenseChangePercent !==
+          null
+        ) {
+          if (
+            expenseChangePercent >
+            0
+          ) {
+            insights.push(
+              `Spending is ${expenseChangePercent}% higher than last month.`
+            );
+          } else if (
+            expenseChangePercent <
+            0
+          ) {
+            insights.push(
+              `Spending is ${Math.abs(
+                expenseChangePercent
+              )}% lower than last month.`
+            );
+          } else {
+            insights.push(
+              "Spending is unchanged from last month."
+            );
+          }
+        }
+
+        if (
+          topSpendingCategory
+        ) {
+          insights.push(
+            `${topSpendingCategory.name} is your biggest category this month at ₱${money(
+              topSpendingCategory.value
+            )}.`
+          );
+        }
+
+        if (
+          totalBudget >
+          0
+        ) {
+          insights.push(
+            `You have used ${budgetUsagePercent}% of your active monthly category budgets.`
+          );
+        } else {
+          insights.push(
+            "Set category budgets to get stronger monthly spending insights."
+          );
+        }
+
+        return insights.slice(
+          0,
+          3
+        );
+      },
+      [
+        expenseChangePercent,
+        topSpendingCategory,
+        totalBudget,
+        budgetUsagePercent,
+      ]
+    );
+
   const selectedMonthTransactions =
     useMemo(
       () =>
@@ -879,13 +1089,11 @@ function Budgeter({
               date
             ),
           label:
-            date.toLocaleDateString(
+            date.toLocaleString(
               "en-PH",
               {
                 month:
                   "short",
-                year:
-                  "2-digit",
               }
             ),
           income:
@@ -950,11 +1158,186 @@ function Budgeter({
       1
     );
 
+  const transactionMonths =
+    useMemo(
+      () =>
+        [
+          ...new Set(
+            transactions
+              .map(
+                (item) =>
+                  item.monthKey ||
+                  monthKeyFromDate(
+                    dateValue(
+                      item.date ||
+                        item.createdAt
+                    )
+                  )
+              )
+              .filter(
+                Boolean
+              )
+          ),
+        ].sort(
+          (
+            a,
+            b
+          ) =>
+            b.localeCompare(
+              a
+            )
+        ),
+      [
+        transactions,
+      ]
+    );
+
+  const filteredTransactions =
+    useMemo(() => {
+      const search =
+        transactionSearch
+          .trim()
+          .toLowerCase();
+
+      return transactions.filter(
+        (item) => {
+          if (
+            transactionFilter !==
+              "all" &&
+            item.type !==
+              transactionFilter
+          ) {
+            return false;
+          }
+
+          const itemMonth =
+            item.monthKey ||
+            monthKeyFromDate(
+              dateValue(
+                item.date ||
+                  item.createdAt
+              )
+            );
+
+          if (
+            historyMonth !==
+              "all" &&
+            itemMonth !==
+              historyMonth
+          ) {
+            return false;
+          }
+
+          if (!search) {
+            return true;
+          }
+
+          return [
+            item.note,
+            item.category,
+            item.type,
+            item.date,
+            item.amount,
+          ]
+            .filter(
+              (
+                value
+              ) =>
+                value !==
+                  undefined &&
+                value !==
+                  null
+            )
+            .some(
+              (value) =>
+                String(
+                  value
+                )
+                  .toLowerCase()
+                  .includes(
+                    search
+                  )
+            );
+        }
+      );
+    }, [
+      transactions,
+      transactionFilter,
+      transactionSearch,
+      historyMonth,
+    ]);
+
+  const beginEditTransaction =
+    (transaction) => {
+      setEditingTransaction(
+        transaction
+      );
+
+      setType(
+        transaction.type ===
+          "income"
+          ? "income"
+          : "expense"
+      );
+
+      setAmount(
+        String(
+          transaction.amount ||
+            ""
+        )
+      );
+
+      setCategory(
+        transaction.category ===
+          "Income"
+          ? "Food"
+          : transaction.category ||
+              "Other"
+      );
+
+      setNote(
+        transaction.note ||
+          ""
+      );
+
+      setTransactionDate(
+        transaction.date ||
+          todayInput()
+      );
+
+      window.scrollTo({
+        top:
+          0,
+        behavior:
+          "smooth",
+      });
+    };
+
+  const cancelTransactionEdit =
+    () => {
+      setEditingTransaction(
+        null
+      );
+      setAmount("");
+      setNote("");
+      setCategory("Food");
+      setType("expense");
+      setTransactionDate(
+        todayInput()
+      );
+    };
+
   const saveTransaction =
     async (
       event
     ) => {
       event.preventDefault();
+
+      if (
+        savingTransaction
+      ) {
+        return;
+      }
 
       const numericAmount =
         Number(amount);
@@ -973,6 +1356,17 @@ function Budgeter({
       }
 
       if (
+        numericAmount >
+        999999999.99
+      ) {
+        await warning(
+          "Amount Too Large",
+          "Enter an amount below ₱1 billion."
+        );
+        return;
+      }
+
+      if (
         !transactionDate
       ) {
         await warning(
@@ -982,15 +1376,58 @@ function Budgeter({
         return;
       }
 
+      const parsedDate =
+        new Date(
+          `${transactionDate}T12:00:00`
+        );
+
+      if (
+        Number.isNaN(
+          parsedDate.getTime()
+        )
+      ) {
+        await warning(
+          "Invalid Date",
+          "Choose a valid transaction date."
+        );
+        return;
+      }
+
+      if (
+        type ===
+          "expense" &&
+        !category
+      ) {
+        await warning(
+          "Category Required",
+          "Choose a category for this expense."
+        );
+        return;
+      }
+
+      const cleanNote =
+        note
+          .trim()
+          .replace(
+            /\s+/g,
+            " "
+          );
+
+      if (
+        cleanNote.length >
+        120
+      ) {
+        await warning(
+          "Note Too Long",
+          "Keep the transaction note under 120 characters."
+        );
+        return;
+      }
+
       try {
         setSavingTransaction(
           true
         );
-
-        const parsedDate =
-          new Date(
-            `${transactionDate}T12:00:00`
-          );
 
         const payload = {
           type,
@@ -1006,7 +1443,7 @@ function Budgeter({
               ? "Income"
               : category,
           note:
-            note.trim(),
+            cleanNote,
           date:
             transactionDate,
           monthKey:
@@ -1015,39 +1452,66 @@ function Budgeter({
             ),
           ownerUid:
             user.uid,
-          createdAt:
+          updatedAt:
             serverTimestamp(),
         };
 
-        await addDoc(
-          transactionsRef,
-          payload
-        );
+        const wasEditing =
+          Boolean(
+            editingTransaction
+          );
 
-        setAmount("");
-        setNote("");
-        setTransactionDate(
-          todayInput()
-        );
+        if (
+          editingTransaction?.id
+        ) {
+          await setDoc(
+            doc(
+              db,
+              "users",
+              user.uid,
+              "budgetTransactions",
+              editingTransaction.id
+            ),
+            payload,
+            {
+              merge:
+                true,
+            }
+          );
+        } else {
+          await addDoc(
+            transactionsRef,
+            {
+              ...payload,
+              createdAt:
+                serverTimestamp(),
+            }
+          );
+        }
+
+        cancelTransactionEdit();
 
         await loadBudgeter();
 
         await success(
-          "Transaction Saved",
-          type ===
-            "income"
-            ? "Your income was added."
-            : "Your expense was added."
+          wasEditing
+            ? "Transaction Updated"
+            : "Transaction Saved",
+          `${type === "income" ? "Income" : "Expense"} of ₱${money(
+            numericAmount
+          )} ${wasEditing ? "was updated" : "was recorded"} successfully.`
         );
       } catch (err) {
         console.error(
-          "Save budget transaction error:",
+          "Save personal finance transaction error:",
           err
         );
 
         await error(
-          "Unable to Save",
-          "The transaction could not be saved."
+          editingTransaction
+            ? "Unable to Update Transaction"
+            : "Unable to Save Transaction",
+          "The transaction could not be saved. Please try again."
         );
       } finally {
         setSavingTransaction(
@@ -1098,6 +1562,18 @@ function Budgeter({
                 item.id !==
                 transaction.id
             )
+        );
+
+        if (
+          editingTransaction?.id ===
+          transaction.id
+        ) {
+          cancelTransactionEdit();
+        }
+
+        await success(
+          "Transaction Deleted",
+          "The transaction was removed successfully."
         );
       } catch (err) {
         console.error(
@@ -1305,6 +1781,11 @@ function Budgeter({
                 budget.id
             )
         );
+
+        await success(
+          "Budget Removed",
+          `${budget.category} budget for ${budget.monthKey} was removed.`
+        );
       } catch (err) {
         console.error(
           "Delete budget error:",
@@ -1466,11 +1947,7 @@ function Budgeter({
     () => (
       <div className="space-y-5">
         <section className="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-[#10245f] via-[#1b378e] to-[#3d63d2] p-6 text-white shadow-[0_20px_50px_rgba(20,42,118,0.18)] sm:p-8">
-          <div className="pointer-events-none absolute -right-12 -top-12 h-40 w-40 rounded-full bg-white/10 animate-pulse" />
-          <div className="pointer-events-none absolute right-20 top-8 h-3 w-3 rounded-full bg-white/40 animate-pulse" />
-          <div className="pointer-events-none absolute bottom-7 right-10 h-20 w-20 rounded-full border border-white/15 animate-pulse" />
-          <div className="pointer-events-none absolute bottom-4 right-28 h-8 w-8 rounded-full border border-white/10 animate-pulse" />
-          <div className="pointer-events-none absolute -bottom-10 left-1/2 h-24 w-24 rounded-full bg-white/5 blur-xl animate-pulse" />
+          <div className="absolute -right-12 -top-12 h-40 w-40 rounded-full bg-white/10" />
 
           <div className="relative z-10">
             <p className="text-xs font-black uppercase tracking-[0.16em] text-blue-100/65">
@@ -1484,12 +1961,6 @@ function Budgeter({
             <p className="mt-2 max-w-xl text-sm leading-6 text-blue-100/78">
               Keep an eye on your income, spending, and monthly limits in one place.
             </p>
-
-            <div className="mt-5 flex items-center gap-2">
-              <span className="h-1.5 w-10 rounded-full bg-white/55 animate-pulse" />
-              <span className="h-1.5 w-5 rounded-full bg-white/30 animate-pulse" />
-              <span className="h-1.5 w-2 rounded-full bg-white/20 animate-pulse" />
-            </div>
           </div>
         </section>
 
@@ -1558,6 +2029,324 @@ function Budgeter({
           )}
         </section>
 
+        <section className="grid gap-5 xl:grid-cols-[0.75fr_1.25fr]">
+          <div className="app-card overflow-hidden">
+            <div className="p-5 sm:p-6">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#eef3ff] text-[#294aad]">
+                    <Gauge
+                      size={21}
+                    />
+                  </div>
+
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.12em] text-[#8995aa]">
+                      Monthly Health Score
+                    </p>
+
+                    <h3 className="mt-1 text-xl font-black text-[#182442]">
+                      Financial Health
+                    </h3>
+                  </div>
+                </div>
+
+                <div className="text-right">
+                  <p className="text-3xl font-black text-[#142a76]">
+                    {monthlyHealthScore}
+                  </p>
+                  <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#8995aa]">
+                    out of 100
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-5 h-3 overflow-hidden rounded-full bg-[#edf1f7]">
+                <div
+                  className="h-full rounded-full bg-[#294aad] transition-all"
+                  style={{
+                    width:
+                      `${monthlyHealthScore}%`,
+                  }}
+                />
+              </div>
+
+              <div className="mt-5 grid grid-cols-2 gap-3">
+                <div className="rounded-2xl bg-[#f8faff] p-3">
+                  <p className="text-[10px] font-black uppercase tracking-[0.1em] text-[#8995aa]">
+                    Savings Rate
+                  </p>
+                  <p className="mt-1 text-lg font-black text-[#182442]">
+                    {savingsRate}%
+                  </p>
+                </div>
+
+                <div className="rounded-2xl bg-[#f8faff] p-3">
+                  <p className="text-[10px] font-black uppercase tracking-[0.1em] text-[#8995aa]">
+                    Budget Used
+                  </p>
+                  <p className="mt-1 text-lg font-black text-[#182442]">
+                    {totalBudget > 0
+                      ? `${budgetUsagePercent}%`
+                      : "—"}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="app-card p-5 sm:p-6">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#fff4d9] text-[#b78114]">
+                <Lightbulb
+                  size={21}
+                />
+              </div>
+
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.12em] text-[#8995aa]">
+                  Smart Insights
+                </p>
+
+                <h3 className="mt-1 text-xl font-black text-[#182442]">
+                  What stands out this month
+                </h3>
+              </div>
+            </div>
+
+            <div className="mt-5 grid gap-3">
+              {smartInsights.map(
+                (
+                  insight,
+                  index
+                ) => (
+                  <div
+                    key={
+                      insight
+                    }
+                    className="flex gap-3 rounded-2xl border border-[#e3e8f0] bg-[#f9fbff] p-4"
+                  >
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#eef3ff] text-xs font-black text-[#294aad]">
+                      {index + 1}
+                    </div>
+
+                    <p className="text-sm font-bold leading-6 text-[#52617d]">
+                      {insight}
+                    </p>
+                  </div>
+                )
+              )}
+            </div>
+          </div>
+        </section>
+
+        <section className="app-card p-5 sm:p-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#eef3ff] text-[#294aad]">
+                <Zap
+                  size={21}
+                />
+              </div>
+
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.12em] text-[#8995aa]">
+                  Quick Actions
+                </p>
+
+                <h3 className="mt-1 text-xl font-black text-[#182442]">
+                  Jump straight into your next task
+                </h3>
+              </div>
+            </div>
+
+            <div className="grid gap-2 sm:grid-cols-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setType(
+                    "expense"
+                  );
+                  changePage(
+                    "transactions"
+                  );
+                }}
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#142a76] px-4 text-sm font-extrabold text-white transition hover:bg-[#10245f]"
+              >
+                <TrendingDown
+                  size={17}
+                />
+                Add Expense
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setType(
+                    "income"
+                  );
+                  changePage(
+                    "transactions"
+                  );
+                }}
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[#d8e0ef] bg-white px-4 text-sm font-extrabold text-[#294aad] transition hover:bg-[#f7f9ff]"
+              >
+                <TrendingUp
+                  size={17}
+                />
+                Add Income
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedMonth(
+                    currentMonth
+                  );
+                  setShowBudgetForm(
+                    true
+                  );
+                  setEditingBudget(
+                    null
+                  );
+                  changePage(
+                    "budgets"
+                  );
+                }}
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[#d8e0ef] bg-white px-4 text-sm font-extrabold text-[#52617d] transition hover:bg-[#f7f9ff]"
+              >
+                <Target
+                  size={17}
+                />
+                Set Budget
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <section className="app-card p-5 sm:p-6">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#eef3ff] text-[#294aad]">
+                <Activity
+                  size={21}
+                />
+              </div>
+
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.12em] text-[#8995aa]">
+                  Activity Feed
+                </p>
+
+                <h3 className="mt-1 text-xl font-black text-[#182442]">
+                  Latest money activity
+                </h3>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() =>
+                changePage(
+                  "transactions"
+                )
+              }
+              className="text-xs font-black text-[#294aad] hover:underline"
+            >
+              View all
+            </button>
+          </div>
+
+          <div className="mt-5 divide-y divide-[#e7ebf2]">
+            {recentActivity.length ===
+            0 ? (
+              <div className="py-8 text-center">
+                <ReceiptText
+                  size={28}
+                  className="mx-auto text-[#b3bdcc]"
+                />
+                <p className="mt-3 text-sm font-bold text-[#71809a]">
+                  Your recent transactions will appear here.
+                </p>
+              </div>
+            ) : (
+              recentActivity.map(
+                (item) => {
+                  const isIncome =
+                    item.type ===
+                    "income";
+
+                  return (
+                    <div
+                      key={
+                        item.id
+                      }
+                      className="flex items-center gap-3 py-4 first:pt-0 last:pb-0"
+                    >
+                      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
+                        isIncome
+                          ? "bg-[#e8f7ef] text-[#18845c]"
+                          : "bg-[#fff1ed] text-[#c65d3a]"
+                      }`}>
+                        {isIncome ? (
+                          <ArrowUpCircle
+                            size={19}
+                          />
+                        ) : (
+                          <ArrowDownCircle
+                            size={19}
+                          />
+                        )}
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-extrabold text-[#182442]">
+                          {item.note?.trim() ||
+                            item.category ||
+                            (isIncome
+                              ? "Income"
+                              : "Expense")}
+                        </p>
+
+                        <p className="mt-0.5 text-xs text-[#8995aa]">
+                          {item.category ||
+                            "Other"}{" "}
+                          ·{" "}
+                          {dateValue(
+                            item.date ||
+                              item.createdAt
+                          ).toLocaleDateString(
+                            "en-PH",
+                            {
+                              month:
+                                "short",
+                              day:
+                                "numeric",
+                            }
+                          )}
+                        </p>
+                      </div>
+
+                      <p className={`shrink-0 text-sm font-black ${
+                        isIncome
+                          ? "text-[#18845c]"
+                          : "text-[#182442]"
+                      }`}>
+                        {isIncome
+                          ? "+"
+                          : "-"}₱
+                        {money(
+                          item.amount
+                        )}
+                      </p>
+                    </div>
+                  );
+                }
+              )
+            )}
+          </div>
+        </section>
+
         <section className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
           <div className="app-card p-5 sm:p-6">
             <div className="flex items-center justify-between gap-3">
@@ -1577,110 +2366,7 @@ function Budgeter({
               />
             </div>
 
-            {/* MOBILE: easier-to-read comparison rows */}
-            <div className="mt-6 space-y-4 sm:hidden">
-              {sixMonthData.map(
-                (item) => {
-                  const incomeWidth =
-                    Math.max(
-                      item.income
-                        ? 8
-                        : 2,
-                      (
-                        item.income /
-                        maxSixMonth
-                      ) *
-                        100
-                    );
-
-                  const expenseWidth =
-                    Math.max(
-                      item.expense
-                        ? 8
-                        : 2,
-                      (
-                        item.expense /
-                        maxSixMonth
-                      ) *
-                        100
-                    );
-
-                  return (
-                    <div
-                      key={
-                        item.key
-                      }
-                      className="rounded-2xl border border-[#e2e8f1] bg-[#f9fbff] p-4"
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="text-xs font-black text-[#52617d]">
-                          {item.label}
-                        </p>
-
-                        <p className="text-[10px] font-bold text-[#8995aa]">
-                          Income vs Expense
-                        </p>
-                      </div>
-
-                      <div className="mt-3 space-y-2.5">
-                        <div>
-                          <div className="mb-1 flex items-center justify-between gap-2">
-                            <span className="text-[10px] font-bold text-[#71809a]">
-                              Income
-                            </span>
-
-                            <span className="text-[10px] font-black text-[#294aad]">
-                              ₱
-                              {money(
-                                item.income
-                              )}
-                            </span>
-                          </div>
-
-                          <div className="h-2.5 overflow-hidden rounded-full bg-[#e6ebf4]">
-                            <div
-                              className="h-full rounded-full bg-[#3d63d2] transition-all duration-700"
-                              style={{
-                                width:
-                                  `${incomeWidth}%`,
-                              }}
-                            />
-                          </div>
-                        </div>
-
-                        <div>
-                          <div className="mb-1 flex items-center justify-between gap-2">
-                            <span className="text-[10px] font-bold text-[#71809a]">
-                              Expense
-                            </span>
-
-                            <span className="text-[10px] font-black text-[#52617d]">
-                              ₱
-                              {money(
-                                item.expense
-                              )}
-                            </span>
-                          </div>
-
-                          <div className="h-2.5 overflow-hidden rounded-full bg-[#e6ebf4]">
-                            <div
-                              className="h-full rounded-full bg-[#aebbd4] transition-all duration-700"
-                              style={{
-                                width:
-                                  `${expenseWidth}%`,
-                              }}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                }
-              )}
-            </div>
-
-            {/* TABLET / DESKTOP: original grouped bars */}
-            <div className="mt-7 hidden h-52 items-end justify-between gap-2 sm:flex">
+            <div className="mt-7 flex h-52 items-end justify-between gap-2">
               {sixMonthData.map(
                 (item) => (
                   <div
@@ -1984,7 +2670,7 @@ function Budgeter({
   const TransactionsPage =
     () => (
       <div className="space-y-5">
-        <section className="app-card overflow-hidden">
+        <section className="app-card w-full min-w-0 max-w-full overflow-hidden">
           <div className="bg-gradient-to-r from-[#10245f] to-[#294aad] p-5 text-white sm:p-6">
             <div className="flex items-center gap-3">
               <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/15">
@@ -1999,7 +2685,9 @@ function Budgeter({
                 </p>
 
                 <h2 className="text-xl font-black">
-                  Add Transaction
+                  {editingTransaction
+                    ? "Edit Transaction"
+                    : "Add Transaction"}
                 </h2>
               </div>
             </div>
@@ -2059,7 +2747,7 @@ function Budgeter({
               </div>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid min-w-0 grid-cols-1 gap-4 min-[480px]:grid-cols-2">
               <div>
                 <label className="app-label">
                   Amount
@@ -2081,7 +2769,8 @@ function Budgeter({
                     )
                   }
                   placeholder="₱0.00"
-                  className="app-input min-w-0 w-full"
+                  className="app-input w-full min-w-0 max-w-full box-border"
+                  inputMode="decimal"
                 />
               </div>
 
@@ -2103,7 +2792,7 @@ function Budgeter({
                         .value
                     )
                   }
-                  className="app-input"
+                  className="app-input w-full min-w-0 max-w-full box-border [color-scheme:light]"
                 />
               </div>
             </div>
@@ -2128,7 +2817,7 @@ function Budgeter({
                           .value
                       )
                     }
-                    className="app-input appearance-none pr-12 font-bold text-[#182442] transition focus:border-[#3d63d2] focus:ring-4 focus:ring-[#3d63d2]/10"
+                    className="app-input w-full min-w-0 max-w-full appearance-none box-border pl-3 !pr-14 font-bold text-[#182442] transition focus:border-[#3d63d2] focus:ring-4 focus:ring-[#3d63d2]/10"
                   >
                     {categories.map(
                       (item) => (
@@ -2146,8 +2835,8 @@ function Budgeter({
                     )}
                   </select>
 
-                  <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#eef3ff] text-[#294aad]">
+                  <div className="pointer-events-none absolute inset-y-0 right-2 z-10 flex items-center">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#eef3ff] text-[#294aad]">
                       <ChevronDown
                         size={16}
                         strokeWidth={2.5}
@@ -2178,7 +2867,8 @@ function Budgeter({
                       .value
                   )
                 }
-                className="app-input"
+                maxLength={120}
+                className="app-input w-full min-w-0 max-w-full box-border"
                 placeholder={
                   type ===
                   "income"
@@ -2188,42 +2878,249 @@ function Budgeter({
               />
             </div>
 
-            <button
-              type="submit"
-              disabled={
-                savingTransaction
-              }
-              className="app-button-primary flex min-h-12 w-full items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-60"
+            <div
+              className={`grid gap-2 ${
+                editingTransaction
+                  ? "sm:grid-cols-[1fr_auto]"
+                  : "grid-cols-1"
+              }`}
             >
-              {savingTransaction ? (
-                <LoaderCircle
-                  size={18}
-                  className="animate-spin"
-                />
-              ) : (
-                <Save
-                  size={18}
-                />
-              )}
+              <button
+                type="submit"
+                disabled={
+                  savingTransaction
+                }
+                className="app-button-primary flex min-h-12 w-full min-w-0 items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {savingTransaction ? (
+                  <LoaderCircle
+                    size={18}
+                    className="animate-spin"
+                  />
+                ) : (
+                  <Save
+                    size={18}
+                  />
+                )}
 
-              {savingTransaction
-                ? "Saving..."
-                : "Save Transaction"}
-            </button>
+                {savingTransaction
+                  ? "Saving..."
+                  : editingTransaction
+                    ? "Update Transaction"
+                    : "Save Transaction"}
+              </button>
+
+              {editingTransaction && (
+                <button
+                  type="button"
+                  disabled={
+                    savingTransaction
+                  }
+                  onClick={
+                    cancelTransactionEdit
+                  }
+                  className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-[#dce3ef] bg-[#f7f9fd] px-5 text-sm font-extrabold text-[#52617d]"
+                >
+                  <X
+                    size={17}
+                  />
+                  Cancel Edit
+                </button>
+              )}
+            </div>
           </form>
         </section>
 
-        <section className="app-card p-5 sm:p-6">
-          <h3 className="text-xl font-black text-[#182442]">
-            Transaction History
-          </h3>
+        <section className="app-card w-full min-w-0 max-w-full overflow-hidden p-4 sm:p-6">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#8995aa]">
+                Activity
+              </p>
+
+              <h3 className="mt-1 text-xl font-black text-[#182442]">
+                Transaction History
+              </h3>
+
+              <p className="mt-1 text-xs leading-5 text-[#8995aa]">
+                Search, filter, edit, or remove your recorded transactions.
+              </p>
+            </div>
+
+            <div className="w-full min-w-0 lg:w-auto lg:min-w-[520px]">
+              {/* Search always gets its own full row on mobile.
+                  This prevents 3 large fields from being squeezed horizontally. */}
+              <div className="relative min-w-0">
+                <div className="pointer-events-none absolute inset-y-0 left-0 z-10 flex w-11 items-center justify-center text-[#8995aa]">
+                  <Search
+                    size={16}
+                    strokeWidth={2.2}
+                  />
+                </div>
+
+                <input
+                  value={
+                    transactionSearch
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    setTransactionSearch(
+                      event.target
+                        .value
+                    )
+                  }
+                  placeholder="Search"
+                  className="app-input h-11 w-full min-w-0 max-w-full box-border !pl-11 pr-3 text-sm"
+                />
+              </div>
+
+              {/* Filters stay side-by-side only when there is enough room. */}
+              <div className="mt-2 grid min-w-0 grid-cols-1 gap-2 min-[390px]:grid-cols-2">
+                <div className="relative min-w-0">
+                  <select
+                    value={
+                      transactionFilter
+                    }
+                    onChange={(
+                      event
+                    ) =>
+                      setTransactionFilter(
+                        event.target
+                          .value
+                      )
+                    }
+                    className="app-input h-11 w-full min-w-0 max-w-full appearance-none box-border truncate pl-3 !pr-11 text-[12px] font-bold sm:text-sm"
+                  >
+                    <option value="all">
+                      All types
+                    </option>
+                    <option value="expense">
+                      Expenses
+                    </option>
+                    <option value="income">
+                      Income
+                    </option>
+                  </select>
+
+                  <div className="pointer-events-none absolute inset-y-0 right-0 z-10 flex w-10 items-center justify-center text-[#8995aa]">
+                    <ChevronDown
+                      size={15}
+                      strokeWidth={2.2}
+                    />
+                  </div>
+                </div>
+
+                <div className="relative min-w-0">
+                  <select
+                    value={
+                      historyMonth
+                    }
+                    onChange={(
+                      event
+                    ) =>
+                      setHistoryMonth(
+                        event.target
+                          .value
+                      )
+                    }
+                    className="app-input h-11 w-full min-w-0 max-w-full appearance-none box-border truncate pl-3 !pr-11 text-[12px] font-bold sm:text-sm"
+                  >
+                    <option value="all">
+                      All months
+                    </option>
+
+                    {transactionMonths.map(
+                      (
+                        month
+                      ) => (
+                        <option
+                          key={
+                            month
+                          }
+                          value={
+                            month
+                          }
+                        >
+                          {new Date(
+                            `${month}-01T12:00:00`
+                          ).toLocaleString(
+                            "en-PH",
+                            {
+                              month:
+                                "short",
+                              year:
+                                "numeric",
+                            }
+                          )}
+                        </option>
+                      )
+                    )}
+                  </select>
+
+                  <div className="pointer-events-none absolute inset-y-0 right-0 z-10 flex w-10 items-center justify-center text-[#8995aa]">
+                    <ChevronDown
+                      size={15}
+                      strokeWidth={2.2}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-xl bg-[#f7f9fd] px-3 py-2">
+            <p className="text-xs font-bold text-[#71809a]">
+              Showing{" "}
+              <span className="font-black text-[#182442]">
+                {
+                  filteredTransactions.length
+                }
+              </span>{" "}
+              of{" "}
+              {
+                transactions.length
+              }
+            </p>
+
+            {(transactionSearch ||
+              transactionFilter !==
+                "all" ||
+              historyMonth !==
+                "all") && (
+              <button
+                type="button"
+                onClick={() => {
+                  setTransactionSearch(
+                    ""
+                  );
+                  setTransactionFilter(
+                    "all"
+                  );
+                  setHistoryMonth(
+                    "all"
+                  );
+                }}
+                className="text-xs font-extrabold text-[#294aad]"
+              >
+                Clear filters
+              </button>
+            )}
+          </div>
 
           <TransactionList
             items={
-              transactions
+              filteredTransactions
             }
             deletingId={
               deletingId
+            }
+            editingId={
+              editingTransaction?.id ||
+              null
+            }
+            onEdit={
+              beginEditTransaction
             }
             onDelete={
               removeTransaction
@@ -2267,7 +3164,7 @@ function Budgeter({
                     0 &&
                   !editingBudget
                 }
-                className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-white px-4 text-sm font-black text-[#142a76] transition hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-white px-4 text-sm font-black text-[#142a76] transition hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <Plus
                   size={17}
@@ -2278,7 +3175,7 @@ function Budgeter({
           </div>
 
           <div className="p-4 sm:p-6">
-            <div className="grid gap-4 rounded-2xl border border-[#dce3ef] bg-[#f8faff] p-4 sm:grid-cols-[1fr_auto] sm:items-center">
+            <div className="flex flex-col gap-3 rounded-2xl border border-[#dce3ef] bg-[#f8faff] p-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.12em] text-[#8995aa]">
                   Budget Month
@@ -2289,58 +3186,33 @@ function Budgeter({
                 </p>
               </div>
 
-              <div className="relative w-full sm:w-[240px]">
-                <select
-                  value={
-                    selectedMonth
-                  }
-                  onChange={(
-                    event
-                  ) => {
-                    setSelectedMonth(
-                      event.target
-                        .value
-                    );
+              <input
+                type="month"
+                value={
+                  selectedMonth
+                }
+                onChange={(
+                  event
+                ) => {
+                  setSelectedMonth(
+                    event.target
+                      .value
+                  );
 
-                    setShowBudgetForm(
-                      false
-                    );
+                  setShowBudgetForm(
+                    false
+                  );
 
-                    setEditingBudget(
-                      null
-                    );
+                  setEditingBudget(
+                    null
+                  );
 
-                    setBudgetLimit(
-                      ""
-                    );
-                  }}
-                  className="app-input w-full appearance-none pr-12 font-extrabold text-[#182442]"
-                >
-                  {monthOptions.map(
-                    (item) => (
-                      <option
-                        key={
-                          item.key
-                        }
-                        value={
-                          item.key
-                        }
-                      >
-                        {item.label}
-                      </option>
-                    )
-                  )}
-                </select>
-
-                <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#eef3ff] text-[#294aad]">
-                    <ChevronDown
-                      size={16}
-                      strokeWidth={2.5}
-                    />
-                  </div>
-                </div>
-              </div>
+                  setBudgetLimit(
+                    ""
+                  );
+                }}
+                className="app-input w-full min-w-0 max-w-full box-border [color-scheme:light] sm:w-[220px]"
+              />
             </div>
 
             {showBudgetForm && (
@@ -2351,7 +3223,7 @@ function Budgeter({
                 className="mt-5 overflow-hidden rounded-[22px] border border-[#cfdaf1] bg-white shadow-[0_14px_34px_rgba(31,53,108,0.08)]"
               >
                 <div className="border-b border-[#e3e8f0] bg-[#eef3ff] px-4 py-4 sm:px-5">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="text-xs font-black uppercase tracking-[0.12em] text-[#71809a]">
                         {editingBudget
@@ -2408,7 +3280,7 @@ function Budgeter({
                               .value
                           )
                         }
-                        className="app-input appearance-none pr-12 font-bold text-[#182442] transition focus:border-[#3d63d2] focus:ring-4 focus:ring-[#3d63d2]/10 disabled:cursor-not-allowed disabled:bg-[#eef2f8] disabled:text-[#8995aa]"
+                        className="app-input w-full min-w-0 max-w-full appearance-none box-border pl-3 !pr-14 font-bold text-[#182442] transition focus:border-[#3d63d2] focus:ring-4 focus:ring-[#3d63d2]/10 disabled:cursor-not-allowed disabled:bg-[#eef2f8] disabled:text-[#8995aa]"
                       >
                         {editingBudget ? (
                           <option
@@ -2436,7 +3308,7 @@ function Budgeter({
                         )}
                       </select>
 
-                      <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
+                      <div className="pointer-events-none absolute inset-y-0 right-2 z-10 flex items-center">
                         <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${
                           editingBudget
                             ? "bg-[#e1e6ee] text-[#9aa5b6]"
@@ -2463,9 +3335,9 @@ function Budgeter({
                     </label>
 
                     <div className="relative">
-                      <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm font-black text-[#8995aa]">
+                      <div className="pointer-events-none absolute inset-y-0 left-0 z-10 flex w-11 items-center justify-center text-sm font-black text-[#8995aa]">
                         ₱
-                      </span>
+                      </div>
 
                       <input
                         type="number"
@@ -2483,7 +3355,7 @@ function Budgeter({
                           )
                         }
                         placeholder="0.00"
-                        className="app-input pl-9"
+                        className="app-input w-full min-w-0 max-w-full box-border !pl-11 pr-3"
                         autoFocus
                       />
                     </div>
@@ -2997,7 +3869,82 @@ function Budgeter({
 
   return (
     <>
-      <div className="relative min-h-[100dvh] bg-[#eaf0fa]">
+      <div className="finance-shell relative min-h-[100dvh] overflow-x-hidden bg-[#eaf0fa]">
+        <style>
+          {`
+            .finance-shell,
+            .finance-shell * {
+              box-sizing: border-box;
+            }
+
+            .finance-shell .app-input {
+              width: 100%;
+              min-width: 0;
+              max-width: 100%;
+            }
+
+            .finance-shell,
+            .finance-shell main,
+            .finance-shell main > div,
+            .finance-shell form,
+            .finance-shell section,
+            .finance-shell .app-card,
+            .finance-shell .grid,
+            .finance-shell .flex {
+              min-width: 0;
+              max-width: 100%;
+            }
+
+            .finance-shell .grid > *,
+            .finance-shell .flex > * {
+              min-width: 0;
+            }
+
+            .finance-shell input,
+            .finance-shell select,
+            .finance-shell textarea,
+            .finance-shell .app-input {
+              display: block;
+              width: 100% !important;
+              min-width: 0 !important;
+              max-width: 100% !important;
+              box-sizing: border-box !important;
+            }
+
+            .finance-shell select {
+              overflow: hidden;
+              text-overflow: ellipsis;
+              white-space: nowrap;
+            }
+
+            .finance-shell .has-left-icon {
+              padding-left: 2.75rem !important;
+            }
+
+            .finance-shell .has-right-icon {
+              padding-right: 2.75rem !important;
+            }
+
+            @media (max-width: 389px) {
+              .finance-shell .app-input {
+                font-size: 14px;
+              }
+            }
+
+            .finance-shell input[type="date"],
+            .finance-shell input[type="month"] {
+              appearance: none;
+              -webkit-appearance: none;
+            }
+
+            @media (max-width: 639px) {
+              .finance-shell input[type="date"],
+              .finance-shell input[type="month"] {
+                font-size: 16px;
+              }
+            }
+          `}
+        </style>
         <aside className="fixed bottom-0 left-0 top-0 z-40 hidden w-[260px] bg-gradient-to-b from-[#10245f] via-[#142a76] to-[#0c1e5b] p-5 text-white lg:flex lg:flex-col">
           <div>
             <div className="flex h-12 w-12 items-center justify-center rounded-[17px] bg-white/12">
@@ -3079,7 +4026,7 @@ function Budgeter({
           </div>
         </aside>
 
-        <header className="relative z-30 bg-gradient-to-r from-[#10245f] to-[#294aad] px-4 py-4 text-white lg:hidden">
+        <header className="relative z-30 w-full min-w-0 bg-gradient-to-r from-[#10245f] to-[#294aad] px-4 py-4 text-white lg:hidden">
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-blue-100/60">
@@ -3106,8 +4053,8 @@ function Budgeter({
           </div>
         </header>
 
-        <main className="relative z-10 w-full px-3 py-4 pb-28 sm:px-5 lg:ml-[260px] lg:w-[calc(100%-260px)] lg:px-8 lg:py-8 lg:pb-10">
-          <div className="mx-auto max-w-6xl">
+        <main className="relative z-10 w-full min-w-0 px-3 py-4 pb-28 sm:px-5 lg:ml-[260px] lg:w-[calc(100%-260px)] lg:px-8 lg:py-8 lg:pb-10">
+          <div className="mx-auto w-full min-w-0 max-w-6xl">
             {renderPage()}
           </div>
         </main>
@@ -3157,6 +4104,8 @@ function Budgeter({
 function TransactionList({
   items,
   deletingId,
+  editingId,
+  onEdit,
   onDelete,
 }) {
   if (
@@ -3165,7 +4114,7 @@ function TransactionList({
   ) {
     return (
       <p className="mt-5 rounded-2xl bg-[#f7f9fd] p-5 text-sm text-[#8995aa]">
-        No transactions yet.
+        No transactions match your current filters.
       </p>
     );
   }
@@ -3183,8 +4132,14 @@ function TransactionList({
               key={
                 item.id
               }
-              className="flex items-center gap-3 rounded-2xl bg-[#f7f9fd] p-4"
+              className={`min-w-0 rounded-2xl border p-4 transition ${
+                editingId ===
+                item.id
+                  ? "border-[#9cb0ea] bg-[#eef3ff]"
+                  : "border-transparent bg-[#f7f9fd]"
+              }`}
             >
+              <div className="flex min-w-0 items-start gap-3">
               <div
                 className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${
                   income
@@ -3217,44 +4172,65 @@ function TransactionList({
                 </p>
               </div>
 
-              <p
-                className={`shrink-0 text-right font-black ${
-                  income
-                    ? "text-[#18845c]"
-                    : "text-[#182442]"
-                }`}
-              >
-                {income
-                  ? "+"
-                  : "-"}
-                ₱{money(item.amount)}
-              </p>
+                <div className="ml-auto shrink-0 text-right">
+                  <p
+                    className={`whitespace-nowrap font-black ${
+                      income
+                        ? "text-[#18845c]"
+                        : "text-[#182442]"
+                    }`}
+                  >
+                    {income
+                      ? "+"
+                      : "-"}
+                    ₱{money(item.amount)}
+                  </p>
+                </div>
+              </div>
 
-              <button
-                type="button"
-                disabled={
-                  deletingId ===
-                  item.id
-                }
-                onClick={() =>
-                  onDelete(
-                    item
-                  )
-                }
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-[#c85353] hover:bg-[#ffeded] disabled:opacity-50"
-              >
-                {deletingId ===
-                item.id ? (
-                  <LoaderCircle
-                    size={16}
-                    className="animate-spin"
+              <div className="mt-3 flex items-center justify-end gap-2 border-t border-[#e5eaf2] pt-3">
+                <button
+                  type="button"
+                  onClick={() =>
+                    onEdit?.(
+                      item
+                    )
+                  }
+                  className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-xl bg-white px-3 text-xs font-extrabold text-[#294aad]"
+                >
+                  <Pencil
+                    size={14}
                   />
-                ) : (
-                  <Trash2
-                    size={16}
-                  />
-                )}
-              </button>
+                  Edit
+                </button>
+
+                <button
+                  type="button"
+                  disabled={
+                    deletingId ===
+                    item.id
+                  }
+                  onClick={() =>
+                    onDelete(
+                      item
+                    )
+                  }
+                  className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-xl bg-[#ffeded] px-3 text-xs font-extrabold text-[#c85353] disabled:opacity-50"
+                >
+                  {deletingId ===
+                  item.id ? (
+                    <LoaderCircle
+                      size={15}
+                      className="animate-spin"
+                    />
+                  ) : (
+                    <Trash2
+                      size={15}
+                    />
+                  )}
+                  Delete
+                </button>
+              </div>
             </div>
           );
         }

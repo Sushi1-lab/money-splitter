@@ -1452,9 +1452,23 @@ function SplitCalculator({
                                 }
                               </p>
 
-                              <p className="mt-0.5 text-[11px] text-[#8995aa]">
-                                Added to this workspace
-                              </p>
+                              {person.linkedEmail ? (
+                                <div className="mt-0.5 min-w-0">
+                                  <p className="truncate text-[11px] font-semibold text-[#71809a]">
+                                    {person.linkedEmail}
+                                  </p>
+
+                                  {person.username && (
+                                    <p className="mt-0.5 truncate text-[10px] font-bold text-[#9aa5b6]">
+                                      @{person.username} · Workspace member
+                                    </p>
+                                  )}
+                                </div>
+                              ) : (
+                                <p className="mt-0.5 text-[11px] font-semibold text-[#9aa5b6]">
+                                  Manually added · No email linked
+                                </p>
+                              )}
                             </div>
                           </button>
 
