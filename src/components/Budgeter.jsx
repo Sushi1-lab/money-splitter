@@ -322,7 +322,7 @@ const getFinancialCardTheme = (
       brand:
         "Maya",
       logo:
-        "/bank-logos/maya.png",
+        "/bank-logos/maya.svg",
       background:
         "linear-gradient(135deg, #101418 0%, #0f2026 48%, #0a0d10 100%)",
       accent:
