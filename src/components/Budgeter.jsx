@@ -3,7 +3,9 @@ import {
   ArrowLeftRight,
   ArrowUpCircle,
   Activity,
+  Building2,
   CalendarDays,
+  CreditCard,
   ChevronDown,
   CircleDollarSign,
   Gauge,
@@ -18,6 +20,7 @@ import {
   Save,
   Search,
   Star,
+  Smartphone,
   X,
   Target,
   Trash2,
@@ -110,6 +113,326 @@ const safeId = (value = "") =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
 
+
+const getFinancialCardTheme = (
+  provider = "",
+  accountType = "bank"
+) => {
+  const name =
+    String(provider)
+      .trim()
+      .toLowerCase();
+
+  if (
+    name.includes("bpi")
+  ) {
+    return {
+      brand:
+        "BPI",
+      logo:
+        "/bank-logos/bpi.svg",
+      background:
+        "linear-gradient(135deg, #7c0a10 0%, #a5111a 48%, #54060b 100%)",
+      accent:
+        "#f6d36b",
+      chip:
+        "#e7c468",
+      network:
+        "VISA",
+      watermark:
+        "BPI",
+    };
+  }
+
+  if (
+    name.includes("bdo")
+  ) {
+    return {
+      brand:
+        "BDO",
+      logo:
+        "/bank-logos/bdo.svg",
+      background:
+        "linear-gradient(135deg, #0b4fb0 0%, #0866dc 48%, #0a2f76 100%)",
+      accent:
+        "#ffffff",
+      chip:
+        "#dfbd62",
+      network:
+        "Mastercard",
+      watermark:
+        "BDO",
+    };
+  }
+
+  if (
+    name.includes("landbank") ||
+    name.includes("land bank")
+  ) {
+    return {
+      brand:
+        "LANDBANK",
+      logo:
+        "/bank-logos/landbank.png",
+      background:
+        "linear-gradient(135deg, #0b5e38 0%, #087342 50%, #11452b 100%)",
+      accent:
+        "#ffffff",
+      chip:
+        "#dfbd62",
+      network:
+        "VISA",
+      watermark:
+        "LB",
+    };
+  }
+
+  if (
+    name.includes("metrobank")
+  ) {
+    return {
+      brand:
+        "Metrobank",
+      logo:
+        "/bank-logos/metrobank.svg",
+      background:
+        "linear-gradient(135deg, #0f4699 0%, #1d62bd 50%, #0b326f 100%)",
+      accent:
+        "#ffffff",
+      chip:
+        "#dec06f",
+      network:
+        "VISA",
+      watermark:
+        "MB",
+    };
+  }
+
+  if (
+    name.includes("security bank")
+  ) {
+    return {
+      brand:
+        "Security Bank",
+      logo:
+        "/bank-logos/securitybank.svg",
+      background:
+        "linear-gradient(135deg, #0f63a0 0%, #1594cf 52%, #0a4d79 100%)",
+      accent:
+        "#ffffff",
+      chip:
+        "#dcbc68",
+      network:
+        "Mastercard",
+      watermark:
+        "SB",
+    };
+  }
+
+  if (
+    name.includes("unionbank") ||
+    name.includes("union bank")
+  ) {
+    return {
+      brand:
+        "UnionBank",
+      logo:
+        "/bank-logos/unionbank.svg",
+      background:
+        "linear-gradient(135deg, #2437a8 0%, #5028b7 55%, #251663 100%)",
+      accent:
+        "#ffffff",
+      chip:
+        "#dfbd62",
+      network:
+        "VISA",
+      watermark:
+        "UB",
+    };
+  }
+
+  if (
+    name.includes("rcbc")
+  ) {
+    return {
+      brand:
+        "RCBC",
+      logo:
+        "/bank-logos/rcbc.png",
+      background:
+        "linear-gradient(135deg, #08205a 0%, #163f8d 52%, #071944 100%)",
+      accent:
+        "#f0cf66",
+      chip:
+        "#ddc06e",
+      network:
+        "VISA",
+      watermark:
+        "RCBC",
+    };
+  }
+
+  if (
+    name.includes("chinabank") ||
+    name.includes("china bank")
+  ) {
+    return {
+      brand:
+        "China Bank",
+      logo:
+        "/bank-logos/chinabank.png",
+      background:
+        "linear-gradient(135deg, #8a1e23 0%, #c52f35 50%, #681316 100%)",
+      accent:
+        "#ffffff",
+      chip:
+        "#dec169",
+      network:
+        "Debit",
+      watermark:
+        "CBC",
+    };
+  }
+
+  if (
+    name.includes("gcash")
+  ) {
+    return {
+      brand:
+        "GCash",
+      logo:
+        "/bank-logos/gcash.svg",
+      background:
+        "linear-gradient(135deg, #0b79ff 0%, #0b57ef 50%, #0a34ba 100%)",
+      accent:
+        "#ffffff",
+      chip:
+        "#d7e4ff",
+      network:
+        "Prepaid",
+      watermark:
+        "G",
+    };
+  }
+
+  if (
+    name.includes("maya")
+  ) {
+    return {
+      brand:
+        "Maya",
+      logo:
+        "/bank-logos/maya.svg",
+      background:
+        "linear-gradient(135deg, #101418 0%, #0f2026 48%, #0a0d10 100%)",
+      accent:
+        "#34e2b5",
+      chip:
+        "#d7c06d",
+      network:
+        "Prepaid",
+      watermark:
+        "m",
+    };
+  }
+
+  if (
+    name.includes("gotyme") ||
+    name.includes("go tyme")
+  ) {
+    return {
+      brand:
+        "GoTyme",
+      logo:
+        "/bank-logos/gotyme.png",
+      background:
+        "linear-gradient(135deg, #18212f 0%, #243348 52%, #10151f 100%)",
+      accent:
+        "#67e8f9",
+      chip:
+        "#d6bd69",
+      network:
+        "VISA",
+      watermark:
+        "GT",
+    };
+  }
+
+  return {
+    brand:
+      provider ||
+      (accountType ===
+      "ewallet"
+        ? "E-Wallet"
+        : "Bank"),
+    logo:
+      null,
+    background:
+      accountType ===
+      "ewallet"
+        ? "linear-gradient(135deg, #153e7d 0%, #2b63c9 52%, #17295f 100%)"
+        : "linear-gradient(135deg, #15295d 0%, #2d4eac 52%, #16255f 100%)",
+    accent:
+      "#ffffff",
+    chip:
+      accountType ===
+      "ewallet"
+        ? "#d7e4ff"
+        : "#ddc06a",
+    network:
+      accountType ===
+      "ewallet"
+        ? "Prepaid"
+        : "Debit",
+    watermark:
+      String(provider || "BANK")
+        .trim()
+        .slice(0, 3)
+        .toUpperCase(),
+  };
+};
+
+function FinancialBrandLogo({
+  theme,
+}) {
+  const [
+    failed,
+    setFailed,
+  ] = useState(false);
+
+  if (
+    !theme?.logo ||
+    failed
+  ) {
+    return (
+      <p
+        className="truncate text-[22px] font-black tracking-tight"
+        style={{
+          color:
+            theme?.accent ||
+            "#ffffff",
+        }}
+      >
+        {theme?.brand ||
+          "Account"}
+      </p>
+    );
+  }
+
+  return (
+    <img
+      src={
+        theme.logo
+      }
+      alt={`${theme.brand} logo`}
+      className="max-h-8 max-w-[125px] object-contain object-left"
+      onError={() =>
+        setFailed(true)
+      }
+    />
+  );
+}
+
 function Budgeter({
   user,
   profile,
@@ -132,6 +455,81 @@ function Budgeter({
     budgets,
     setBudgets,
   ] = useState([]);
+
+  const [
+    financialAccounts,
+    setFinancialAccounts,
+  ] = useState([]);
+
+  const [
+    financialAccountEntries,
+    setFinancialAccountEntries,
+  ] = useState([]);
+
+  const [
+    showFinancialAccountForm,
+    setShowFinancialAccountForm,
+  ] = useState(false);
+
+  const [
+    editingFinancialAccount,
+    setEditingFinancialAccount,
+  ] = useState(null);
+
+  const [
+    financialAccountType,
+    setFinancialAccountType,
+  ] = useState("bank");
+
+  const [
+    financialAccountProvider,
+    setFinancialAccountProvider,
+  ] = useState("");
+
+  const [
+    financialAccountNickname,
+    setFinancialAccountNickname,
+  ] = useState("");
+
+  const [
+    financialAccountLast4,
+    setFinancialAccountLast4,
+  ] = useState("");
+
+  const [
+    financialAccountOpeningBalance,
+    setFinancialAccountOpeningBalance,
+  ] = useState("");
+
+  const [
+    financialAccountSaving,
+    setFinancialAccountSaving,
+  ] = useState(false);
+
+  const [
+    selectedFinancialAccount,
+    setSelectedFinancialAccount,
+  ] = useState(null);
+
+  const [
+    accountMoneyAction,
+    setAccountMoneyAction,
+  ] = useState(null);
+
+  const [
+    accountMoneyAmount,
+    setAccountMoneyAmount,
+  ] = useState("");
+
+  const [
+    accountMoneyNote,
+    setAccountMoneyNote,
+  ] = useState("");
+
+  const [
+    accountMoneySaving,
+    setAccountMoneySaving,
+  ] = useState(false);
 
   const [
     loading,
@@ -283,6 +681,8 @@ function Budgeter({
       if (!user?.uid) {
         setTransactions([]);
         setBudgets([]);
+        setFinancialAccounts([]);
+        setFinancialAccountEntries([]);
         setLoading(false);
         return;
       }
@@ -293,6 +693,8 @@ function Budgeter({
         const [
           transactionSnapshot,
           budgetSnapshot,
+          financialAccountSnapshot,
+          financialAccountEntrySnapshot,
         ] =
           await Promise.all([
             getDocs(
@@ -309,6 +711,22 @@ function Budgeter({
                 "users",
                 user.uid,
                 "budgets"
+              )
+            ),
+            getDocs(
+              collection(
+                db,
+                "users",
+                user.uid,
+                "financialAccounts"
+              )
+            ),
+            getDocs(
+              collection(
+                db,
+                "users",
+                user.uid,
+                "financialAccountEntries"
               )
             ),
           ]);
@@ -341,12 +759,68 @@ function Budgeter({
             })
           );
 
+        const loadedFinancialAccounts =
+          financialAccountSnapshot.docs
+            .map(
+              (item) => ({
+                id:
+                  item.id,
+                ...item.data(),
+              })
+            )
+            .sort(
+              (
+                a,
+                b
+              ) =>
+                Number(
+                  b.createdAt?.seconds ||
+                    0
+                ) -
+                Number(
+                  a.createdAt?.seconds ||
+                    0
+                )
+            );
+
+        const loadedFinancialAccountEntries =
+          financialAccountEntrySnapshot.docs
+            .map(
+              (item) => ({
+                id:
+                  item.id,
+                ...item.data(),
+              })
+            )
+            .sort(
+              (
+                a,
+                b
+              ) =>
+                Number(
+                  b.createdAt?.seconds ||
+                    0
+                ) -
+                Number(
+                  a.createdAt?.seconds ||
+                    0
+                )
+            );
+
         setTransactions(
           loadedTransactions
         );
 
         setBudgets(
           loadedBudgets
+        );
+
+        setFinancialAccounts(
+          loadedFinancialAccounts
+        );
+
+        setFinancialAccountEntries(
+          loadedFinancialAccountEntries
         );
       } catch (err) {
         console.error(
@@ -1803,6 +2277,667 @@ function Budgeter({
       }
     };
 
+  const financialAccountSummary =
+    useMemo(() => {
+      const entryMap = {};
+
+      financialAccountEntries.forEach(
+        (entry) => {
+          const accountId =
+            entry.accountId;
+
+          if (!accountId) {
+            return;
+          }
+
+          if (!entryMap[accountId]) {
+            entryMap[accountId] = {
+              deposits:
+                0,
+              withdrawals:
+                0,
+              balance:
+                0,
+              count:
+                0,
+            };
+          }
+
+          const value =
+            Number(
+              entry.amount ||
+                0
+            );
+
+          if (
+            entry.entryType ===
+            "withdrawal"
+          ) {
+            entryMap[
+              accountId
+            ].withdrawals +=
+              value;
+
+            entryMap[
+              accountId
+            ].balance -=
+              value;
+          } else {
+            entryMap[
+              accountId
+            ].deposits +=
+              value;
+
+            entryMap[
+              accountId
+            ].balance +=
+              value;
+          }
+
+          entryMap[
+            accountId
+          ].count += 1;
+        }
+      );
+
+      const accounts =
+        financialAccounts.map(
+          (account) => {
+            const totals =
+              entryMap[
+                account.id
+              ] || {
+                deposits:
+                  0,
+                withdrawals:
+                  0,
+                balance:
+                  0,
+                count:
+                  0,
+              };
+
+            return {
+              ...account,
+              ...totals,
+            };
+          }
+        );
+
+      return {
+        accounts,
+        totalBalance:
+          accounts.reduce(
+            (
+              sum,
+              item
+            ) =>
+              sum +
+              Number(
+                item.balance ||
+                  0
+              ),
+            0
+          ),
+        totalAdded:
+          accounts.reduce(
+            (
+              sum,
+              item
+            ) =>
+              sum +
+              Number(
+                item.deposits ||
+                  0
+              ),
+            0
+          ),
+      };
+    }, [
+      financialAccounts,
+      financialAccountEntries,
+    ]);
+
+  const beginAddFinancialAccount =
+    () => {
+      setEditingFinancialAccount(
+        null
+      );
+      setFinancialAccountType(
+        "bank"
+      );
+      setFinancialAccountProvider(
+        ""
+      );
+      setFinancialAccountNickname(
+        ""
+      );
+      setFinancialAccountLast4(
+        ""
+      );
+      setFinancialAccountOpeningBalance(
+        ""
+      );
+      setShowFinancialAccountForm(
+        true
+      );
+    };
+
+  const beginEditFinancialAccount =
+    (
+      account
+    ) => {
+      setSelectedFinancialAccount(
+        null
+      );
+
+      setEditingFinancialAccount(
+        account
+      );
+      setFinancialAccountType(
+        account.accountType ||
+          "bank"
+      );
+      setFinancialAccountProvider(
+        account.provider ||
+          ""
+      );
+      setFinancialAccountNickname(
+        account.nickname ||
+          ""
+      );
+      setFinancialAccountLast4(
+        account.last4 ||
+          ""
+      );
+      setFinancialAccountOpeningBalance(
+        ""
+      );
+      setShowFinancialAccountForm(
+        true
+      );
+
+      window.scrollTo({
+        top:
+          0,
+        behavior:
+          "smooth",
+      });
+    };
+
+  const cancelFinancialAccountForm =
+    () => {
+      setEditingFinancialAccount(
+        null
+      );
+      setFinancialAccountType(
+        "bank"
+      );
+      setFinancialAccountProvider(
+        ""
+      );
+      setFinancialAccountNickname(
+        ""
+      );
+      setFinancialAccountLast4(
+        ""
+      );
+      setFinancialAccountOpeningBalance(
+        ""
+      );
+      setShowFinancialAccountForm(
+        false
+      );
+    };
+
+  const saveFinancialAccount =
+    async (
+      event
+    ) => {
+      event.preventDefault();
+
+      if (
+        financialAccountSaving
+      ) {
+        return;
+      }
+
+      const provider =
+        financialAccountProvider
+          .trim()
+          .replace(
+            /\s+/g,
+            " "
+          );
+
+      const nickname =
+        financialAccountNickname
+          .trim()
+          .replace(
+            /\s+/g,
+            " "
+          );
+
+      const last4 =
+        financialAccountLast4
+          .replace(
+            /\D/g,
+            ""
+          )
+          .slice(
+            -4
+          );
+
+      const openingBalance =
+        Number(
+          financialAccountOpeningBalance ||
+            0
+        );
+
+      if (!provider) {
+        await warning(
+          financialAccountType ===
+            "bank"
+            ? "Bank Name Required"
+            : "E-Wallet Required",
+          financialAccountType ===
+            "bank"
+            ? "Enter the bank name."
+            : "Enter the e-wallet provider."
+        );
+        return;
+      }
+
+      if (
+        financialAccountLast4 &&
+        last4.length !==
+          4
+      ) {
+        await warning(
+          "Use Last 4 Digits",
+          "For privacy, enter only the last 4 digits of the account, wallet number, or physical card."
+        );
+        return;
+      }
+
+      if (
+        !editingFinancialAccount &&
+        (
+          !Number.isFinite(
+            openingBalance
+          ) ||
+          openingBalance <
+            0
+        )
+      ) {
+        await warning(
+          "Invalid Opening Balance",
+          "Opening balance must be zero or greater."
+        );
+        return;
+      }
+
+      try {
+        setFinancialAccountSaving(
+          true
+        );
+
+        const payload = {
+          accountType:
+            financialAccountType,
+          provider,
+          nickname,
+          last4,
+          ownerUid:
+            user.uid,
+          updatedAt:
+            serverTimestamp(),
+        };
+
+        if (
+          editingFinancialAccount?.id
+        ) {
+          await setDoc(
+            doc(
+              db,
+              "users",
+              user.uid,
+              "financialAccounts",
+              editingFinancialAccount.id
+            ),
+            payload,
+            {
+              merge:
+                true,
+            }
+          );
+
+          await success(
+            "Account Updated",
+            `${nickname || provider} was updated successfully.`
+          );
+        } else {
+          const accountRef =
+            await addDoc(
+              collection(
+                db,
+                "users",
+                user.uid,
+                "financialAccounts"
+              ),
+              {
+                ...payload,
+                createdAt:
+                  serverTimestamp(),
+              }
+            );
+
+          if (
+            openingBalance >
+            0
+          ) {
+            await addDoc(
+              collection(
+                db,
+                "users",
+                user.uid,
+                "financialAccountEntries"
+              ),
+              {
+                accountId:
+                  accountRef.id,
+                entryType:
+                  "deposit",
+                amount:
+                  Number(
+                    openingBalance.toFixed(
+                      2
+                    )
+                  ),
+                note:
+                  "Opening balance",
+                ownerUid:
+                  user.uid,
+                createdAt:
+                  serverTimestamp(),
+              }
+            );
+          }
+
+          await success(
+            "Account Added",
+            `${nickname || provider} was added to your savings accounts.`
+          );
+        }
+
+        cancelFinancialAccountForm();
+        await loadBudgeter();
+      } catch (err) {
+        console.error(
+          "Financial account save error:",
+          err
+        );
+
+        await error(
+          "Unable to Save Account",
+          "Please check your Firestore rules and try again."
+        );
+      } finally {
+        setFinancialAccountSaving(
+          false
+        );
+      }
+    };
+
+  const removeFinancialAccount =
+    async (
+      account
+    ) => {
+      setSelectedFinancialAccount(
+        null
+      );
+
+      const approved =
+        await confirm({
+          type:
+            "danger",
+          title:
+            `Remove ${account.nickname || account.provider}?`,
+          message:
+            "This removes the account card and its saved deposit/withdrawal history from Personal Finance.",
+          confirmText:
+            "Remove Account",
+        });
+
+      if (!approved) {
+        return;
+      }
+
+      try {
+        const relatedEntries =
+          financialAccountEntries.filter(
+            (entry) =>
+              entry.accountId ===
+              account.id
+          );
+
+        await Promise.all([
+          ...relatedEntries.map(
+            (entry) =>
+              deleteDoc(
+                doc(
+                  db,
+                  "users",
+                  user.uid,
+                  "financialAccountEntries",
+                  entry.id
+                )
+              )
+          ),
+          deleteDoc(
+            doc(
+              db,
+              "users",
+              user.uid,
+              "financialAccounts",
+              account.id
+            )
+          ),
+        ]);
+
+        await loadBudgeter();
+
+        await success(
+          "Account Removed",
+          `${account.nickname || account.provider} was removed.`
+        );
+      } catch (err) {
+        console.error(
+          "Financial account delete error:",
+          err
+        );
+
+        await error(
+          "Unable to Remove Account",
+          "Please try again."
+        );
+      }
+    };
+
+  const openAccountMoneyAction =
+    (
+      account,
+      entryType
+    ) => {
+      setSelectedFinancialAccount(
+        null
+      );
+
+      setAccountMoneyAction({
+        account,
+        entryType,
+      });
+      setAccountMoneyAmount(
+        ""
+      );
+      setAccountMoneyNote(
+        ""
+      );
+
+      window.scrollTo({
+        top:
+          0,
+        behavior:
+          "smooth",
+      });
+    };
+
+  const saveAccountMoneyEntry =
+    async (
+      event
+    ) => {
+      event.preventDefault();
+
+      if (
+        !accountMoneyAction ||
+        accountMoneySaving
+      ) {
+        return;
+      }
+
+      const numericAmount =
+        Number(
+          accountMoneyAmount
+        );
+
+      if (
+        !Number.isFinite(
+          numericAmount
+        ) ||
+        numericAmount <=
+          0
+      ) {
+        await warning(
+          "Amount Required",
+          "Enter an amount greater than zero."
+        );
+        return;
+      }
+
+      const account =
+        financialAccountSummary.accounts.find(
+          (item) =>
+            item.id ===
+            accountMoneyAction
+              .account.id
+        );
+
+      if (
+        accountMoneyAction.entryType ===
+          "withdrawal" &&
+        numericAmount >
+          Number(
+            account?.balance ||
+              0
+          )
+      ) {
+        await warning(
+          "Insufficient Saved Balance",
+          `You currently have ₱${money(
+            account?.balance ||
+              0
+          )} tracked in this account.`
+        );
+        return;
+      }
+
+      try {
+        setAccountMoneySaving(
+          true
+        );
+
+        await addDoc(
+          collection(
+            db,
+            "users",
+            user.uid,
+            "financialAccountEntries"
+          ),
+          {
+            accountId:
+              accountMoneyAction
+                .account.id,
+            entryType:
+              accountMoneyAction
+                .entryType,
+            amount:
+              Number(
+                numericAmount.toFixed(
+                  2
+                )
+              ),
+            note:
+              accountMoneyNote
+                .trim()
+                .replace(
+                  /\s+/g,
+                  " "
+                ),
+            ownerUid:
+              user.uid,
+            createdAt:
+              serverTimestamp(),
+          }
+        );
+
+        await loadBudgeter();
+
+        await success(
+          accountMoneyAction.entryType ===
+            "deposit"
+            ? "Savings Added"
+            : "Withdrawal Recorded",
+          `${accountMoneyAction.entryType === "deposit" ? "₱" : "₱"}${money(
+            numericAmount
+          )} was ${
+            accountMoneyAction.entryType ===
+            "deposit"
+              ? "added to"
+              : "deducted from"
+          } ${
+            accountMoneyAction.account
+              .nickname ||
+            accountMoneyAction.account
+              .provider
+          }.`
+        );
+
+        setAccountMoneyAction(
+          null
+        );
+        setAccountMoneyAmount(
+          ""
+        );
+        setAccountMoneyNote(
+          ""
+        );
+      } catch (err) {
+        console.error(
+          "Financial account entry error:",
+          err
+        );
+
+        await error(
+          "Unable to Update Savings",
+          "Please check your Firestore rules and try again."
+        );
+      } finally {
+        setAccountMoneySaving(
+          false
+        );
+      }
+    };
+
   const navItems = [
     {
       id:
@@ -1827,6 +2962,14 @@ function Budgeter({
         "Budgets",
       icon:
         Target,
+    },
+    {
+      id:
+        "savings",
+      label:
+        "Savings",
+      icon:
+        CreditCard,
     },
   ];
 
@@ -2028,6 +3171,50 @@ function Budgeter({
             }
           )}
         </section>
+
+        <button
+          type="button"
+          onClick={() =>
+            changePage(
+              "savings"
+            )
+          }
+          className="app-card group flex w-full items-center gap-4 p-4 text-left transition hover:-translate-y-0.5 sm:p-5"
+        >
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#e7f7ef] text-[#18845c]">
+            <CreditCard
+              size={22}
+            />
+          </div>
+
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#8995aa]">
+              Bank & Wallet Savings
+            </p>
+
+            <p className="mt-1 text-lg font-black text-[#182442]">
+              ₱{money(
+                financialAccountSummary.totalBalance
+              )}
+            </p>
+
+            <p className="mt-0.5 text-xs text-[#8995aa]">
+              {
+                financialAccountSummary.accounts.length
+              } tracked account{
+                financialAccountSummary.accounts.length ===
+                1
+                  ? ""
+                  : "s"
+              }
+            </p>
+          </div>
+
+          <span className="shrink-0 text-xs font-extrabold text-[#294aad]">
+            View
+          </span>
+        </button>
+
 
         <section className="grid gap-5 xl:grid-cols-[0.75fr_1.25fr]">
           <div className="app-card overflow-hidden">
@@ -3848,6 +5035,1071 @@ function Budgeter({
       </div>
     );
 
+  const SavingsPage =
+    () => (
+      <div className="space-y-5">
+        <section className="relative overflow-hidden rounded-[30px] border border-[#dbe3f0] bg-white p-5 shadow-[0_18px_45px_rgba(24,45,93,0.08)] sm:p-7">
+          <div className="absolute -right-16 -top-20 h-52 w-52 rounded-full bg-[#eef3ff]" />
+          <div className="absolute -bottom-20 right-24 h-32 w-32 rounded-full border-[20px] border-[#f4f7fd]" />
+
+          <div className="relative z-10 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#8a97ad]">
+                Savings Accounts
+              </p>
+
+              <h2 className="mt-2 text-2xl font-black text-[#17213d] sm:text-3xl">
+                Banks & E-Wallets
+              </h2>
+
+              <p className="mt-2 max-w-xl text-sm leading-6 text-[#72809a]">
+                Track money you keep across bank accounts and e-wallets without mixing it into your expense history.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={
+                beginAddFinancialAccount
+              }
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#142a76] px-4 text-sm font-black text-white shadow-[0_10px_24px_rgba(20,42,118,0.20)] transition hover:-translate-y-0.5"
+            >
+              <Plus
+                size={17}
+              />
+              Add Account
+            </button>
+          </div>
+        </section>
+
+        <section className="grid gap-3 sm:grid-cols-3">
+          <div className="app-card p-4 sm:p-5">
+            <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#8995aa]">
+              Total Savings
+            </p>
+            <p className="mt-2 text-2xl font-black text-[#182442]">
+              ₱{money(
+                financialAccountSummary.totalBalance
+              )}
+            </p>
+          </div>
+
+          <div className="app-card p-4 sm:p-5">
+            <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#8995aa]">
+              Total Added
+            </p>
+            <p className="mt-2 text-2xl font-black text-[#18845c]">
+              ₱{money(
+                financialAccountSummary.totalAdded
+              )}
+            </p>
+          </div>
+
+          <div className="app-card p-4 sm:p-5">
+            <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#8995aa]">
+              Accounts
+            </p>
+            <p className="mt-2 text-2xl font-black text-[#182442]">
+              {
+                financialAccountSummary.accounts.length
+              }
+            </p>
+          </div>
+        </section>
+
+        {showFinancialAccountForm && (
+          <section className="app-card overflow-hidden">
+            <div className="border-b border-[#e2e7ef] bg-[#f8faff] p-4 sm:p-5">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#8995aa]">
+                    {editingFinancialAccount
+                      ? "Edit Account"
+                      : "New Savings Account"}
+                  </p>
+
+                  <h3 className="mt-1 text-lg font-black text-[#182442]">
+                    {editingFinancialAccount
+                      ? "Update account details"
+                      : "Add a bank or e-wallet"}
+                  </h3>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={
+                    cancelFinancialAccountForm
+                  }
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#edf1f7] text-[#71809a]"
+                >
+                  <X
+                    size={17}
+                  />
+                </button>
+              </div>
+            </div>
+
+            <form
+              onSubmit={
+                saveFinancialAccount
+              }
+              className="space-y-4 p-4 sm:p-6"
+            >
+              <div>
+                <label className="app-label">
+                  Account Type
+                </label>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setFinancialAccountType(
+                        "bank"
+                      )
+                    }
+                    className={`flex min-h-12 items-center justify-center gap-2 rounded-xl border text-sm font-extrabold ${
+                      financialAccountType ===
+                      "bank"
+                        ? "border-[#294aad] bg-[#e4ebff] text-[#142a76]"
+                        : "border-[#dce3ef] bg-[#f7f9fd] text-[#71809a]"
+                    }`}
+                  >
+                    <Building2
+                      size={17}
+                    />
+                    Bank
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setFinancialAccountType(
+                        "ewallet"
+                      )
+                    }
+                    className={`flex min-h-12 items-center justify-center gap-2 rounded-xl border text-sm font-extrabold ${
+                      financialAccountType ===
+                      "ewallet"
+                        ? "border-[#294aad] bg-[#e4ebff] text-[#142a76]"
+                        : "border-[#dce3ef] bg-[#f7f9fd] text-[#71809a]"
+                    }`}
+                  >
+                    <Smartphone
+                      size={17}
+                    />
+                    E-Wallet
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid min-w-0 gap-4 sm:grid-cols-2">
+                <div className="min-w-0">
+                  <label className="app-label">
+                    {financialAccountType ===
+                    "bank"
+                      ? "Bank Name"
+                      : "E-Wallet Provider"}
+                  </label>
+
+                  <input
+                    value={
+                      financialAccountProvider
+                    }
+                    onChange={(
+                      event
+                    ) =>
+                      setFinancialAccountProvider(
+                        event.target
+                          .value
+                      )
+                    }
+                    placeholder={
+                      financialAccountType ===
+                      "bank"
+                        ? "e.g. BPI, BDO, Maya Bank"
+                        : "e.g. GCash, Maya, GoTyme"
+                    }
+                    maxLength={40}
+                    className="app-input"
+                  />
+                </div>
+
+                <div className="min-w-0">
+                  <label className="app-label">
+                    Account Nickname
+                  </label>
+
+                  <input
+                    value={
+                      financialAccountNickname
+                    }
+                    onChange={(
+                      event
+                    ) =>
+                      setFinancialAccountNickname(
+                        event.target
+                          .value
+                      )
+                    }
+                    placeholder="e.g. Emergency Fund"
+                    maxLength={40}
+                    className="app-input"
+                  />
+                </div>
+              </div>
+
+              <div className={`grid min-w-0 gap-4 ${
+                editingFinancialAccount
+                  ? "grid-cols-1"
+                  : "sm:grid-cols-2"
+              }`}>
+                <div className="min-w-0">
+                  <label className="app-label">
+                    Last 4 Digits
+                  </label>
+
+                  <input
+                    value={
+                      financialAccountLast4
+                    }
+                    onChange={(
+                      event
+                    ) =>
+                      setFinancialAccountLast4(
+                        event.target
+                          .value
+                          .replace(
+                            /\D/g,
+                            ""
+                          )
+                          .slice(
+                            0,
+                            4
+                          )
+                      )
+                    }
+                    placeholder="1234"
+                    inputMode="numeric"
+                    maxLength={4}
+                    className="app-input"
+                  />
+
+                  <p className="mt-1.5 text-[11px] leading-5 text-[#8995aa]">
+                    For privacy, save only the last 4 digits of the account, wallet number, or physical card.
+                  </p>
+                </div>
+
+                {!editingFinancialAccount && (
+                  <div className="min-w-0">
+                    <label className="app-label">
+                      Opening Balance
+                    </label>
+
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={
+                        financialAccountOpeningBalance
+                      }
+                      onChange={(
+                        event
+                      ) =>
+                        setFinancialAccountOpeningBalance(
+                          event.target
+                            .value
+                        )
+                      }
+                      placeholder="₱0.00"
+                      inputMode="decimal"
+                      className="app-input"
+                    />
+
+                    <p className="mt-1.5 text-[11px] leading-5 text-[#8995aa]">
+                      Optional. This becomes the first savings entry.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={
+                    cancelFinancialAccountForm
+                  }
+                  className="min-h-11 rounded-xl border border-[#dce3ef] bg-[#f7f9fd] px-4 text-sm font-extrabold text-[#71809a]"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={
+                    financialAccountSaving
+                  }
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#142a76] px-5 text-sm font-extrabold text-white disabled:opacity-50"
+                >
+                  {financialAccountSaving ? (
+                    <LoaderCircle
+                      size={17}
+                      className="animate-spin"
+                    />
+                  ) : (
+                    <Save
+                      size={17}
+                    />
+                  )}
+
+                  {editingFinancialAccount
+                    ? "Update Account"
+                    : "Save Account"}
+                </button>
+              </div>
+            </form>
+          </section>
+        )}
+
+        {accountMoneyAction && (
+          <section className="app-card overflow-hidden">
+            <div className="border-b border-[#e2e7ef] bg-[#f8faff] p-4 sm:p-5">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#8995aa]">
+                    {accountMoneyAction.entryType ===
+                    "deposit"
+                      ? "Add Savings"
+                      : "Record Withdrawal"}
+                  </p>
+
+                  <h3 className="mt-1 text-lg font-black text-[#182442]">
+                    {accountMoneyAction
+                      .account
+                      .nickname ||
+                      accountMoneyAction
+                        .account
+                        .provider}
+                  </h3>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setAccountMoneyAction(
+                      null
+                    )
+                  }
+                  className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#edf1f7] text-[#71809a]"
+                >
+                  <X
+                    size={17}
+                  />
+                </button>
+              </div>
+            </div>
+
+            <form
+              onSubmit={
+                saveAccountMoneyEntry
+              }
+              className="grid gap-4 p-4 sm:grid-cols-[1fr_1.4fr_auto] sm:items-end sm:p-6"
+            >
+              <div className="min-w-0">
+                <label className="app-label">
+                  Amount
+                </label>
+
+                <input
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  value={
+                    accountMoneyAmount
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    setAccountMoneyAmount(
+                      event.target
+                        .value
+                    )
+                  }
+                  placeholder="₱0.00"
+                  inputMode="decimal"
+                  className="app-input"
+                />
+              </div>
+
+              <div className="min-w-0">
+                <label className="app-label">
+                  Note
+                </label>
+
+                <input
+                  value={
+                    accountMoneyNote
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    setAccountMoneyNote(
+                      event.target
+                        .value
+                    )
+                  }
+                  placeholder="Optional note"
+                  maxLength={80}
+                  className="app-input"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={
+                  accountMoneySaving
+                }
+                className={`inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-5 text-sm font-extrabold text-white disabled:opacity-50 ${
+                  accountMoneyAction.entryType ===
+                  "deposit"
+                    ? "bg-[#18845c]"
+                    : "bg-[#142a76]"
+                }`}
+              >
+                {accountMoneySaving && (
+                  <LoaderCircle
+                    size={17}
+                    className="animate-spin"
+                  />
+                )}
+
+                {accountMoneyAction.entryType ===
+                "deposit"
+                  ? "Add Money"
+                  : "Record Withdrawal"}
+              </button>
+            </form>
+          </section>
+        )}
+
+        {financialAccountSummary.accounts.length ===
+        0 ? (
+          <section className="app-card p-6 text-center sm:p-9">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#eef3ff] text-[#294aad]">
+              <CreditCard
+                size={25}
+              />
+            </div>
+
+            <h3 className="mt-4 text-lg font-black text-[#182442]">
+              No savings accounts yet
+            </h3>
+
+            <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[#8995aa]">
+              Add a bank or e-wallet to track how much money you have saved there.
+            </p>
+
+            <button
+              type="button"
+              onClick={
+                beginAddFinancialAccount
+              }
+              className="mt-5 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#142a76] px-5 text-sm font-extrabold text-white"
+            >
+              <Plus
+                size={17}
+              />
+              Add First Account
+            </button>
+          </section>
+        ) : (
+          <section>
+            <div className="mb-3 flex items-end justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#8995aa]">
+                  Your Accounts
+                </p>
+
+                <h3 className="mt-1 text-lg font-black text-[#182442]">
+                  Savings Cards
+                </h3>
+              </div>
+
+              <p className="text-xs font-bold text-[#8995aa]">
+                {
+                  financialAccountSummary.accounts.length
+                } account{
+                  financialAccountSummary.accounts.length ===
+                  1
+                    ? ""
+                    : "s"
+                }
+              </p>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {financialAccountSummary.accounts.map(
+                (
+                  account
+                ) => {
+                  const cardTheme =
+                    getFinancialCardTheme(
+                      account.provider,
+                      account.accountType
+                    );
+
+                  return (
+                    <button
+                      key={
+                        account.id
+                      }
+                      type="button"
+                      onClick={() =>
+                        setSelectedFinancialAccount(
+                          account
+                        )
+                      }
+                      className="group block w-full overflow-hidden rounded-[22px] border border-black/5 bg-white text-left shadow-[0_14px_32px_rgba(20,42,118,0.10)] transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_20px_42px_rgba(20,42,118,0.15)] focus:outline-none focus:ring-4 focus:ring-[#294aad]/10"
+                      aria-label={`View ${account.nickname || account.provider} details`}
+                    >
+                      <div
+                        className="relative aspect-[1.586/1] overflow-hidden rounded-[22px] p-5 text-white"
+                        style={{
+                          background:
+                            cardTheme.background,
+                        }}
+                      >
+                        <div className="pointer-events-none absolute inset-0">
+                          <div className="absolute inset-0 bg-[linear-gradient(115deg,rgba(255,255,255,0.06),transparent_28%,rgba(255,255,255,0.03)_55%,transparent_76%)]" />
+                          <div className="absolute -right-12 -top-10 h-44 w-44 rounded-full border border-white/10" />
+                          <div className="absolute -bottom-20 right-8 h-36 w-56 rotate-[-15deg] rounded-[50%] border border-white/10" />
+                          <div
+                            className="absolute bottom-2 right-4 select-none text-[72px] font-black tracking-[-0.08em] text-white/[0.07]"
+                          >
+                            {cardTheme.watermark}
+                          </div>
+                        </div>
+
+                        <div className="relative z-10 flex h-full flex-col">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <FinancialBrandLogo
+                                theme={
+                                  cardTheme
+                                }
+                              />
+
+                              <p className="mt-1 text-[9px] font-bold uppercase tracking-[0.18em] text-white/70">
+                                {account.accountType ===
+                                "ewallet"
+                                  ? "E-Wallet"
+                                  : "Debit / Savings"}
+                              </p>
+                            </div>
+
+                            <span className="rounded-md bg-black/10 px-2 py-1 text-[9px] font-black uppercase tracking-[0.1em] text-white/80 backdrop-blur-sm">
+                              {
+                                cardTheme.network
+                              }
+                            </span>
+                          </div>
+
+                          <div className="mt-5 flex items-center justify-between">
+                            <div
+                              className="relative h-9 w-12 overflow-hidden rounded-[8px] border border-black/15 shadow-[inset_0_1px_2px_rgba(0,0,0,0.22),0_1px_2px_rgba(255,255,255,0.18)]"
+                              style={{
+                                background:
+                                  `linear-gradient(135deg, ${cardTheme.chip}, #f4de8a 55%, ${cardTheme.chip})`,
+                              }}
+                            >
+                              <div className="absolute left-1/3 top-0 h-full w-px bg-black/20" />
+                              <div className="absolute left-2/3 top-0 h-full w-px bg-black/20" />
+                              <div className="absolute left-0 top-1/2 h-px w-full bg-black/20" />
+                              <div className="absolute left-2 top-2 h-2 w-8 rounded-full border border-black/15" />
+                            </div>
+
+                            <div className="text-right">
+                              <p className="text-[8px] font-black uppercase tracking-[0.12em] text-white/45">
+                                Contactless
+                              </p>
+
+                              <div className="mt-1 flex justify-end gap-[2px] opacity-60">
+                                <span className="h-3 w-[2px] rounded-full bg-white/70" />
+                                <span className="h-4 w-[2px] rounded-full bg-white/55" />
+                                <span className="h-5 w-[2px] rounded-full bg-white/40" />
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="mt-auto">
+                            <p className="font-mono text-[15px] font-bold tracking-[0.18em] text-white/95 drop-shadow-sm sm:text-[17px]">
+                              •••• •••• ••••{" "}
+                              {account.last4 ||
+                                "0000"}
+                            </p>
+
+                            <div className="mt-4 flex items-end justify-between gap-3">
+                              <div className="min-w-0">
+                                <p className="text-[7px] font-black uppercase tracking-[0.14em] text-white/45">
+                                  Cardholder
+                                </p>
+
+                                <p className="mt-0.5 max-w-[180px] truncate text-[11px] font-extrabold uppercase tracking-[0.06em] text-white/90">
+                                  {account.nickname ||
+                                    account.provider}
+                                </p>
+                              </div>
+
+                              <div className="shrink-0 text-right">
+                                <p className="text-[7px] font-black uppercase tracking-[0.12em] text-white/45">
+                                  Balance
+                                </p>
+
+                                <p className="mt-0.5 text-[13px] font-black text-white">
+                                  ₱{money(
+                                    account.balance
+                                  )}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="pointer-events-none absolute inset-0 rounded-[22px] ring-1 ring-inset ring-white/10" />
+                      </div>
+                    </button>
+                  );
+                }
+              )}
+            </div>
+
+            <div className="mt-4 flex items-center justify-center gap-2 rounded-xl border border-[#e4e9f2] bg-white/70 px-3 py-2 text-xs font-bold text-[#8995aa]">
+              <CreditCard
+                size={14}
+              />
+              Tap a card to view its information and actions.
+            </div>
+          </section>
+        )}
+
+        {selectedFinancialAccount &&
+          (() => {
+            const account =
+              financialAccountSummary.accounts.find(
+                (item) =>
+                  item.id ===
+                  selectedFinancialAccount.id
+              ) ||
+              selectedFinancialAccount;
+
+            const cardTheme =
+              getFinancialCardTheme(
+                account.provider,
+                account.accountType
+              );
+
+            const recentEntries =
+              financialAccountEntries
+                .filter(
+                  (entry) =>
+                    entry.accountId ===
+                    account.id
+                )
+                .slice(
+                  0,
+                  5
+                );
+
+            return (
+              <div
+                className="fixed inset-0 z-[90] flex items-end justify-center bg-[#0b1630]/45 p-3 backdrop-blur-[6px] sm:items-center sm:p-6"
+                onMouseDown={(
+                  event
+                ) => {
+                  if (
+                    event.target ===
+                    event.currentTarget
+                  ) {
+                    setSelectedFinancialAccount(
+                      null
+                    );
+                  }
+                }}
+              >
+                <div className="max-h-[92dvh] w-full max-w-[640px] overflow-y-auto rounded-[28px] border border-[#dfe5ef] bg-[#fdfefe] shadow-[0_28px_80px_rgba(15,33,75,0.24)]">
+                  <div className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-[#e6eaf1] bg-white/95 px-5 py-4 backdrop-blur-xl sm:px-6">
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#8995aa]">
+                        Account Details
+                      </p>
+
+                      <h3 className="mt-1 truncate text-lg font-black text-[#182442]">
+                        {account.nickname ||
+                          account.provider}
+                      </h3>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setSelectedFinancialAccount(
+                          null
+                        )
+                      }
+                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#edf1f7] text-[#71809a] transition hover:bg-[#e3e8f0]"
+                      aria-label="Close account details"
+                    >
+                      <X
+                        size={18}
+                      />
+                    </button>
+                  </div>
+
+                  <div className="space-y-5 p-4 sm:p-6">
+                    <div
+                      className="relative mx-auto aspect-[1.586/1] w-full max-w-[500px] overflow-hidden rounded-[22px] p-5 text-white shadow-[0_18px_44px_rgba(20,42,118,0.18)]"
+                      style={{
+                        background:
+                          cardTheme.background,
+                      }}
+                    >
+                      <div className="pointer-events-none absolute inset-0">
+                        <div className="absolute inset-0 bg-[linear-gradient(115deg,rgba(255,255,255,0.06),transparent_28%,rgba(255,255,255,0.03)_55%,transparent_76%)]" />
+                        <div className="absolute -right-12 -top-10 h-44 w-44 rounded-full border border-white/10" />
+                        <div className="absolute -bottom-20 right-8 h-36 w-56 rotate-[-15deg] rounded-[50%] border border-white/10" />
+                        <div className="absolute bottom-2 right-4 select-none text-[76px] font-black tracking-[-0.08em] text-white/[0.07]">
+                          {cardTheme.watermark}
+                        </div>
+                      </div>
+
+                      <div className="relative z-10 flex h-full flex-col">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <FinancialBrandLogo
+                              theme={
+                                cardTheme
+                              }
+                            />
+
+                            <p className="mt-1 text-[9px] font-bold uppercase tracking-[0.18em] text-white/70">
+                              {account.accountType ===
+                              "ewallet"
+                                ? "E-Wallet"
+                                : "Debit / Savings"}
+                            </p>
+                          </div>
+
+                          <span className="rounded-md bg-black/10 px-2 py-1 text-[9px] font-black uppercase tracking-[0.1em] text-white/80 backdrop-blur-sm">
+                            {
+                              cardTheme.network
+                            }
+                          </span>
+                        </div>
+
+                        <div className="mt-5 flex items-center justify-between">
+                          <div
+                            className="relative h-10 w-[52px] overflow-hidden rounded-[8px] border border-black/15 shadow-[inset_0_1px_2px_rgba(0,0,0,0.22),0_1px_2px_rgba(255,255,255,0.18)]"
+                            style={{
+                              background:
+                                `linear-gradient(135deg, ${cardTheme.chip}, #f4de8a 55%, ${cardTheme.chip})`,
+                            }}
+                          >
+                            <div className="absolute left-1/3 top-0 h-full w-px bg-black/20" />
+                            <div className="absolute left-2/3 top-0 h-full w-px bg-black/20" />
+                            <div className="absolute left-0 top-1/2 h-px w-full bg-black/20" />
+                            <div className="absolute left-2 top-2 h-2 w-9 rounded-full border border-black/15" />
+                          </div>
+
+                          <div className="flex items-center gap-[3px] opacity-60">
+                            <span className="h-4 w-[2px] rounded-full bg-white/70" />
+                            <span className="h-5 w-[2px] rounded-full bg-white/55" />
+                            <span className="h-6 w-[2px] rounded-full bg-white/40" />
+                          </div>
+                        </div>
+
+                        <div className="mt-auto">
+                          <p className="font-mono text-[17px] font-bold tracking-[0.18em] text-white/95 drop-shadow-sm sm:text-[20px]">
+                            •••• •••• ••••{" "}
+                            {account.last4 ||
+                              "0000"}
+                          </p>
+
+                          <div className="mt-4 flex items-end justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="text-[7px] font-black uppercase tracking-[0.14em] text-white/45">
+                                Cardholder
+                              </p>
+
+                              <p className="mt-0.5 max-w-[220px] truncate text-xs font-extrabold uppercase tracking-[0.07em] text-white/90">
+                                {account.nickname ||
+                                  account.provider}
+                              </p>
+                            </div>
+
+                            <div className="shrink-0 text-right">
+                              <p className="text-[7px] font-black uppercase tracking-[0.12em] text-white/45">
+                                Balance
+                              </p>
+
+                              <p className="mt-0.5 text-base font-black text-white">
+                                ₱{money(
+                                  account.balance
+                                )}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="pointer-events-none absolute inset-0 rounded-[22px] ring-1 ring-inset ring-white/10" />
+                    </div>
+
+                    <div className="overflow-hidden rounded-2xl border border-[#e5eaf2] bg-white">
+                      <div className="flex items-center justify-between gap-4 border-b border-[#e6eaf1] px-4 py-3">
+                        <p className="text-xs font-bold text-[#8995aa]">
+                          Provider
+                        </p>
+
+                        <p className="min-w-0 truncate text-right text-sm font-extrabold text-[#182442]">
+                          {
+                            account.provider
+                          }
+                        </p>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-4 border-b border-[#e6eaf1] px-4 py-3">
+                        <p className="text-xs font-bold text-[#8995aa]">
+                          Account Name
+                        </p>
+
+                        <p className="min-w-0 truncate text-right text-sm font-extrabold text-[#182442]">
+                          {account.nickname ||
+                            "Not specified"}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-4 border-b border-[#e6eaf1] px-4 py-3">
+                        <p className="text-xs font-bold text-[#8995aa]">
+                          Type
+                        </p>
+
+                        <p className="text-right text-sm font-extrabold text-[#182442]">
+                          {account.accountType ===
+                          "ewallet"
+                            ? "E-Wallet"
+                            : "Bank Account"}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-4 border-b border-[#e6eaf1] px-4 py-3">
+                        <p className="text-xs font-bold text-[#8995aa]">
+                          Last 4 Digits
+                        </p>
+
+                        <p className="font-mono text-right text-sm font-black tracking-[0.12em] text-[#182442]">
+                          {account.last4
+                            ? `•••• ${account.last4}`
+                            : "Not provided"}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-4 border-b border-[#e6eaf1] px-4 py-3">
+                        <p className="text-xs font-bold text-[#8995aa]">
+                          Money Added
+                        </p>
+
+                        <p className="text-right text-sm font-black text-[#18845c]">
+                          ₱{money(
+                            account.deposits
+                          )}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-4 border-b border-[#e6eaf1] px-4 py-3">
+                        <p className="text-xs font-bold text-[#8995aa]">
+                          Withdrawn
+                        </p>
+
+                        <p className="text-right text-sm font-black text-[#c85353]">
+                          ₱{money(
+                            account.withdrawals
+                          )}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-4 bg-[#f8faff] px-4 py-4">
+                        <p className="text-sm font-extrabold text-[#52617d]">
+                          Current Balance
+                        </p>
+
+                        <p className="text-xl font-black text-[#142a76]">
+                          ₱{money(
+                            account.balance
+                          )}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          openAccountMoneyAction(
+                            account,
+                            "deposit"
+                          )
+                        }
+                        className="min-h-12 rounded-xl bg-[#142a76] px-4 text-sm font-extrabold text-white shadow-[0_8px_20px_rgba(20,42,118,0.14)] transition hover:-translate-y-0.5"
+                      >
+                        + Add Money
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          openAccountMoneyAction(
+                            account,
+                            "withdrawal"
+                          )
+                        }
+                        className="min-h-12 rounded-xl border border-[#dce3ef] bg-white px-4 text-sm font-extrabold text-[#52617d] transition hover:bg-[#f8faff]"
+                      >
+                        − Withdraw
+                      </button>
+                    </div>
+
+                    {recentEntries.length >
+                      0 && (
+                      <div className="rounded-2xl border border-[#e2e7ef] p-4">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#8995aa]">
+                              Recent Activity
+                            </p>
+
+                            <p className="mt-1 text-sm font-extrabold text-[#182442]">
+                              Latest savings movements
+                            </p>
+                          </div>
+
+                          <span className="text-[10px] font-bold text-[#9aa5b6]">
+                            {
+                              recentEntries.length
+                            } shown
+                          </span>
+                        </div>
+
+                        <div className="mt-3 space-y-2">
+                          {recentEntries.map(
+                            (
+                              entry
+                            ) => (
+                              <div
+                                key={
+                                  entry.id
+                                }
+                                className="flex items-center justify-between gap-3 rounded-xl bg-[#f8faff] px-3 py-3"
+                              >
+                                <div className="min-w-0">
+                                  <p className="truncate text-xs font-extrabold text-[#52617d]">
+                                    {entry.note ||
+                                      (entry.entryType ===
+                                      "withdrawal"
+                                        ? "Withdrawal"
+                                        : "Savings added")}
+                                  </p>
+
+                                  <p className="mt-0.5 text-[10px] font-semibold text-[#9aa5b6]">
+                                    {entry.createdAt
+                                      ? dateValue(
+                                          entry.createdAt
+                                        ).toLocaleDateString(
+                                          "en-PH",
+                                          {
+                                            month:
+                                              "short",
+                                            day:
+                                              "numeric",
+                                            year:
+                                              "numeric",
+                                          }
+                                        )
+                                      : ""}
+                                  </p>
+                                </div>
+
+                                <p
+                                  className={`shrink-0 text-sm font-black ${
+                                    entry.entryType ===
+                                    "withdrawal"
+                                      ? "text-[#c85353]"
+                                      : "text-[#18845c]"
+                                  }`}
+                                >
+                                  {entry.entryType ===
+                                  "withdrawal"
+                                    ? "-"
+                                    : "+"}
+                                  ₱{money(
+                                    entry.amount
+                                  )}
+                                </p>
+                              </div>
+                            )
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-2 border-t border-[#e6eaf1] pt-4">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          beginEditFinancialAccount(
+                            account
+                          )
+                        }
+                        className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[#dce3ef] bg-white px-4 text-sm font-extrabold text-[#52617d] transition hover:bg-[#f7f9fd]"
+                      >
+                        <Pencil
+                          size={16}
+                        />
+                        Edit Account
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          removeFinancialAccount(
+                            account
+                          )
+                        }
+                        className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[#f3cccc] bg-[#fff6f6] px-4 text-sm font-extrabold text-[#c34d4d] transition hover:bg-[#ffeded]"
+                      >
+                        <Trash2
+                          size={16}
+                        />
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
+        <section className="rounded-2xl border border-[#dce3ef] bg-[#f8faff] p-4">
+          <p className="text-xs font-extrabold text-[#52617d]">
+            Manual savings tracker
+          </p>
+
+          <p className="mt-1 text-xs leading-5 text-[#8995aa]">
+            Personal Finance does not connect to your bank or e-wallet. Balances are based only on the deposits and withdrawals you record here.
+          </p>
+        </section>
+      </div>
+    );
+
   const renderPage =
     () => {
       if (
@@ -3862,6 +6114,13 @@ function Budgeter({
         "budgets"
       ) {
         return BudgetsPage();
+      }
+
+      if (
+        page ===
+        "savings"
+      ) {
+        return SavingsPage();
       }
 
       return OverviewPage();
@@ -4060,7 +6319,7 @@ function Budgeter({
         </main>
 
         <nav className="fixed bottom-[max(env(safe-area-inset-bottom),12px)] left-3 right-3 z-50 rounded-[24px] border border-white/70 bg-[#f7f9fd]/92 px-2 py-2 shadow-[0_18px_50px_rgba(20,42,118,0.20)] backdrop-blur-xl lg:hidden">
-          <div className="mx-auto grid max-w-xl grid-cols-3 gap-1">
+          <div className="mx-auto grid max-w-xl grid-cols-4 gap-1">
             {navItems.map(
               ({
                 id,
@@ -4078,7 +6337,7 @@ function Budgeter({
                       id
                     )
                   }
-                  className={`flex min-h-[60px] flex-col items-center justify-center gap-1 rounded-xl text-[10px] font-bold ${
+                  className={`flex min-h-[60px] min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1 text-[9px] font-bold sm:text-[10px] ${
                     page ===
                     id
                       ? "bg-[#e4ebff] text-[#142a76]"
