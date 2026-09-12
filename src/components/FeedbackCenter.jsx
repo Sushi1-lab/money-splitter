@@ -45,6 +45,14 @@ const normalizeSource = (
 
   if (
     raw.includes(
+      "maintenance"
+    )
+  ) {
+    return "Maintenance Comments";
+  }
+
+  if (
+    raw.includes(
       "personal"
     ) ||
     raw.includes(
@@ -303,14 +311,43 @@ function FeedbackCenter({
       ]
     );
 
+  const maintenanceRows =
+    useMemo(
+      () =>
+        enrichedFeedback.filter(
+          (item) =>
+            item.normalizedSource ===
+            "Maintenance Comments"
+        ),
+      [
+        enrichedFeedback,
+      ]
+    );
+
+  const ratedFeedback =
+    useMemo(
+      () =>
+        enrichedFeedback.filter(
+          (item) =>
+            Number(
+              item.rating ||
+                0
+            ) >
+              0
+        ),
+      [
+        enrichedFeedback,
+      ]
+    );
+
   const overallAverage =
     useMemo(
       () =>
         averageOf(
-          enrichedFeedback
+          ratedFeedback
         ),
       [
-        enrichedFeedback,
+        ratedFeedback,
       ]
     );
 
@@ -352,11 +389,11 @@ function FeedbackCenter({
     );
 
   const fiveStarPercent =
-    enrichedFeedback.length
+    ratedFeedback.length
       ? Math.round(
           (
             fiveStarCount /
-            enrichedFeedback.length
+            ratedFeedback.length
           ) *
             100
         )
@@ -433,6 +470,8 @@ function FeedbackCenter({
                 item.userEmail,
                 item.username,
                 item.serverName,
+                item.category,
+                item.feedbackType,
                 item.normalizedSource,
               ]
                 .filter(
@@ -519,6 +558,21 @@ function FeedbackCenter({
         icon:
           TrendingUp,
       },
+      {
+        label:
+          "Maintenance Comments",
+        value:
+          maintenanceRows.length,
+        detail:
+          `${maintenanceRows.length} concern${
+            maintenanceRows.length ===
+            1
+              ? ""
+              : "s"
+          } submitted during maintenance`,
+        icon:
+          MessageSquareText,
+      },
     ];
 
   if (
@@ -579,7 +633,7 @@ function FeedbackCenter({
             </h1>
 
             <p className="mt-2 max-w-2xl text-sm leading-6 text-[#71809a]">
-              Review ratings from Splitter and Personal Finance, compare satisfaction, and identify where users need improvements.
+              Review ratings from Splitter and Personal Finance, plus concerns submitted while the system is under maintenance.
             </p>
           </div>
 
@@ -776,6 +830,9 @@ function FeedbackCenter({
                     <option value="Personal Finance">
                       Personal Finance
                     </option>
+                    <option value="Maintenance Comments">
+                      Maintenance Comments
+                    </option>
                   </select>
 
                   <ChevronDown
@@ -895,9 +952,12 @@ function FeedbackCenter({
                               <span
                                 className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.08em] ${
                                   source ===
-                                  "Personal Finance"
-                                    ? "bg-[#e8f7ef] text-[#18845c]"
-                                    : "bg-[#eef3ff] text-[#294aad]"
+                                  "Maintenance Comments"
+                                    ? "bg-[#fff1dc] text-[#a76510]"
+                                    : source ===
+                                        "Personal Finance"
+                                      ? "bg-[#e8f7ef] text-[#18845c]"
+                                      : "bg-[#eef3ff] text-[#294aad]"
                                 }`}
                               >
                                 {source}

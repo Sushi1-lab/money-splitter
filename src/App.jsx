@@ -10,6 +10,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  onSnapshot,
   orderBy,
   query,
   serverTimestamp,
@@ -29,13 +30,16 @@ import {
   History,
   LayoutDashboard,
   LogOut,
+  MessageSquareText,
   PlusCircle,
+  Send,
   Server,
   Settings,
   ShieldCheck,
   UserCog,
   UserRound,
   WalletCards,
+  Wrench,
 } from "lucide-react";
 
 import {
@@ -109,6 +113,62 @@ function App() {
     setAdminLoading,
   ] = useState(
     true
+  );
+
+  const [
+    maintenanceMode,
+    setMaintenanceMode,
+  ] = useState(
+    false
+  );
+
+  const [
+    maintenanceMessage,
+    setMaintenanceMessage,
+  ] = useState(
+    "We’re doing a quick system update. Please check back shortly."
+  );
+
+  const [
+    maintenanceLoading,
+    setMaintenanceLoading,
+  ] = useState(
+    true
+  );
+
+  const [
+    maintenanceSaving,
+    setMaintenanceSaving,
+  ] = useState(
+    false
+  );
+
+  const [
+    maintenanceConcernOpen,
+    setMaintenanceConcernOpen,
+  ] = useState(
+    false
+  );
+
+  const [
+    maintenanceConcern,
+    setMaintenanceConcern,
+  ] = useState(
+    ""
+  );
+
+  const [
+    maintenanceConcernSending,
+    setMaintenanceConcernSending,
+  ] = useState(
+    false
+  );
+
+  const [
+    maintenanceConcernStatus,
+    setMaintenanceConcernStatus,
+  ] = useState(
+    ""
   );
 
   const [
@@ -499,6 +559,295 @@ function App() {
   }, [
     user,
   ]);
+
+  // =========================================
+  // GLOBAL MAINTENANCE MODE
+  // =========================================
+
+  useEffect(() => {
+    if (
+      !user
+    ) {
+      setMaintenanceLoading(
+        false
+      );
+      return undefined;
+    }
+
+    setMaintenanceLoading(
+      true
+    );
+
+    const reference =
+      doc(
+        db,
+        "system",
+        "maintenance"
+      );
+
+    const unsubscribe =
+      onSnapshot(
+        reference,
+        (snapshot) => {
+          if (
+            snapshot.exists()
+          ) {
+            const data =
+              snapshot.data();
+
+            setMaintenanceMode(
+              data.enabled ===
+                true
+            );
+
+            setMaintenanceMessage(
+              data.message ||
+                "We’re doing a quick system update. Please check back shortly."
+            );
+          } else {
+            setMaintenanceMode(
+              false
+            );
+          }
+
+          setMaintenanceLoading(
+            false
+          );
+        },
+        (err) => {
+          console.error(
+            "Maintenance status error:",
+            err
+          );
+
+          setMaintenanceMode(
+            false
+          );
+
+          setMaintenanceLoading(
+            false
+          );
+        }
+      );
+
+    return unsubscribe;
+  }, [
+    user?.uid,
+  ]);
+
+  const toggleMaintenance =
+    async () => {
+      if (
+        !isSuperAdmin ||
+        maintenanceSaving
+      ) {
+        return;
+      }
+
+      const nextValue =
+        !maintenanceMode;
+
+      const approved =
+        await confirm({
+          type:
+            nextValue
+              ? "warning"
+              : "info",
+
+          title:
+            nextValue
+              ? "Enable Maintenance Mode?"
+              : "Disable Maintenance Mode?",
+
+          message:
+            nextValue
+              ? "Regular users will be blocked from entering Splitter and Personal Finance until maintenance mode is turned off. Super Admins will keep access."
+              : "Regular users will be allowed back into the apps immediately.",
+
+          confirmText:
+            nextValue
+              ? "Enable Maintenance"
+              : "Go Live",
+        });
+
+      if (
+        !approved
+      ) {
+        return;
+      }
+
+      try {
+        setMaintenanceSaving(
+          true
+        );
+
+        await setDoc(
+          doc(
+            db,
+            "system",
+            "maintenance"
+          ),
+          {
+            enabled:
+              nextValue,
+
+            message:
+              maintenanceMessage,
+
+            updatedByUid:
+              user.uid,
+
+            updatedByEmail:
+              user.email ||
+              "",
+
+            updatedAt:
+              serverTimestamp(),
+          },
+          {
+            merge:
+              true,
+          }
+        );
+
+        await success(
+          nextValue
+            ? "Maintenance Enabled"
+            : "System Live",
+          nextValue
+            ? "Regular users will now see the maintenance screen."
+            : "Users can access the apps again."
+        );
+      } catch (err) {
+        console.error(
+          "Maintenance toggle error:",
+          err
+        );
+
+        await error(
+          "Unable to Change Maintenance Mode",
+          "Please check your Firestore rules and try again."
+        );
+      } finally {
+        setMaintenanceSaving(
+          false
+        );
+      }
+    };
+
+  const submitMaintenanceConcern =
+    async () => {
+      const cleanMessage =
+        maintenanceConcern
+          .trim()
+          .replace(
+            /\s+/g,
+            " "
+          );
+
+      if (
+        cleanMessage.length <
+        5
+      ) {
+        setMaintenanceConcernStatus(
+          "Please describe your concern in a little more detail."
+        );
+        return;
+      }
+
+      if (
+        cleanMessage.length >
+        500
+      ) {
+        setMaintenanceConcernStatus(
+          "Please keep your concern within 500 characters."
+        );
+        return;
+      }
+
+      try {
+        setMaintenanceConcernSending(
+          true
+        );
+
+        setMaintenanceConcernStatus(
+          ""
+        );
+
+        await addDoc(
+          collection(
+            db,
+            "feedback"
+          ),
+          {
+            rating:
+              0,
+
+            message:
+              cleanMessage,
+
+            category:
+              "maintenance-comments",
+
+            feedbackType:
+              "maintenance-comment",
+
+            source:
+              "Maintenance",
+
+            appSource:
+              "maintenance",
+
+            appName:
+              "System Maintenance",
+
+            userUid:
+              user?.uid ||
+              "",
+
+            userEmail:
+              user?.email ||
+              "",
+
+            username:
+              profile?.username ||
+              profile?.displayName ||
+              user?.displayName ||
+              "",
+
+            maintenanceActive:
+              true,
+
+            maintenanceMessage:
+              maintenanceMessage,
+
+            createdAt:
+              serverTimestamp(),
+          }
+        );
+
+        setMaintenanceConcern(
+          ""
+        );
+
+        setMaintenanceConcernStatus(
+          "Concern sent. The admin will be able to review it in Feedback Center."
+        );
+      } catch (err) {
+        console.error(
+          "Maintenance concern error:",
+          err
+        );
+
+        setMaintenanceConcernStatus(
+          "Your concern could not be sent. Please try again."
+        );
+      } finally {
+        setMaintenanceConcernSending(
+          false
+        );
+      }
+    };
 
   // =========================================
   // SERVERS
@@ -4556,6 +4905,192 @@ function App() {
   }
 
   // =========================================
+  // MAINTENANCE SCREEN
+  // =========================================
+
+  if (
+    maintenanceMode &&
+    !isSuperAdmin
+  ) {
+    return (
+      <div className="relative flex min-h-[100dvh] items-center justify-center overflow-hidden bg-[#edf2fb] px-4 py-8 sm:px-6">
+        <div className="pointer-events-none absolute -left-28 -top-28 h-80 w-80 rounded-full bg-[#294aad]/10 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-32 -right-24 h-96 w-96 rounded-full bg-[#142a76]/10 blur-3xl" />
+
+        <div className="relative z-10 w-full max-w-[560px] overflow-hidden rounded-[30px] border border-white/80 bg-white shadow-[0_30px_90px_rgba(20,42,118,0.16)]">
+          <div className="bg-gradient-to-br from-[#10245f] via-[#1d3c96] to-[#3d63d2] p-6 text-white sm:p-8">
+            <div className="flex items-start gap-4">
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[18px] bg-white/14">
+                <Wrench
+                  size={27}
+                />
+              </div>
+
+              <div className="min-w-0">
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-blue-100/70">
+                  Scheduled interruption
+                </p>
+
+                <h1 className="mt-1 text-2xl font-black sm:text-[28px]">
+                  Maintenance in progress
+                </h1>
+
+                <p className="mt-2 text-sm leading-6 text-blue-100/80">
+                  {
+                    maintenanceMessage
+                  }
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-5 sm:p-7">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={() =>
+                  window.location.reload()
+                }
+                className="flex min-h-12 items-center justify-center rounded-xl border border-[#dce3ef] bg-[#f7f9fd] px-4 text-sm font-extrabold text-[#52617d] transition hover:bg-[#eef2f8]"
+              >
+                Try Again Later
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setMaintenanceConcernOpen(
+                    (
+                      current
+                    ) =>
+                      !current
+                  );
+
+                  setMaintenanceConcernStatus(
+                    ""
+                  );
+                }}
+                className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#142a76] px-4 text-sm font-extrabold text-white transition hover:bg-[#10245f]"
+              >
+                <MessageSquareText
+                  size={17}
+                />
+
+                {maintenanceConcernOpen
+                  ? "Close Concern Form"
+                  : "Raise Your Concern"}
+              </button>
+            </div>
+
+            <div className="mt-5 rounded-2xl border border-[#e2e7f0] bg-[#f8faff] p-4">
+              <p className="text-xs font-extrabold text-[#52617d]">
+                Your account and saved data remain available.
+              </p>
+
+              <p className="mt-1 text-xs leading-5 text-[#8995aa]">
+                Access will return automatically once maintenance is completed.
+              </p>
+            </div>
+
+            {maintenanceConcernOpen && (
+              <div className="mt-5 rounded-2xl border border-[#dce3ef] bg-white p-4 shadow-[0_10px_30px_rgba(20,42,118,0.06)] sm:p-5">
+                <div>
+                  <p className="text-sm font-black text-[#182442]">
+                    Raise a maintenance concern
+                  </p>
+
+                  <p className="mt-1 text-xs leading-5 text-[#8995aa]">
+                    Tell the administrator what you were trying to do or what issue you noticed.
+                  </p>
+                </div>
+
+                <textarea
+                  value={
+                    maintenanceConcern
+                  }
+                  onChange={(
+                    event
+                  ) => {
+                    setMaintenanceConcern(
+                      event.target
+                        .value
+                        .slice(
+                          0,
+                          500
+                        )
+                    );
+
+                    if (
+                      maintenanceConcernStatus
+                    ) {
+                      setMaintenanceConcernStatus(
+                        ""
+                      );
+                    }
+                  }}
+                  rows={5}
+                  maxLength={500}
+                  placeholder="Describe your concern..."
+                  className="mt-4 w-full resize-none rounded-2xl border border-[#dce3ef] bg-[#f8faff] px-4 py-3 text-sm font-semibold leading-6 text-[#182442] outline-none transition placeholder:text-[#a3adbd] focus:border-[#7f99dc] focus:ring-4 focus:ring-[#294aad]/10"
+                />
+
+                <div className="mt-2 flex items-center justify-between gap-3">
+                  <p className={`text-xs font-semibold ${
+                    maintenanceConcernStatus
+                      .toLowerCase()
+                      .includes(
+                        "sent"
+                      )
+                      ? "text-[#18845c]"
+                      : "text-[#8995aa]"
+                  }`}>
+                    {maintenanceConcernStatus ||
+                      "Maintenance concerns are sent directly to Feedback Center."}
+                  </p>
+
+                  <span className="shrink-0 text-[10px] font-bold text-[#9aa5b6]">
+                    {
+                      maintenanceConcern.length
+                    }
+                    /500
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  disabled={
+                    maintenanceConcernSending ||
+                    maintenanceConcern
+                      .trim()
+                      .length <
+                      5
+                  }
+                  onClick={
+                    submitMaintenanceConcern
+                  }
+                  className="mt-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#142a76] px-4 text-sm font-extrabold text-white transition disabled:cursor-not-allowed disabled:opacity-45"
+                >
+                  <Send
+                    size={17}
+                  />
+
+                  {maintenanceConcernSending
+                    ? "Sending Concern..."
+                    : "Submit Concern"}
+                </button>
+              </div>
+            )}
+
+            <p className="mt-5 text-center text-[11px] text-[#9aa5b6]">
+              Splitter and Personal Finance are temporarily unavailable.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // =========================================
   // PROFILE SETUP
   // =========================================
 
@@ -4610,6 +5145,15 @@ function App() {
           }
           isSuperAdmin={
             isSuperAdmin
+          }
+          maintenanceMode={
+            maintenanceMode
+          }
+          maintenanceSaving={
+            maintenanceSaving
+          }
+          onToggleMaintenance={
+            toggleMaintenance
           }
           onSignOut={
             handleSignOut

@@ -9,6 +9,7 @@ import {
   ShieldCheck,
   Star,
   UsersRound,
+  Wrench,
 } from "lucide-react";
 
 import {
@@ -20,6 +21,9 @@ import {
 import {
   collection,
   getDocs,
+  onSnapshot,
+  orderBy,
+  query,
 } from "firebase/firestore";
 
 import {
@@ -33,6 +37,9 @@ function AppChoice({
   onChooseBudgeter,
   onChooseFeedback,
   isSuperAdmin = false,
+  maintenanceMode = false,
+  maintenanceSaving = false,
+  onToggleMaintenance,
   onSignOut,
 }) {
   const name =
@@ -50,29 +57,48 @@ function AppChoice({
     setRatingsLoading,
   ] = useState(false);
 
+  const [
+    feedbackSeenAt,
+    setFeedbackSeenAt,
+  ] = useState(() => {
+    const saved =
+      localStorage.getItem(
+        "superadmin_feedback_seen_at"
+      );
+
+    return saved
+      ? Number(saved)
+      : 0;
+  });
+
   useEffect(() => {
-    const loadRatings =
-      async () => {
-        if (
-          !isSuperAdmin
-        ) {
-          setFeedback([]);
-          return;
-        }
+    if (
+      !isSuperAdmin
+    ) {
+      setFeedback([]);
+      return undefined;
+    }
 
-        try {
-          setRatingsLoading(
-            true
-          );
+    setRatingsLoading(
+      true
+    );
 
-          const snapshot =
-            await getDocs(
-              collection(
-                db,
-                "feedback"
-              )
-            );
+    const feedbackQuery =
+      query(
+        collection(
+          db,
+          "feedback"
+        ),
+        orderBy(
+          "createdAt",
+          "desc"
+        )
+      );
 
+    const unsubscribe =
+      onSnapshot(
+        feedbackQuery,
+        (snapshot) => {
           setFeedback(
             snapshot.docs.map(
               (item) => ({
@@ -82,24 +108,74 @@ function AppChoice({
               })
             )
           );
-        } catch (err) {
+
+          setRatingsLoading(
+            false
+          );
+        },
+        (err) => {
           console.error(
-            "App rating loading error:",
+            "Feedback badge loading error:",
             err
           );
 
           setFeedback([]);
-        } finally {
           setRatingsLoading(
             false
           );
         }
-      };
+      );
 
-    loadRatings();
+    return unsubscribe;
   }, [
     isSuperAdmin,
   ]);
+
+  const newFeedbackCount =
+    useMemo(
+      () =>
+        feedback.filter(
+          (item) => {
+            const createdAt =
+              item.createdAt;
+
+            const createdMillis =
+              typeof createdAt?.toMillis ===
+              "function"
+                ? createdAt.toMillis()
+                : createdAt?.seconds
+                  ? createdAt.seconds *
+                    1000
+                  : 0;
+
+            return (
+              createdMillis >
+              feedbackSeenAt
+            );
+          }
+        ).length,
+      [
+        feedback,
+        feedbackSeenAt,
+      ]
+    );
+
+  const openFeedbackCenter =
+    () => {
+      const now =
+        Date.now();
+
+      localStorage.setItem(
+        "superadmin_feedback_seen_at",
+        String(now)
+      );
+
+      setFeedbackSeenAt(
+        now
+      );
+
+      onChooseFeedback?.();
+    };
 
   const ratingStats =
     useMemo(() => {
@@ -480,9 +556,97 @@ function AppChoice({
           </button>
 
           {isSuperAdmin && (
+            <div className={`relative overflow-hidden rounded-[26px] border p-5 shadow-[0_22px_60px_rgba(31,53,108,0.10)] sm:rounded-[28px] sm:p-8 ${
+              maintenanceMode
+                ? "border-[#efcaca] bg-[#fff7f7]"
+                : "border-white bg-white"
+            }`}>
+              <div className={`absolute -right-14 -top-14 h-40 w-40 rounded-full ${
+                maintenanceMode
+                  ? "bg-[#ffe5e5]"
+                  : "bg-[#eef3ff]"
+              }`} />
+
+              <div className="relative z-10">
+                <div className={`flex h-14 w-14 items-center justify-center rounded-2xl ${
+                  maintenanceMode
+                    ? "bg-[#ffe8e8] text-[#c84b4b]"
+                    : "bg-[#eef3ff] text-[#294aad]"
+                }`}>
+                  <Wrench
+                    size={27}
+                  />
+                </div>
+
+                <div className="mt-7 flex items-center gap-2">
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-[#8995aa]">
+                    System Control
+                  </p>
+
+                  <span className="inline-flex items-center gap-1 rounded-full bg-[#eef3ff] px-2 py-1 text-[9px] font-black uppercase tracking-[0.08em] text-[#294aad]">
+                    <ShieldCheck
+                      size={11}
+                    />
+                    Super Admin
+                  </span>
+                </div>
+
+                <h3 className="mt-1 text-3xl font-black text-[#182442]">
+                  Maintenance Mode
+                </h3>
+
+                <p className="mt-3 max-w-md text-sm leading-6 text-[#71809a]">
+                  Temporarily block regular users while you update or repair the system. Super Admin access stays available.
+                </p>
+
+                <div className={`mt-5 inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-extrabold ${
+                  maintenanceMode
+                    ? "bg-[#ffe8e8] text-[#b94343]"
+                    : "bg-[#e7f7ef] text-[#18845c]"
+                }`}>
+                  <span className={`h-2 w-2 rounded-full ${
+                    maintenanceMode
+                      ? "bg-[#cf4646]"
+                      : "bg-[#18845c]"
+                  }`} />
+
+                  {maintenanceMode
+                    ? "Maintenance Active"
+                    : "System Live"}
+                </div>
+
+                <button
+                  type="button"
+                  disabled={
+                    maintenanceSaving
+                  }
+                  onClick={
+                    onToggleMaintenance
+                  }
+                  className={`mt-6 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl px-4 text-sm font-black text-white transition disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto ${
+                    maintenanceMode
+                      ? "bg-[#18845c] hover:bg-[#136f4e]"
+                      : "bg-[#cf4646] hover:bg-[#b94343]"
+                  }`}
+                >
+                  <Wrench
+                    size={17}
+                  />
+
+                  {maintenanceSaving
+                    ? "Updating..."
+                    : maintenanceMode
+                      ? "Disable Maintenance"
+                      : "Enable Maintenance"}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {isSuperAdmin && (
             <button
               type="button"
-              onClick={onChooseFeedback}
+              onClick={openFeedbackCenter}
               className="group relative flex min-h-[340px] flex-col overflow-hidden rounded-[26px] border border-white bg-white p-5 text-left shadow-[0_22px_60px_rgba(31,53,108,0.12)] transition hover:-translate-y-1 sm:rounded-[28px] sm:p-8"
             >
               <div className="absolute -right-12 -top-12 h-40 w-40 rounded-full bg-[#fff4d9]" />
@@ -505,8 +669,18 @@ function AppChoice({
               </div>
 
               <div className="relative z-10">
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#fff4d9] text-[#b78114]">
+                <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl bg-[#fff4d9] text-[#b78114]">
                   <MessageSquareText size={28} />
+
+                  {newFeedbackCount >
+                    0 && (
+                    <span className="absolute -right-2 -top-2 flex min-h-6 min-w-6 items-center justify-center rounded-full border-2 border-white bg-[#d84b4b] px-1.5 text-[10px] font-black leading-none text-white shadow-[0_4px_12px_rgba(216,75,75,0.28)]">
+                      {newFeedbackCount >
+                      99
+                        ? "99+"
+                        : newFeedbackCount}
+                    </span>
+                  )}
                 </div>
 
                 <div className="mt-7 flex items-center gap-2">
@@ -520,15 +694,24 @@ function AppChoice({
                   </span>
                 </div>
 
-                <h3 className="mt-1 text-3xl font-black text-[#182442]">
-                  Feedback Center
-                </h3>
+                <div className="mt-1 flex flex-wrap items-center gap-2">
+                  <h3 className="text-3xl font-black text-[#182442]">
+                    Feedback Center
+                  </h3>
+
+                  {newFeedbackCount >
+                    0 && (
+                    <span className="inline-flex items-center rounded-full bg-[#ffe8e8] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.06em] text-[#c43f3f]">
+                      {newFeedbackCount} New
+                    </span>
+                  )}
+                </div>
 
                 <p className="mt-3 max-w-md text-sm leading-6 text-[#71809a]">
                   Review ratings, compare Splitter and Personal Finance feedback, and monitor user satisfaction.
                 </p>
 
-                <div className="mt-10 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#142a76] px-5 py-3 text-sm font-black text-white shadow-sm sm:mt-12 sm:w-auto">
+                <div className="mt-auto inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#142a76] px-4 py-3 text-sm font-black text-white sm:w-auto">
                   Open Feedback Center
                   <ArrowRight
                     size={17}
