@@ -130,6 +130,27 @@ function App() {
   );
 
   const [
+    maintenanceCycleId,
+    setMaintenanceCycleId,
+  ] = useState(
+    ""
+  );
+
+  const [
+    existingMaintenanceConcern,
+    setExistingMaintenanceConcern,
+  ] = useState(
+    null
+  );
+
+  const [
+    maintenanceConcernChecking,
+    setMaintenanceConcernChecking,
+  ] = useState(
+    false
+  );
+
+  const [
     maintenanceLoading,
     setMaintenanceLoading,
   ] = useState(
@@ -604,9 +625,20 @@ function App() {
               data.message ||
                 "We’re doing a quick system update. Please check back shortly."
             );
+
+            setMaintenanceCycleId(
+              String(
+                data.cycleId ||
+                  ""
+              )
+            );
           } else {
             setMaintenanceMode(
               false
+            );
+
+            setMaintenanceCycleId(
+              ""
             );
           }
 
@@ -681,6 +713,11 @@ function App() {
           true
         );
 
+        const nextCycleId =
+          nextValue
+            ? `${Date.now()}_${user.uid}`
+            : maintenanceCycleId;
+
         await setDoc(
           doc(
             db,
@@ -693,6 +730,14 @@ function App() {
 
             message:
               maintenanceMessage,
+
+            cycleId:
+              nextCycleId,
+
+            cycleStartedAt:
+              nextValue
+                ? serverTimestamp()
+                : null,
 
             updatedByUid:
               user.uid,
@@ -746,6 +791,24 @@ function App() {
           );
 
       if (
+        existingMaintenanceConcern
+      ) {
+        setMaintenanceConcernStatus(
+          "You already sent a concern for this maintenance period."
+        );
+        return;
+      }
+
+      if (
+        !maintenanceCycleId
+      ) {
+        setMaintenanceConcernStatus(
+          "Maintenance session could not be identified. Please refresh and try again."
+        );
+        return;
+      }
+
+      if (
         cleanMessage.length <
         5
       ) {
@@ -774,64 +837,104 @@ function App() {
           ""
         );
 
-        await addDoc(
-          collection(
+        const concernId =
+          `maintenance_${maintenanceCycleId}_${user.uid}`;
+
+        const concernRef =
+          doc(
             db,
-            "feedback"
-          ),
-          {
-            rating:
-              0,
+            "feedback",
+            concernId
+          );
 
-            message:
-              cleanMessage,
+        const existing =
+          await getDoc(
+            concernRef
+          );
 
-            category:
-              "maintenance-comments",
+        if (
+          existing.exists()
+        ) {
+          setExistingMaintenanceConcern({
+            id:
+              existing.id,
+            ...existing.data(),
+          });
 
-            feedbackType:
-              "maintenance-comment",
+          setMaintenanceConcernStatus(
+            "You already sent a concern for this maintenance period."
+          );
 
-            source:
-              "Maintenance",
+          return;
+        }
 
-            appSource:
-              "maintenance",
+        const payload = {
+          rating:
+            0,
 
-            appName:
-              "System Maintenance",
+          message:
+            cleanMessage,
 
-            userUid:
-              user?.uid ||
-              "",
+          category:
+            "maintenance-comments",
 
-            userEmail:
-              user?.email ||
-              "",
+          feedbackType:
+            "maintenance-comment",
 
-            username:
-              profile?.username ||
-              profile?.displayName ||
-              user?.displayName ||
-              "",
+          source:
+            "Maintenance",
 
-            maintenanceActive:
-              true,
+          appSource:
+            "maintenance",
 
-            maintenanceMessage:
-              maintenanceMessage,
+          appName:
+            "System Maintenance",
 
-            createdAt:
-              serverTimestamp(),
-          }
+          maintenanceCycleId,
+
+          userUid:
+            user?.uid ||
+            "",
+
+          userEmail:
+            user?.email ||
+            "",
+
+          username:
+            profile?.username ||
+            profile?.displayName ||
+            user?.displayName ||
+            "",
+
+          maintenanceActive:
+            true,
+
+          maintenanceMessage:
+            maintenanceMessage,
+
+          createdAt:
+            serverTimestamp(),
+        };
+
+        await setDoc(
+          concernRef,
+          payload
         );
+
+        setExistingMaintenanceConcern({
+          id:
+            concernId,
+          ...payload,
+          createdAt:
+            new Date(),
+        });
 
         setMaintenanceConcern(
           ""
         );
 
         setMaintenanceConcernStatus(
-          "Concern sent. The admin will be able to review it in Feedback Center."
+          "Concern sent. You can review it below."
         );
       } catch (err) {
         console.error(
@@ -848,6 +951,78 @@ function App() {
         );
       }
     };
+
+  // =========================================
+  // CURRENT USER MAINTENANCE CONCERN
+  // One concern per user, per maintenance cycle.
+  // =========================================
+
+  useEffect(() => {
+    const checkExistingMaintenanceConcern =
+      async () => {
+        if (
+          !user?.uid ||
+          !maintenanceMode ||
+          !maintenanceCycleId
+        ) {
+          setExistingMaintenanceConcern(
+            null
+          );
+          return;
+        }
+
+        try {
+          setMaintenanceConcernChecking(
+            true
+          );
+
+          const concernId =
+            `maintenance_${maintenanceCycleId}_${user.uid}`;
+
+          const snapshot =
+            await getDoc(
+              doc(
+                db,
+                "feedback",
+                concernId
+              )
+            );
+
+          if (
+            snapshot.exists()
+          ) {
+            setExistingMaintenanceConcern({
+              id:
+                snapshot.id,
+              ...snapshot.data(),
+            });
+          } else {
+            setExistingMaintenanceConcern(
+              null
+            );
+          }
+        } catch (err) {
+          console.error(
+            "Maintenance concern lookup error:",
+            err
+          );
+
+          setExistingMaintenanceConcern(
+            null
+          );
+        } finally {
+          setMaintenanceConcernChecking(
+            false
+          );
+        }
+      };
+
+    checkExistingMaintenanceConcern();
+  }, [
+    user?.uid,
+    maintenanceMode,
+    maintenanceCycleId,
+  ]);
 
   // =========================================
   // SERVERS
@@ -4977,8 +5152,10 @@ function App() {
                 />
 
                 {maintenanceConcernOpen
-                  ? "Close Concern Form"
-                  : "Raise Your Concern"}
+                  ? "Close Feedback"
+                  : existingMaintenanceConcern
+                    ? "View Your Feedback"
+                    : "Raise Your Concern"}
               </button>
             </div>
 
@@ -4994,90 +5171,146 @@ function App() {
 
             {maintenanceConcernOpen && (
               <div className="mt-5 rounded-2xl border border-[#dce3ef] bg-white p-4 shadow-[0_10px_30px_rgba(20,42,118,0.06)] sm:p-5">
-                <div>
-                  <p className="text-sm font-black text-[#182442]">
-                    Raise a maintenance concern
-                  </p>
+                {maintenanceConcernChecking ? (
+                  <div className="py-6 text-center">
+                    <p className="text-sm font-extrabold text-[#52617d]">
+                      Checking your maintenance feedback...
+                    </p>
+                  </div>
+                ) : existingMaintenanceConcern ? (
+                  <div>
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#e7f7ef] text-[#18845c]">
+                        <MessageSquareText
+                          size={18}
+                        />
+                      </div>
 
-                  <p className="mt-1 text-xs leading-5 text-[#8995aa]">
-                    Tell the administrator what you were trying to do or what issue you noticed.
-                  </p>
-                </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-black text-[#182442]">
+                          Your maintenance feedback
+                        </p>
 
-                <textarea
-                  value={
-                    maintenanceConcern
-                  }
-                  onChange={(
-                    event
-                  ) => {
-                    setMaintenanceConcern(
-                      event.target
-                        .value
-                        .slice(
-                          0,
-                          500
-                        )
-                    );
+                        <p className="mt-1 text-xs leading-5 text-[#8995aa]">
+                          You can send one concern during each maintenance period. Your feedback for this period has already been submitted.
+                        </p>
+                      </div>
+                    </div>
 
-                    if (
-                      maintenanceConcernStatus
-                    ) {
-                      setMaintenanceConcernStatus(
-                        ""
-                      );
-                    }
-                  }}
-                  rows={5}
-                  maxLength={500}
-                  placeholder="Describe your concern..."
-                  className="mt-4 w-full resize-none rounded-2xl border border-[#dce3ef] bg-[#f8faff] px-4 py-3 text-sm font-semibold leading-6 text-[#182442] outline-none transition placeholder:text-[#a3adbd] focus:border-[#7f99dc] focus:ring-4 focus:ring-[#294aad]/10"
-                />
+                    <div className="mt-4 rounded-2xl border border-[#e2e7f0] bg-[#f8faff] p-4">
+                      <p className="text-[10px] font-black uppercase tracking-[0.1em] text-[#8995aa]">
+                        Submitted concern
+                      </p>
 
-                <div className="mt-2 flex items-center justify-between gap-3">
-                  <p className={`text-xs font-semibold ${
-                    maintenanceConcernStatus
-                      .toLowerCase()
-                      .includes(
-                        "sent"
-                      )
-                      ? "text-[#18845c]"
-                      : "text-[#8995aa]"
-                  }`}>
-                    {maintenanceConcernStatus ||
-                      "Maintenance concerns are sent directly to Feedback Center."}
-                  </p>
+                      <p className="mt-2 whitespace-pre-line text-sm font-semibold leading-6 text-[#52617d]">
+                        {
+                          existingMaintenanceConcern.message
+                        }
+                      </p>
 
-                  <span className="shrink-0 text-[10px] font-bold text-[#9aa5b6]">
-                    {
-                      maintenanceConcern.length
-                    }
-                    /500
-                  </span>
-                </div>
+                      <div className="mt-4 flex flex-wrap items-center gap-2">
+                        <span className="rounded-full bg-[#fff1dc] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.06em] text-[#a76510]">
+                          Maintenance Comment
+                        </span>
 
-                <button
-                  type="button"
-                  disabled={
-                    maintenanceConcernSending ||
-                    maintenanceConcern
-                      .trim()
-                      .length <
-                      5
-                  }
-                  onClick={
-                    submitMaintenanceConcern
-                  }
-                  className="mt-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#142a76] px-4 text-sm font-extrabold text-white transition disabled:cursor-not-allowed disabled:opacity-45"
-                >
-                  <Send
-                    size={17}
-                  />
+                        <span className="text-[10px] font-bold text-[#9aa5b6]">
+                          One submission allowed this maintenance period
+                        </span>
+                      </div>
+                    </div>
 
-                  {maintenanceConcernSending
-                    ? "Sending Concern..."
-                    : "Submit Concern"}
-                </button>
+                    <p className="mt-3 text-xs leading-5 text-[#8995aa]">
+                      When the administrator restores the system and starts a future maintenance period, you will be able to submit one new concern again.
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <div>
+                      <p className="text-sm font-black text-[#182442]">
+                        Raise a maintenance concern
+                      </p>
+
+                      <p className="mt-1 text-xs leading-5 text-[#8995aa]">
+                        You can submit one concern during this maintenance period. Tell the administrator what you were trying to do or what issue you noticed.
+                      </p>
+                    </div>
+
+                    <textarea
+                      value={
+                        maintenanceConcern
+                      }
+                      onChange={(
+                        event
+                      ) => {
+                        setMaintenanceConcern(
+                          event.target
+                            .value
+                            .slice(
+                              0,
+                              500
+                            )
+                        );
+
+                        if (
+                          maintenanceConcernStatus
+                        ) {
+                          setMaintenanceConcernStatus(
+                            ""
+                          );
+                        }
+                      }}
+                      rows={5}
+                      maxLength={500}
+                      placeholder="Describe your concern..."
+                      className="mt-4 w-full resize-none rounded-2xl border border-[#dce3ef] bg-[#f8faff] px-4 py-3 text-sm font-semibold leading-6 text-[#182442] outline-none transition placeholder:text-[#a3adbd] focus:border-[#7f99dc] focus:ring-4 focus:ring-[#294aad]/10"
+                    />
+
+                    <div className="mt-2 flex items-center justify-between gap-3">
+                      <p className={`text-xs font-semibold ${
+                        maintenanceConcernStatus
+                          .toLowerCase()
+                          .includes(
+                            "sent"
+                          )
+                          ? "text-[#18845c]"
+                          : "text-[#8995aa]"
+                      }`}>
+                        {maintenanceConcernStatus ||
+                          "One concern can be submitted during this maintenance period."}
+                      </p>
+
+                      <span className="shrink-0 text-[10px] font-bold text-[#9aa5b6]">
+                        {
+                          maintenanceConcern.length
+                        }
+                        /500
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      disabled={
+                        maintenanceConcernSending ||
+                        maintenanceConcern
+                          .trim()
+                          .length <
+                          5
+                      }
+                      onClick={
+                        submitMaintenanceConcern
+                      }
+                      className="mt-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#142a76] px-4 text-sm font-extrabold text-white transition disabled:cursor-not-allowed disabled:opacity-45"
+                    >
+                      <Send
+                        size={17}
+                      />
+
+                      {maintenanceConcernSending
+                        ? "Sending Concern..."
+                        : "Submit Concern"}
+                    </button>
+                  </>
+                )}
               </div>
             )}
 
