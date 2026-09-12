@@ -151,7 +151,7 @@ const getFinancialCardTheme = (
       brand:
         "BDO",
       logo:
-        "/bank-logos/bdo.svg",
+        "/bank-logos/bdo.ssvg",
       background:
         "linear-gradient(135deg, #0b4fb0 0%, #0866dc 48%, #0a2f76 100%)",
       accent:
@@ -237,7 +237,7 @@ const getFinancialCardTheme = (
       brand:
         "UnionBank",
       logo:
-        "/bank-logos/unionbank.png",
+        "/bank-logos/unionbank.svg",
       background:
         "linear-gradient(135deg, #2437a8 0%, #5028b7 55%, #251663 100%)",
       accent:
@@ -322,7 +322,7 @@ const getFinancialCardTheme = (
       brand:
         "Maya",
       logo:
-        "/bank-logos/maya.svg",
+        "/bank-logos/maya.png",
       background:
         "linear-gradient(135deg, #101418 0%, #0f2026 48%, #0a0d10 100%)",
       accent:
@@ -5637,7 +5637,7 @@ function Budgeter({
                       aria-label={`View ${account.nickname || account.provider} details`}
                     >
                       <div
-                        className="relative aspect-[1.586/1] overflow-hidden rounded-[22px] p-5 text-white"
+                        className="relative min-h-[250px] overflow-hidden rounded-[22px] p-5 text-white sm:aspect-[1.586/1] sm:min-h-0"
                         style={{
                           background:
                             cardTheme.background,
@@ -5706,35 +5706,35 @@ function Budgeter({
                           </div>
 
                           <div className="mt-auto">
-                            <p className="font-mono text-[15px] font-bold tracking-[0.18em] text-white/95 drop-shadow-sm sm:text-[17px]">
-                              •••• •••• ••••{" "}
-                              {account.last4 ||
-                                "0000"}
-                            </p>
+                            <div className="flex items-end justify-between gap-3">
+                              <p className="min-w-0 flex-1 font-mono text-[14px] font-bold tracking-[0.16em] text-white/95 drop-shadow-sm sm:text-[17px]">
+                                •••• •••• ••••{" "}
+                                {account.last4 ||
+                                  "0000"}
+                              </p>
 
-                            <div className="mt-4 flex items-end justify-between gap-3">
-                              <div className="min-w-0">
-                                <p className="text-[7px] font-black uppercase tracking-[0.14em] text-white/45">
-                                  Cardholder
-                                </p>
-
-                                <p className="mt-0.5 max-w-[180px] truncate text-[11px] font-extrabold uppercase tracking-[0.06em] text-white/90">
-                                  {account.nickname ||
-                                    account.provider}
-                                </p>
-                              </div>
-
-                              <div className="shrink-0 rounded-xl bg-black/12 px-3 py-2 text-right backdrop-blur-sm">
+                              <div className="shrink-0 text-right">
                                 <p className="text-[7px] font-black uppercase tracking-[0.12em] text-white/55">
                                   Available
                                 </p>
 
-                                <p className="mt-0.5 text-[15px] font-black tracking-tight text-white">
+                                <p className="mt-0.5 max-w-[150px] truncate text-[14px] font-black tracking-tight text-white sm:text-[15px]">
                                   ₱{money(
                                     account.balance
                                   )}
                                 </p>
                               </div>
+                            </div>
+
+                            <div className="mt-3 min-w-0">
+                              <p className="text-[7px] font-black uppercase tracking-[0.14em] text-white/45">
+                                Cardholder
+                              </p>
+
+                              <p className="mt-0.5 max-w-[210px] truncate text-[10px] font-extrabold uppercase tracking-[0.06em] text-white/90 sm:text-[11px]">
+                                {account.nickname ||
+                                  account.provider}
+                              </p>
                             </div>
                           </div>
                         </div>
@@ -5900,35 +5900,35 @@ function Budgeter({
                         </div>
 
                         <div className="mt-auto">
-                          <p className="font-mono text-[17px] font-bold tracking-[0.18em] text-white/95 drop-shadow-sm sm:text-[20px]">
-                            •••• •••• ••••{" "}
-                            {account.last4 ||
-                              "0000"}
-                          </p>
-
-                          <div className="mt-4 flex items-end justify-between gap-3">
-                            <div className="min-w-0">
-                              <p className="text-[7px] font-black uppercase tracking-[0.14em] text-white/45">
-                                Cardholder
-                              </p>
-
-                              <p className="mt-0.5 max-w-[220px] truncate text-xs font-extrabold uppercase tracking-[0.07em] text-white/90">
-                                {account.nickname ||
-                                  account.provider}
-                              </p>
-                            </div>
+                          <div className="flex items-end justify-between gap-3">
+                            <p className="min-w-0 flex-1 font-mono text-[16px] font-bold tracking-[0.16em] text-white/95 drop-shadow-sm sm:text-[20px]">
+                              •••• •••• ••••{" "}
+                              {account.last4 ||
+                                "0000"}
+                            </p>
 
                             <div className="shrink-0 text-right">
-                              <p className="text-[7px] font-black uppercase tracking-[0.12em] text-white/45">
-                                Balance
+                              <p className="text-[7px] font-black uppercase tracking-[0.12em] text-white/55">
+                                Available
                               </p>
 
-                              <p className="mt-0.5 text-base font-black text-white">
+                              <p className="mt-0.5 max-w-[180px] truncate text-base font-black text-white">
                                 ₱{money(
                                   account.balance
                                 )}
                               </p>
                             </div>
+                          </div>
+
+                          <div className="mt-3 min-w-0">
+                            <p className="text-[7px] font-black uppercase tracking-[0.14em] text-white/45">
+                              Cardholder
+                            </p>
+
+                            <p className="mt-0.5 max-w-[240px] truncate text-xs font-extrabold uppercase tracking-[0.07em] text-white/90">
+                              {account.nickname ||
+                                account.provider}
+                            </p>
                           </div>
                         </div>
                       </div>
