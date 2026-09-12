@@ -130,7 +130,7 @@ const getFinancialCardTheme = (
       brand:
         "BPI",
       logo:
-        "/bank-logos/bpi.png",
+        "/bank-logos/bpi.svg",
       background:
         "linear-gradient(135deg, #7c0a10 0%, #a5111a 48%, #54060b 100%)",
       accent:
@@ -301,7 +301,7 @@ const getFinancialCardTheme = (
       brand:
         "GCash",
       logo:
-        "/bank-logos/gcash.png",
+        "/bank-logos/gcash.svg",
       background:
         "linear-gradient(135deg, #0b79ff 0%, #0b57ef 50%, #0a34ba 100%)",
       accent:
@@ -322,7 +322,7 @@ const getFinancialCardTheme = (
       brand:
         "Maya",
       logo:
-        "/bank-logos/maya.png",
+        "/bank-logos/maya.svg",
       background:
         "linear-gradient(135deg, #101418 0%, #0f2026 48%, #0a0d10 100%)",
       accent:
@@ -2769,27 +2769,18 @@ function Budgeter({
       account,
       entryType
     ) => {
-      setSelectedFinancialAccount(
-        null
-      );
-
       setAccountMoneyAction({
         account,
         entryType,
       });
+
       setAccountMoneyAmount(
         ""
       );
+
       setAccountMoneyNote(
         ""
       );
-
-      window.scrollTo({
-        top:
-          0,
-        behavior:
-          "smooth",
-      });
     };
 
   const saveAccountMoneyEntry =
@@ -5361,126 +5352,209 @@ function Budgeter({
           </section>
         )}
 
-        {accountMoneyAction && (
-          <section className="app-card overflow-hidden">
-            <div className="border-b border-[#e2e7ef] bg-[#f8faff] p-4 sm:p-5">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#8995aa]">
-                    {accountMoneyAction.entryType ===
-                    "deposit"
-                      ? "Add Savings"
-                      : "Record Withdrawal"}
-                  </p>
+        {accountMoneyAction &&
+          (() => {
+            const actionAccount =
+              financialAccountSummary.accounts.find(
+                (item) =>
+                  item.id ===
+                  accountMoneyAction.account.id
+              ) ||
+              accountMoneyAction.account;
 
-                  <h3 className="mt-1 text-lg font-black text-[#182442]">
-                    {accountMoneyAction
-                      .account
-                      .nickname ||
-                      accountMoneyAction
-                        .account
-                        .provider}
-                  </h3>
-                </div>
+            const isDeposit =
+              accountMoneyAction.entryType ===
+              "deposit";
 
-                <button
-                  type="button"
-                  onClick={() =>
+            return (
+              <div
+                className="fixed inset-0 z-[1000] flex items-end justify-center bg-[#111a2d]/45 px-3 pb-[max(env(safe-area-inset-bottom),12px)] pt-6 backdrop-blur-[5px] sm:items-center sm:p-6"
+                onMouseDown={(
+                  event
+                ) => {
+                  if (
+                    event.target ===
+                    event.currentTarget &&
+                    !accountMoneySaving
+                  ) {
                     setAccountMoneyAction(
                       null
-                    )
+                    );
                   }
-                  className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#edf1f7] text-[#71809a]"
-                >
-                  <X
-                    size={17}
-                  />
-                </button>
-              </div>
-            </div>
-
-            <form
-              onSubmit={
-                saveAccountMoneyEntry
-              }
-              className="grid gap-4 p-4 sm:grid-cols-[1fr_1.4fr_auto] sm:items-end sm:p-6"
-            >
-              <div className="min-w-0">
-                <label className="app-label">
-                  Amount
-                </label>
-
-                <input
-                  type="number"
-                  min="0.01"
-                  step="0.01"
-                  value={
-                    accountMoneyAmount
-                  }
-                  onChange={(
-                    event
-                  ) =>
-                    setAccountMoneyAmount(
-                      event.target
-                        .value
-                    )
-                  }
-                  placeholder="₱0.00"
-                  inputMode="decimal"
-                  className="app-input"
-                />
-              </div>
-
-              <div className="min-w-0">
-                <label className="app-label">
-                  Note
-                </label>
-
-                <input
-                  value={
-                    accountMoneyNote
-                  }
-                  onChange={(
-                    event
-                  ) =>
-                    setAccountMoneyNote(
-                      event.target
-                        .value
-                    )
-                  }
-                  placeholder="Optional note"
-                  maxLength={80}
-                  className="app-input"
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={
-                  accountMoneySaving
-                }
-                className={`inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-5 text-sm font-extrabold text-white disabled:opacity-50 ${
-                  accountMoneyAction.entryType ===
-                  "deposit"
-                    ? "bg-[#18845c]"
-                    : "bg-[#142a76]"
-                }`}
+                }}
               >
-                {accountMoneySaving && (
-                  <LoaderCircle
-                    size={17}
-                    className="animate-spin"
-                  />
-                )}
+                <div
+                  className="money-action-modal flex max-h-[calc(100dvh-24px)] flex-col overflow-hidden rounded-t-[24px] border border-[#dfe5ee] bg-white shadow-[0_28px_80px_rgba(8,24,70,0.24)] sm:max-h-[90dvh] sm:rounded-[22px]"
+                  style={{
+                    width:
+                      "100%",
+                    maxWidth:
+                      "430px",
+                  }}
+                >
+                  <div className="flex items-start justify-between gap-3 border-b border-[#edf0f5] px-5 py-4">
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#9aa5b5]">
+                        {isDeposit
+                          ? "Add Money"
+                          : "Withdraw Money"}
+                      </p>
 
-                {accountMoneyAction.entryType ===
-                "deposit"
-                  ? "Add Money"
-                  : "Record Withdrawal"}
-              </button>
-            </form>
-          </section>
-        )}
+                      <h3 className="mt-1 truncate text-lg font-black text-[#17213b]">
+                        {actionAccount.nickname ||
+                          actionAccount.provider}
+                      </h3>
+
+                      <p className="mt-1 text-xs font-semibold text-[#7d899c]">
+                        Available balance:{" "}
+                        <span className="font-black text-[#17213b]">
+                          ₱{money(
+                            actionAccount.balance ||
+                              0
+                          )}
+                        </span>
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      disabled={
+                        accountMoneySaving
+                      }
+                      onClick={() =>
+                        setAccountMoneyAction(
+                          null
+                        )
+                      }
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] border border-[#e1e6ef] bg-[#f8fafc] text-[#66758e] transition hover:bg-[#f1f4f8] disabled:opacity-50"
+                    >
+                      <X
+                        size={17}
+                      />
+                    </button>
+                  </div>
+
+                  <form
+                    onSubmit={
+                      saveAccountMoneyEntry
+                    }
+                    className="min-h-0 flex-1 overflow-y-auto p-5"
+                  >
+                    <div className="space-y-4">
+                    <div>
+                      <label className="app-label">
+                        Amount
+                      </label>
+
+                      <div className="relative">
+                        <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm font-black text-[#71809a]">
+                          ₱
+                        </span>
+
+                        <input
+                          type="number"
+                          min="0.01"
+                          step="0.01"
+                          value={
+                            accountMoneyAmount
+                          }
+                          onChange={(
+                            event
+                          ) =>
+                            setAccountMoneyAmount(
+                              event.target.value
+                            )
+                          }
+                          placeholder="0.00"
+                          inputMode="decimal"
+                          autoFocus
+                          className="app-input !pl-8 text-lg font-black"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="app-label">
+                        Note
+                      </label>
+
+                      <input
+                        value={
+                          accountMoneyNote
+                        }
+                        onChange={(
+                          event
+                        ) =>
+                          setAccountMoneyNote(
+                            event.target.value
+                          )
+                        }
+                        placeholder={
+                          isDeposit
+                            ? "e.g. Salary savings"
+                            : "e.g. Emergency expense"
+                        }
+                        maxLength={80}
+                        className="app-input"
+                      />
+                    </div>
+
+                    {!isDeposit && (
+                      <div className="rounded-xl border border-[#e3e8f1] bg-[#fafbfe] px-4 py-3">
+                        <p className="text-[11px] leading-5 text-[#71809a]">
+                          The withdrawal cannot be greater than the current available balance.
+                        </p>
+                      </div>
+                    )}
+
+                    </div>
+
+                    <div className="sticky bottom-0 -mx-5 mt-5 border-t border-[#edf0f5] bg-white px-5 pb-[max(env(safe-area-inset-bottom),14px)] pt-3">
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          disabled={
+                            accountMoneySaving
+                          }
+                          onClick={() =>
+                            setAccountMoneyAction(
+                              null
+                            )
+                          }
+                          className="min-h-11 rounded-xl border border-[#dce3ef] bg-white px-4 text-sm font-extrabold text-[#52617d] transition hover:bg-[#f8faff] disabled:opacity-50"
+                        >
+                          Cancel
+                        </button>
+
+                        <button
+                          type="submit"
+                          disabled={
+                            accountMoneySaving
+                          }
+                          className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 text-sm font-extrabold text-white shadow-[0_8px_20px_rgba(20,42,118,0.14)] disabled:opacity-50 ${
+                            isDeposit
+                              ? "bg-[#18845c]"
+                              : "bg-[#142a76]"
+                          }`}
+                        >
+                          {accountMoneySaving && (
+                            <LoaderCircle
+                              size={16}
+                              className="animate-spin"
+                            />
+                          )}
+
+                          {isDeposit
+                            ? "Add Money"
+                            : "Withdraw"}
+                        </button>
+                      </div>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            );
+          })()}
 
         {financialAccountSummary.accounts.length ===
         0 ? (
@@ -5650,12 +5724,12 @@ function Budgeter({
                                 </p>
                               </div>
 
-                              <div className="shrink-0 text-right">
-                                <p className="text-[7px] font-black uppercase tracking-[0.12em] text-white/45">
-                                  Balance
+                              <div className="shrink-0 rounded-xl bg-black/12 px-3 py-2 text-right backdrop-blur-sm">
+                                <p className="text-[7px] font-black uppercase tracking-[0.12em] text-white/55">
+                                  Available
                                 </p>
 
-                                <p className="mt-0.5 text-[13px] font-black text-white">
+                                <p className="mt-0.5 text-[15px] font-black tracking-tight text-white">
                                   ₱{money(
                                     account.balance
                                   )}
@@ -6173,10 +6247,20 @@ function Budgeter({
               max-width: 640px !important;
             }
 
+            .finance-shell .money-action-modal {
+              width: min(430px, calc(100vw - 24px)) !important;
+              max-width: 430px !important;
+            }
+
             @media (max-width: 639px) {
               .finance-shell .account-detail-modal {
                 width: calc(100vw - 16px) !important;
                 max-width: calc(100vw - 16px) !important;
+              }
+
+              .finance-shell .money-action-modal {
+                width: calc(100vw - 24px) !important;
+                max-width: calc(100vw - 24px) !important;
               }
             }
 
@@ -6333,7 +6417,7 @@ function Budgeter({
           </div>
         </header>
 
-        <main className="relative z-10 w-full min-w-0 px-3 py-4 pb-6 sm:px-5 lg:ml-[260px] lg:w-[calc(100%-260px)] lg:px-8 lg:py-8 lg:pb-10">
+        <main className="relative w-full min-w-0 px-3 py-4 pb-6 sm:px-5 lg:ml-[260px] lg:w-[calc(100%-260px)] lg:px-8 lg:py-8 lg:pb-10">
           <div className="mx-auto w-full min-w-0 max-w-6xl">
             {renderPage()}
 
