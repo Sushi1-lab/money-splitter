@@ -157,48 +157,110 @@ function AppDialog({
   // =========================================================
 
   if (!isConfirmation) {
+    const toastTone = {
+      success: {
+        line:
+          "bg-[#1f9d6a]",
+        icon:
+          "text-[#16845a]",
+        iconWrap:
+          "border-[#d7ece3] bg-[#f4fbf7]",
+      },
+      warning: {
+        line:
+          "bg-[#d79a31]",
+        icon:
+          "text-[#a86f16]",
+        iconWrap:
+          "border-[#efe1c7] bg-[#fffaf1]",
+      },
+      danger: {
+        line:
+          "bg-[#d54d4d]",
+        icon:
+          "text-[#bf4444]",
+        iconWrap:
+          "border-[#f0d7d7] bg-[#fff7f7]",
+      },
+      error: {
+        line:
+          "bg-[#d54d4d]",
+        icon:
+          "text-[#bf4444]",
+        iconWrap:
+          "border-[#f0d7d7] bg-[#fff7f7]",
+      },
+      info: {
+        line:
+          "bg-[#3159b8]",
+        icon:
+          "text-[#3159b8]",
+        iconWrap:
+          "border-[#dce4f4] bg-[#f7f9fe]",
+      },
+    };
+
+    const tone =
+      toastTone[type] ||
+      toastTone.info;
+
     return (
-      <div
-        className="
-          fixed inset-0 z-[2147483647]
-          flex items-center justify-center
-          bg-[#071334]/28
-          p-4
-        "
-      >
+      <>
         <div
-          role="status"
-          aria-live="polite"
           className="
-            w-full max-w-[390px]
-            animate-[appStatusIn_.18s_ease-out]
-            overflow-hidden
-            rounded-[24px]
-            border border-[#e1e7f0]
-            bg-white
-            shadow-[0_28px_80px_rgba(8,19,49,0.24)]
+            pointer-events-none
+            fixed inset-x-3 top-3
+            z-[2147483647]
+            flex justify-center
+            sm:inset-x-auto
+            sm:right-5 sm:top-5
+            sm:block
           "
         >
-          <div className="p-5 sm:p-6">
-            <div className="flex items-start gap-3">
+          <div
+            role="status"
+            aria-live="polite"
+            className="
+              pointer-events-auto
+              relative
+              w-full max-w-[420px]
+              overflow-hidden
+              rounded-[16px]
+              border border-[#dfe5ed]
+              bg-white
+              shadow-[0_18px_55px_rgba(15,30,65,0.18)]
+              animate-[appToastIn_.22s_cubic-bezier(.2,.75,.25,1)]
+            "
+          >
+            <div
+              className={`
+                absolute inset-y-0 left-0
+                w-[4px]
+                ${tone.line}
+              `}
+            />
+
+            <div className="flex items-start gap-3 px-4 py-3.5 pl-5">
               <div
                 className={`
-                  flex h-11 w-11
+                  mt-0.5
+                  flex h-9 w-9
                   shrink-0 items-center justify-center
-                  rounded-2xl
-                  ${style.iconBg}
-                  ${style.accent}
+                  rounded-[11px]
+                  border
+                  ${tone.iconWrap}
+                  ${tone.icon}
                 `}
               >
                 <Icon
-                  size={21}
-                  strokeWidth={2.4}
+                  size={17}
+                  strokeWidth={2.1}
                 />
               </div>
 
-              <div className="min-w-0 flex-1 pt-0.5">
+              <div className="min-w-0 flex-1">
                 {title && (
-                  <p className="text-[16px] font-black leading-6 text-[#182442]">
+                  <p className="text-[13px] font-extrabold leading-5 text-[#17213b]">
                     {title}
                   </p>
                 )}
@@ -207,11 +269,11 @@ function AppDialog({
                   <p
                     className={`
                       whitespace-pre-line
-                      text-[13px]
-                      leading-5
-                      text-[#71809a]
+                      text-[11.5px]
+                      leading-[1.55]
+                      text-[#6f7c93]
                       ${title
-                        ? "mt-1.5"
+                        ? "mt-0.5"
                         : ""}
                     `}
                   >
@@ -228,65 +290,44 @@ function AppDialog({
                     closeToast
                   }
                   className="
-                    -mr-1 -mt-1
-                    flex h-9 w-9
+                    -mr-1
+                    flex h-8 w-8
                     shrink-0 items-center justify-center
-                    rounded-xl
-                    bg-[#f3f5f9]
-                    text-[#8995aa]
+                    rounded-[9px]
+                    text-[#9aa5b5]
                     transition
-                    hover:bg-[#e9edf4]
-                    hover:text-[#52617d]
+                    hover:bg-[#f3f5f8]
+                    hover:text-[#5d6b82]
                   "
                 >
                   <X
-                    size={17}
+                    size={15}
                   />
                 </button>
               )}
             </div>
 
             {!loading && (
-              <div className="mt-5">
-                <button
-                  type="button"
-                  onClick={
-                    closeToast
-                  }
+              <div className="h-[2px] overflow-hidden bg-[#f0f2f6]">
+                <div
                   className={`
-                    flex min-h-11
-                    w-full
-                    items-center justify-center
-                    rounded-xl
-                    px-4
-                    text-sm
-                    font-extrabold
-                    text-white
-                    transition
-                    active:scale-[0.99]
-                    ${style.button}
+                    h-full w-full
+                    origin-left
+                    animate-[appToastTimer_3.2s_linear_forwards]
+                    ${tone.line}
                   `}
-                >
-                  {confirmText ||
-                    "OK"}
-                </button>
+                />
               </div>
             )}
           </div>
-
-          {!loading && (
-            <div className="h-[3px] overflow-hidden bg-[#edf1f7]">
-              <div className="h-full w-full origin-left animate-[appStatusTimer_3.2s_linear_forwards] bg-[#294aad]" />
-            </div>
-          )}
         </div>
 
         <style>
           {`
-            @keyframes appStatusIn {
+            @keyframes appToastIn {
               from {
                 opacity: 0;
-                transform: translateY(7px) scale(0.985);
+                transform: translateY(-8px) scale(0.985);
               }
               to {
                 opacity: 1;
@@ -294,7 +335,7 @@ function AppDialog({
               }
             }
 
-            @keyframes appStatusTimer {
+            @keyframes appToastTimer {
               from {
                 transform: scaleX(1);
               }
@@ -304,7 +345,7 @@ function AppDialog({
             }
           `}
         </style>
-      </div>
+      </>
     );
   }
 
@@ -319,7 +360,7 @@ function AppDialog({
         handleBackdrop
       }
       className="
-        fixed inset-0 z-[2147483647]
+        fixed inset-0 z-[9999]
         flex items-center justify-center
         bg-[#071334]/35
         p-4

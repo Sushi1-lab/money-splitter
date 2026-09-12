@@ -130,7 +130,7 @@ const getFinancialCardTheme = (
       brand:
         "BPI",
       logo:
-        "/bank-logos/bpi.svg",
+        "/bank-logos/bpi.png",
       background:
         "linear-gradient(135deg, #7c0a10 0%, #a5111a 48%, #54060b 100%)",
       accent:
@@ -151,7 +151,7 @@ const getFinancialCardTheme = (
       brand:
         "BDO",
       logo:
-        "/bank-logos/bdo.svg",
+        "/bank-logos/bdo.png",
       background:
         "linear-gradient(135deg, #0b4fb0 0%, #0866dc 48%, #0a2f76 100%)",
       accent:
@@ -194,7 +194,7 @@ const getFinancialCardTheme = (
       brand:
         "Metrobank",
       logo:
-        "/bank-logos/metrobank.svg",
+        "/bank-logos/metrobank.png",
       background:
         "linear-gradient(135deg, #0f4699 0%, #1d62bd 50%, #0b326f 100%)",
       accent:
@@ -215,7 +215,7 @@ const getFinancialCardTheme = (
       brand:
         "Security Bank",
       logo:
-        "/bank-logos/securitybank.svg",
+        "/bank-logos/securitybank.png",
       background:
         "linear-gradient(135deg, #0f63a0 0%, #1594cf 52%, #0a4d79 100%)",
       accent:
@@ -237,7 +237,7 @@ const getFinancialCardTheme = (
       brand:
         "UnionBank",
       logo:
-        "/bank-logos/unionbank.svg",
+        "/bank-logos/unionbank.png",
       background:
         "linear-gradient(135deg, #2437a8 0%, #5028b7 55%, #251663 100%)",
       accent:
@@ -301,7 +301,7 @@ const getFinancialCardTheme = (
       brand:
         "GCash",
       logo:
-        "/bank-logos/gcash.svg",
+        "/bank-logos/gcash.png",
       background:
         "linear-gradient(135deg, #0b79ff 0%, #0b57ef 50%, #0a34ba 100%)",
       accent:
@@ -322,7 +322,7 @@ const getFinancialCardTheme = (
       brand:
         "Maya",
       logo:
-        "/bank-logos/maya.svg",
+        "/bank-logos/maya.png",
       background:
         "linear-gradient(135deg, #101418 0%, #0f2026 48%, #0a0d10 100%)",
       accent:
@@ -5712,7 +5712,7 @@ function Budgeter({
 
             return (
               <div
-                className="fixed inset-0 z-[90] flex items-end justify-center bg-[#0b1630]/45 p-3 backdrop-blur-[6px] sm:items-center sm:p-6"
+                className="fixed inset-0 z-[90] flex items-end justify-center bg-[#0b1630]/45 px-2 pb-[82px] pt-3 backdrop-blur-[6px] sm:items-center sm:px-6 sm:py-8"
                 onMouseDown={(
                   event
                 ) => {
@@ -5726,7 +5726,15 @@ function Budgeter({
                   }
                 }}
               >
-                <div className="max-h-[92dvh] w-full max-w-[640px] overflow-y-auto rounded-[28px] border border-[#dfe5ef] bg-[#fdfefe] shadow-[0_28px_80px_rgba(15,33,75,0.24)]">
+                <div
+                  className="account-detail-modal flex max-h-[94dvh] flex-col overflow-hidden rounded-t-[24px] border border-[#dfe5ef] bg-[#fdfefe] shadow-[0_28px_80px_rgba(15,33,75,0.24)] sm:max-h-[88dvh] sm:rounded-[28px]"
+                  style={{
+                    width:
+                      "100%",
+                    maxWidth:
+                      "640px",
+                  }}
+                >
                   <div className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-[#e6eaf1] bg-white/95 px-5 py-4 backdrop-blur-xl sm:px-6">
                     <div className="min-w-0">
                       <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#8995aa]">
@@ -5755,7 +5763,7 @@ function Budgeter({
                     </button>
                   </div>
 
-                  <div className="space-y-5 p-4 sm:p-6">
+                  <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-4 pb-5 sm:p-6">
                     <div
                       className="relative mx-auto aspect-[1.586/1] w-full max-w-[500px] overflow-hidden rounded-[22px] p-5 text-white shadow-[0_18px_44px_rgba(20,42,118,0.18)]"
                       style={{
@@ -5940,34 +5948,6 @@ function Budgeter({
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          openAccountMoneyAction(
-                            account,
-                            "deposit"
-                          )
-                        }
-                        className="min-h-12 rounded-xl bg-[#142a76] px-4 text-sm font-extrabold text-white shadow-[0_8px_20px_rgba(20,42,118,0.14)] transition hover:-translate-y-0.5"
-                      >
-                        + Add Money
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() =>
-                          openAccountMoneyAction(
-                            account,
-                            "withdrawal"
-                          )
-                        }
-                        className="min-h-12 rounded-xl border border-[#dce3ef] bg-white px-4 text-sm font-extrabold text-[#52617d] transition hover:bg-[#f8faff]"
-                      >
-                        − Withdraw
-                      </button>
-                    </div>
-
                     {recentEntries.length >
                       0 && (
                       <div className="rounded-2xl border border-[#e2e7ef] p-4">
@@ -6051,7 +6031,40 @@ function Budgeter({
                       </div>
                     )}
 
-                    <div className="grid grid-cols-2 gap-2 border-t border-[#e6eaf1] pt-4">
+                  </div>
+
+                  <div className="shrink-0 border-t border-[#e5eaf2] bg-white px-3 pb-[max(env(safe-area-inset-bottom),12px)] pt-3 sm:px-5 sm:pb-4 sm:pt-4">
+                    <p className="mb-2 px-1 text-[10px] font-black uppercase tracking-[0.12em] text-[#9aa5b5] sm:hidden">
+                      Account Actions
+                    </p>
+
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          openAccountMoneyAction(
+                            account,
+                            "deposit"
+                          )
+                        }
+                        className="inline-flex min-h-[46px] items-center justify-center rounded-xl bg-[#142a76] px-3 text-[12px] font-extrabold text-white shadow-[0_7px_18px_rgba(20,42,118,0.14)] transition active:scale-[0.98] sm:text-sm"
+                      >
+                        + Add Money
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          openAccountMoneyAction(
+                            account,
+                            "withdrawal"
+                          )
+                        }
+                        className="inline-flex min-h-[46px] items-center justify-center rounded-xl border border-[#d8e0ec] bg-white px-3 text-[12px] font-extrabold text-[#3f506d] transition active:bg-[#f5f7fb] sm:text-sm"
+                      >
+                        − Withdraw
+                      </button>
+
                       <button
                         type="button"
                         onClick={() =>
@@ -6059,12 +6072,10 @@ function Budgeter({
                             account
                           )
                         }
-                        className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[#dce3ef] bg-white px-4 text-sm font-extrabold text-[#52617d] transition hover:bg-[#f7f9fd]"
+                        className="inline-flex min-h-[42px] items-center justify-center gap-1.5 rounded-xl bg-[#f3f6fa] px-3 text-[11px] font-extrabold text-[#52617d] transition active:bg-[#e9edf4] sm:min-h-[46px] sm:text-sm"
                       >
-                        <Pencil
-                          size={16}
-                        />
-                        Edit Account
+                        <Pencil size={14} />
+                        Edit
                       </button>
 
                       <button
@@ -6074,12 +6085,10 @@ function Budgeter({
                             account
                           )
                         }
-                        className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[#f3cccc] bg-[#fff6f6] px-4 text-sm font-extrabold text-[#c34d4d] transition hover:bg-[#ffeded]"
+                        className="inline-flex min-h-[42px] items-center justify-center gap-1.5 rounded-xl bg-[#fff4f4] px-3 text-[11px] font-extrabold text-[#bd4b4b] transition active:bg-[#ffe8e8] sm:min-h-[46px] sm:text-sm"
                       >
-                        <Trash2
-                          size={16}
-                        />
-                        Remove
+                        <Trash2 size={14} />
+                        Delete
                       </button>
                     </div>
                   </div>
@@ -6157,6 +6166,18 @@ function Budgeter({
             .finance-shell .grid > *,
             .finance-shell .flex > * {
               min-width: 0;
+            }
+
+            .finance-shell .account-detail-modal {
+              width: min(640px, calc(100vw - 48px)) !important;
+              max-width: 640px !important;
+            }
+
+            @media (max-width: 639px) {
+              .finance-shell .account-detail-modal {
+                width: calc(100vw - 16px) !important;
+                max-width: calc(100vw - 16px) !important;
+              }
             }
 
             .finance-shell input,
@@ -6312,13 +6333,26 @@ function Budgeter({
           </div>
         </header>
 
-        <main className="relative z-10 w-full min-w-0 px-3 py-4 pb-28 sm:px-5 lg:ml-[260px] lg:w-[calc(100%-260px)] lg:px-8 lg:py-8 lg:pb-10">
+        <main className="relative z-10 w-full min-w-0 px-3 py-4 pb-6 sm:px-5 lg:ml-[260px] lg:w-[calc(100%-260px)] lg:px-8 lg:py-8 lg:pb-10">
           <div className="mx-auto w-full min-w-0 max-w-6xl">
             {renderPage()}
+
+            {/* Mobile scroll clearance:
+                keeps the final Edit/Delete/Remove controls fully above
+                the fixed bottom navigation. Using an explicit height
+                avoids depending only on Tailwind bottom padding. */}
+            <div
+              aria-hidden="true"
+              className="lg:hidden"
+              style={{
+                height:
+                  "260px",
+              }}
+            />
           </div>
         </main>
 
-        <nav className="fixed bottom-[max(env(safe-area-inset-bottom),12px)] left-3 right-3 z-50 rounded-[24px] border border-white/70 bg-[#f7f9fd]/92 px-2 py-2 shadow-[0_18px_50px_rgba(20,42,118,0.20)] backdrop-blur-xl lg:hidden">
+        <nav className="fixed bottom-[max(env(safe-area-inset-bottom),8px)] left-2 right-2 z-50 overflow-hidden rounded-[20px] border border-[#dfe5ef]/90 bg-white/95 p-1.5 shadow-[0_12px_32px_rgba(20,42,118,0.14)] backdrop-blur-xl lg:hidden">
           <div className="mx-auto grid max-w-xl grid-cols-4 gap-1">
             {navItems.map(
               ({
@@ -6326,30 +6360,48 @@ function Budgeter({
                 label,
                 icon:
                   Icon,
-              }) => (
-                <button
-                  key={
-                    id
-                  }
-                  type="button"
-                  onClick={() =>
-                    changePage(
+              }) => {
+                const active =
+                  page ===
+                  id;
+
+                return (
+                  <button
+                    key={
                       id
-                    )
-                  }
-                  className={`flex min-h-[60px] min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1 text-[9px] font-bold sm:text-[10px] ${
-                    page ===
-                    id
-                      ? "bg-[#e4ebff] text-[#142a76]"
-                      : "text-[#9ca7b8]"
-                  }`}
-                >
-                  <Icon
-                    size={20}
-                  />
-                  {label}
-                </button>
-              )
+                    }
+                    type="button"
+                    onClick={() =>
+                      changePage(
+                        id
+                      )
+                    }
+                    aria-current={
+                      active
+                        ? "page"
+                        : undefined
+                    }
+                    className={`flex min-h-[54px] min-w-0 flex-col items-center justify-center gap-1 rounded-[15px] px-1 transition ${
+                      active
+                        ? "bg-[#edf2ff] text-[#17368d] shadow-[inset_0_0_0_1px_rgba(41,74,173,0.05)]"
+                        : "text-[#9aa6b8] active:bg-[#f4f6fa]"
+                    }`}
+                  >
+                    <Icon
+                      size={19}
+                      strokeWidth={
+                        active
+                          ? 2.2
+                          : 1.8
+                      }
+                    />
+
+                    <span className="max-w-full truncate text-[10px] font-bold leading-none">
+                      {label}
+                    </span>
+                  </button>
+                );
+              }
             )}
           </div>
         </nav>
@@ -6447,7 +6499,7 @@ function TransactionList({
                 </div>
               </div>
 
-              <div className="mt-3 flex items-center justify-end gap-2 border-t border-[#e5eaf2] pt-3">
+              <div className="mt-3 mb-2 flex items-center justify-end gap-2 border-t border-[#e5eaf2] pt-3">
                 <button
                   type="button"
                   onClick={() =>

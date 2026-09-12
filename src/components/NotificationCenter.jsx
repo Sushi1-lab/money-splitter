@@ -300,14 +300,14 @@ function NotificationCenter({
               !current
           )
         }
-        className="fixed right-4 top-4 z-[70] flex h-11 w-11 items-center justify-center rounded-xl border border-white/20 bg-[#142a76] text-white shadow-[0_10px_30px_rgba(20,42,118,0.22)] lg:right-6 lg:top-6"
+        className="fixed right-4 top-4 z-[70] flex h-11 w-11 items-center justify-center rounded-[14px] border border-[#dbe2ee] bg-white text-[#243b7a] shadow-[0_8px_24px_rgba(20,42,118,0.12)] transition hover:bg-[#f7f9fc] lg:right-6 lg:top-6"
       >
         <Bell
           size={19}
         />
 
         {unreadCount > 0 && (
-          <span className="absolute -right-1 -top-1 flex min-h-5 min-w-5 items-center justify-center rounded-full bg-[#e64a4a] px-1 text-[10px] font-black text-white">
+          <span className="absolute -right-1.5 -top-1.5 flex min-h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-[#d74646] px-1 text-[9px] font-black text-white shadow-sm">
             {unreadCount >
             9
               ? "9+"
@@ -329,14 +329,14 @@ function NotificationCenter({
             className="fixed inset-0 z-[71] bg-transparent"
           />
 
-          <div className="fixed right-3 top-16 z-[72] w-[calc(100%-24px)] max-w-sm overflow-hidden rounded-[24px] border border-[#e0e6f0] bg-white shadow-[0_24px_70px_rgba(15,35,89,0.22)] sm:right-4 lg:right-6 lg:top-20">
-            <div className="flex items-center justify-between gap-3 border-b border-[#e7ebf2] p-4">
+          <div className="fixed right-3 top-16 z-[72] w-[calc(100%-24px)] max-w-[390px] overflow-hidden rounded-[20px] border border-[#dfe5ee] bg-white shadow-[0_22px_60px_rgba(15,35,89,0.18)] sm:right-4 lg:right-6 lg:top-20">
+            <div className="flex items-center justify-between gap-3 border-b border-[#edf0f5] px-4 py-3.5">
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.12em] text-[#8995aa]">
+                <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#9aa5b5]">
                   Notifications
                 </p>
-                <h3 className="mt-1 font-black text-[#182442]">
-                  Payment activity
+                <h3 className="mt-0.5 text-[15px] font-black text-[#17213b]">
+                  Recent activity
                 </h3>
               </div>
 
@@ -346,7 +346,7 @@ function NotificationCenter({
                   onClick={
                     markAllRead
                   }
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-[#eef3ff] px-2.5 py-2 text-[11px] font-extrabold text-[#294aad]"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-[#e1e7f0] bg-white px-2.5 py-1.5 text-[10px] font-extrabold text-[#53617b] transition hover:bg-[#f7f9fc]"
                 >
                   <CheckCheck
                     size={14}
@@ -356,10 +356,10 @@ function NotificationCenter({
               )}
             </div>
 
-            <div className="max-h-[65vh] overflow-y-auto p-3">
+            <div className="max-h-[65vh] overflow-y-auto p-2">
               {visibleNotifications.length ===
               0 ? (
-                <div className="rounded-2xl bg-[#f7f9fd] p-7 text-center">
+                <div className="rounded-[16px] border border-dashed border-[#dfe5ee] bg-[#fbfcfe] p-7 text-center">
                   <Bell
                     size={25}
                     className="mx-auto text-[#a8b2c2]"
@@ -369,7 +369,7 @@ function NotificationCenter({
                   </p>
                 </div>
               ) : (
-                <div className="space-y-2">
+                <div className="space-y-1">
                   {visibleNotifications.map(
                     (item) => (
                       <button
@@ -382,44 +382,45 @@ function NotificationCenter({
                             item
                           )
                         }
-                        className={`w-full rounded-2xl border p-4 text-left transition ${
+                        className={`group w-full rounded-[14px] border px-3 py-3 text-left transition ${
                           item.read
-                            ? "border-[#e5e9f0] bg-white"
-                            : "border-[#cfdcf7] bg-[#f2f6ff]"
+                            ? "border-transparent bg-white hover:bg-[#f8fafc]"
+                            : "border-[#e2e8f4] bg-[#f7f9fe] hover:bg-[#f1f5fc]"
                         }`}
                       >
                         <div className="flex items-start gap-3">
                           <div
-                            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
+                            className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] border ${
                               isReversionNotification(
                                 item
                               )
-                                ? "bg-[#fff4d9] text-[#b78114]"
+                                ? "border-[#eadfca] bg-[#fffdf8] text-[#9b7430]"
                                 : isSplitAddedNotification(
                                     item
                                   )
-                                  ? "bg-[#eef3ff] text-[#294aad]"
-                                  : "bg-[#e7f7ef] text-[#18845c]"
+                                  ? "border-[#dce4f5] bg-[#f8faff] text-[#3d5b9f]"
+                                  : "border-[#dce7e3] bg-[#f8fbfa] text-[#3e7563]"
                             }`}
                           >
                             <ReceiptText
-                              size={18}
+                              size={16}
+                              strokeWidth={1.9}
                             />
                           </div>
 
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center justify-between gap-2">
-                              <p className="truncate text-sm font-black text-[#182442]">
+                              <p className="truncate text-[13px] font-extrabold text-[#1d2842]">
                                 {item.title ||
                                   "Payment received"}
                               </p>
 
                               {!item.read && (
-                                <span className="h-2 w-2 shrink-0 rounded-full bg-[#294aad]" />
+                                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#3157b7]" />
                               )}
                             </div>
 
-                            <p className="mt-1 text-xs leading-5 text-[#71809a]">
+                            <p className="mt-1 line-clamp-2 text-[11px] leading-[1.45] text-[#738099]">
                               {item.message}
                             </p>
 
@@ -430,7 +431,7 @@ function NotificationCenter({
                                 )}
                               </span>
 
-                              <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-[#294aad]">
+                              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#7d899c] opacity-0 transition group-hover:opacity-100">
                                 <Eye
                                   size={12}
                                 />
@@ -450,11 +451,11 @@ function NotificationCenter({
       )}
 
       {selected && (
-        <div className="fixed inset-0 z-[140] flex items-end justify-center bg-[#071333]/60 p-3 backdrop-blur-sm sm:items-center sm:p-5">
-          <div className="w-full max-w-lg overflow-hidden rounded-[26px] bg-white shadow-[0_30px_90px_rgba(8,24,70,0.30)]">
-            <div className="flex items-start justify-between gap-3 bg-gradient-to-r from-[#10245f] to-[#294aad] p-5 text-white">
+        <div className="fixed inset-0 z-[140] flex items-end justify-center bg-[#111a2d]/42 p-3 backdrop-blur-[5px] sm:items-center sm:p-5">
+          <div className="w-full max-w-lg overflow-hidden rounded-[22px] border border-[#dfe5ee] bg-white shadow-[0_28px_80px_rgba(8,24,70,0.24)]">
+            <div className="flex items-start justify-between gap-3 border-b border-[#edf0f5] bg-white px-5 py-4">
               <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.14em] text-blue-100/65">
+                <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#9aa5b5]">
                   {isReversionNotification(
                     selected
                   )
@@ -466,7 +467,7 @@ function NotificationCenter({
                       : "Payment Transaction"}
                 </p>
 
-                <h3 className="mt-1 text-xl font-black">
+                <h3 className="mt-1 text-xl font-black text-[#17213b]">
                   {selected.title ||
                     (isReversionNotification(
                       selected
@@ -475,7 +476,7 @@ function NotificationCenter({
                       : "Payment received")}
                 </h3>
 
-                <p className="mt-1 text-sm text-blue-100/75">
+                <p className="mt-1 text-xs font-semibold text-[#7d899c]">
                   {selected.serverName ||
                     "Splitter workspace"}
                 </p>
@@ -488,7 +489,7 @@ function NotificationCenter({
                     null
                   )
                 }
-                className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/12"
+                className="flex h-9 w-9 items-center justify-center rounded-[11px] border border-[#e1e6ef] bg-[#f8fafc] text-[#66758e] transition hover:bg-[#f1f4f8]"
               >
                 <X
                   size={19}
@@ -497,7 +498,7 @@ function NotificationCenter({
             </div>
 
             <div className="max-h-[72vh] overflow-y-auto p-5">
-              <div className="rounded-2xl bg-[#eef3ff] p-4">
+              <div className="rounded-[16px] border border-[#e3e8f1] bg-[#fafbfe] p-4">
                 <p className="text-xs font-bold uppercase tracking-[0.1em] text-[#71809a]">
                   {isReversionNotification(
                     selected
@@ -513,7 +514,7 @@ function NotificationCenter({
                       ? "Your share"
                       : "Amount received"}
                 </p>
-                <p className="mt-1 text-3xl font-black text-[#142a76]">
+                <p className="mt-1 text-2xl font-black text-[#1d356f]">
                   ₱
                   {money(
                     selected.amount
