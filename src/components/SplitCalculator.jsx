@@ -40,8 +40,21 @@ const normalizeName = (name = "") =>
     .replace(/\s+/g, " ")
     .toLowerCase();
 
+const normalizeEmail = (email = "") =>
+  String(email)
+    .trim()
+    .toLowerCase();
+
+const normalizeUsername = (username = "") =>
+  String(username)
+    .trim()
+    .replace(/^@/, "")
+    .toLowerCase();
+
 function SplitCalculator({
   people = [],
+  currentUser = null,
+  currentServerUsername = "",
   onAddPerson,
   onDeletePerson,
   onSave,
@@ -66,6 +79,21 @@ function SplitCalculator({
 
   const [payerKey, setPayerKey] =
     useState("");
+
+  const [
+    coveredByMe,
+    setCoveredByMe,
+  ] = useState(null);
+
+  const [
+    selfIncludedChoice,
+    setSelfIncludedChoice,
+  ] = useState(null);
+
+  const [
+    newCoverer,
+    setNewCoverer,
+  ] = useState("");
 
   const [selectedKeys, setSelectedKeys] =
     useState([]);
@@ -117,6 +145,91 @@ function SplitCalculator({
       return map;
     }, [people]);
 
+  const currentPerson =
+    useMemo(() => {
+      const currentUid =
+        currentUser?.uid ||
+        "";
+
+      const currentEmail =
+        normalizeEmail(
+          currentUser?.email ||
+            ""
+        );
+
+      const currentUsername =
+        normalizeUsername(
+          currentServerUsername ||
+            ""
+        );
+
+      return (
+        people.find(
+          (person) =>
+            currentUid &&
+            person.linkedUid ===
+              currentUid
+        ) ||
+        people.find(
+          (person) =>
+            currentEmail &&
+            normalizeEmail(
+              person.linkedEmail ||
+                ""
+            ) ===
+              currentEmail
+        ) ||
+        people.find(
+          (person) =>
+            currentUsername &&
+            normalizeUsername(
+              person.username ||
+                person.name ||
+                ""
+            ) ===
+              currentUsername
+        ) ||
+        null
+      );
+    }, [
+      people,
+      currentUser?.uid,
+      currentUser?.email,
+      currentServerUsername,
+    ]);
+
+  const currentPersonKey =
+    currentPerson
+      ? personKey(
+          currentPerson
+        )
+      : "";
+
+  const includeMe =
+    Boolean(
+      currentPersonKey &&
+      selectedKeys.includes(
+        currentPersonKey
+      )
+    );
+
+  const selectablePeople =
+    useMemo(
+      () =>
+        people.filter(
+          (person) =>
+            !currentPersonKey ||
+            personKey(
+              person
+            ) !==
+              currentPersonKey
+        ),
+      [
+        people,
+        currentPersonKey,
+      ]
+    );
+
   useEffect(() => {
     if (!editingSplit) {
       return;
@@ -155,8 +268,21 @@ function SplitCalculator({
         );
 
       if (match) {
+        const key =
+          personKey(
+            match
+          );
+
         setPayerKey(
-          personKey(match)
+          key
+        );
+
+        setCoveredByMe(
+          Boolean(
+            currentPersonKey &&
+            key ===
+              currentPersonKey
+          )
         );
       }
     }
@@ -196,6 +322,16 @@ function SplitCalculator({
       );
 
     setSelectedKeys(keys);
+
+    if (
+      currentPersonKey
+    ) {
+      setSelfIncludedChoice(
+        keys.includes(
+          currentPersonKey
+        )
+      );
+    }
 
     const savedSplitMode =
       editingSplit.splitMode ||
@@ -303,6 +439,9 @@ function SplitCalculator({
     setDescription("");
     setCategory("Food");
     setPayerKey("");
+    setCoveredByMe(null);
+    setSelfIncludedChoice(null);
+    setNewCoverer("");
     setSelectedKeys([]);
     setSplitMode("equal");
     setPercentages({});
@@ -362,6 +501,17 @@ function SplitCalculator({
       }
     );
   };
+
+  const toggleIncludeMe =
+    () => {
+      if (
+        currentPersonKey
+      ) {
+        toggleParticipant(
+          currentPersonKey
+        );
+      }
+    };
 
   const distributeEqually =
     () => {
@@ -707,6 +857,46 @@ function SplitCalculator({
       }
     };
 
+  const addCoverer =
+    async () => {
+      const clean =
+        newCoverer
+          .trim()
+          .replace(
+            /\s+/g,
+            " "
+          );
+
+      if (!clean) {
+        await warning(
+          "Name Required",
+          "Enter the name of the person who covered the expense."
+        );
+        return;
+      }
+
+      const created =
+        await onAddPerson?.(
+          clean
+        );
+
+      if (created) {
+        setPayerKey(
+          personKey(
+            created
+          )
+        );
+
+        setCoveredByMe(
+          false
+        );
+
+        setNewCoverer(
+          ""
+        );
+      }
+    };
+
   const addPerson =
     async () => {
       const clean =
@@ -786,10 +976,35 @@ function SplitCalculator({
         return;
       }
 
-      if (!payerKey) {
+      if (
+        coveredByMe ===
+          null
+      ) {
         await warning(
           "Who Covered?",
-          "Choose the person who covered the expense."
+          "Choose whether you covered this expense."
+        );
+        return;
+      }
+
+      if (!payerKey) {
+        await warning(
+          "Coverer Required",
+          coveredByMe
+            ? "Your workspace profile could not be matched. Please refresh and try again."
+            : "Choose or add the person who covered the expense."
+        );
+        return;
+      }
+
+      if (
+        currentPerson &&
+        selfIncludedChoice ===
+          null
+      ) {
+        await warning(
+          "Include Yourself?",
+          "Choose whether you are included in this split."
         );
         return;
       }
@@ -1118,45 +1333,351 @@ function SplitCalculator({
               Who Covered?
             </label>
 
-            <select
-              value={
-                payerKey
-              }
-              onChange={(
-                event
-              ) =>
-                setPayerKey(
-                  event.target
-                    .value
-                )
-              }
-              className="app-input"
-            >
-              <option value="">
-                Select person
-              </option>
+            <div className="rounded-2xl border border-[#dce3ef] bg-[#f8faff] p-4">
+              <p className="text-sm font-extrabold text-[#182442]">
+                Did you cover this expense?
+              </p>
 
-              {people.map(
-                (person) => (
-                  <option
-                    key={
-                      personKey(
-                        person
+              <p className="mt-1 text-xs leading-5 text-[#8995aa]">
+                Choose Yes if you paid for it. Choose No if another person covered it.
+              </p>
+
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCoveredByMe(
+                      true
+                    );
+
+                    setPayerKey(
+                      currentPersonKey
+                    );
+                  }}
+                  disabled={
+                    !currentPersonKey
+                  }
+                  className={`min-h-11 rounded-xl border px-4 text-sm font-extrabold transition ${
+                    coveredByMe ===
+                    true
+                      ? "border-[#294aad] bg-[#e4ebff] text-[#142a76]"
+                      : "border-[#dce3ef] bg-white text-[#71809a]"
+                  } disabled:cursor-not-allowed disabled:opacity-50`}
+                >
+                  Yes, I covered it
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCoveredByMe(
+                      false
+                    );
+
+                    if (
+                      payerKey ===
+                      currentPersonKey
+                    ) {
+                      setPayerKey(
+                        ""
+                      );
+                    }
+                  }}
+                  className={`min-h-11 rounded-xl border px-4 text-sm font-extrabold transition ${
+                    coveredByMe ===
+                    false
+                      ? "border-[#294aad] bg-[#e4ebff] text-[#142a76]"
+                      : "border-[#dce3ef] bg-white text-[#71809a]"
+                  }`}
+                >
+                  No, someone else did
+                </button>
+              </div>
+
+              {coveredByMe ===
+                true &&
+                currentPerson && (
+                <div className="mt-4 flex items-center gap-3 rounded-xl border border-[#cfdaf1] bg-white p-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#eef3ff] text-sm font-black text-[#294aad]">
+                    {currentPerson.photoURL ? (
+                      <img
+                        src={
+                          currentPerson.photoURL
+                        }
+                        alt=""
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      String(
+                        currentPerson.name ||
+                          "?"
                       )
-                    }
-                    value={
-                      personKey(
-                        person
-                      )
-                    }
-                  >
-                    {
-                      person.name
-                    }
-                  </option>
-                )
+                        .charAt(0)
+                        .toUpperCase()
+                    )}
+                  </div>
+
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-extrabold text-[#182442]">
+                      {
+                        currentPerson.name
+                      }
+                    </p>
+
+                    <p className="mt-0.5 text-[11px] text-[#8995aa]">
+                      You are recorded as the coverer.
+                    </p>
+                  </div>
+                </div>
               )}
-            </select>
+
+              {coveredByMe ===
+                false && (
+                <div className="mt-4 space-y-3 border-t border-[#e1e7f0] pt-4">
+                  <div>
+                    <label className="mb-2 block text-xs font-black uppercase tracking-[0.1em] text-[#71809a]">
+                      Select Existing Person
+                    </label>
+
+                    <select
+                      value={
+                        payerKey
+                      }
+                      onChange={(
+                        event
+                      ) =>
+                        setPayerKey(
+                          event.target
+                            .value
+                        )
+                      }
+                      className="app-input"
+                    >
+                      <option value="">
+                        Select who covered
+                      </option>
+
+                      {selectablePeople.map(
+                        (
+                          person
+                        ) => (
+                          <option
+                            key={
+                              personKey(
+                                person
+                              )
+                            }
+                            value={
+                              personKey(
+                                person
+                              )
+                            }
+                          >
+                            {
+                              person.name
+                            }
+                          </option>
+                        )
+                      )}
+                    </select>
+                  </div>
+
+                  <div className="rounded-xl border border-dashed border-[#cfdaf1] bg-white p-3">
+                    <p className="text-xs font-extrabold text-[#52617d]">
+                      Not yet in Saved People?
+                    </p>
+
+                    <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+                      <input
+                        value={
+                          newCoverer
+                        }
+                        onChange={(
+                          event
+                        ) =>
+                          setNewCoverer(
+                            event.target
+                              .value
+                          )
+                        }
+                        placeholder="Enter coverer's name"
+                        className="app-input min-w-0 flex-1"
+                      />
+
+                      <button
+                        type="button"
+                        onClick={
+                          addCoverer
+                        }
+                        className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-[#142a76] px-4 text-sm font-extrabold text-white"
+                      >
+                        <Plus
+                          size={16}
+                        />
+                        Add Coverer
+                      </button>
+                    </div>
+
+                    <p className="mt-2 text-[11px] leading-5 text-[#8995aa]">
+                      This person will be saved in Saved People for future expenses, but will not automatically be included as a participant.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {coveredByMe !==
+                null &&
+                currentPerson && (
+                <div className="mt-4 border-t border-[#e1e7f0] pt-4">
+                  <p className="text-sm font-extrabold text-[#182442]">
+                    Are you included in this split?
+                  </p>
+
+                  <p className="mt-1 text-xs leading-5 text-[#8995aa]">
+                    This is separate from who paid. You can cover the expense without sharing it, or be included even if someone else paid.
+                  </p>
+
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelfIncludedChoice(
+                          true
+                        );
+
+                        if (
+                          !includeMe
+                        ) {
+                          toggleIncludeMe();
+                        }
+                      }}
+                      className={`min-h-11 rounded-xl border px-4 text-sm font-extrabold transition ${
+                        selfIncludedChoice ===
+                        true
+                          ? "border-[#18845c] bg-[#e7f7ef] text-[#146c4c]"
+                          : "border-[#dce3ef] bg-white text-[#71809a]"
+                      }`}
+                    >
+                      Yes, include me
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelfIncludedChoice(
+                          false
+                        );
+
+                        if (
+                          includeMe
+                        ) {
+                          toggleIncludeMe();
+                        }
+                      }}
+                      className={`min-h-11 rounded-xl border px-4 text-sm font-extrabold transition ${
+                        selfIncludedChoice ===
+                        false
+                          ? "border-[#294aad] bg-[#e4ebff] text-[#142a76]"
+                          : "border-[#dce3ef] bg-white text-[#71809a]"
+                      }`}
+                    >
+                      No, exclude me
+                    </button>
+                  </div>
+
+                  <div className={`mt-3 flex items-center gap-3 rounded-xl border p-3 ${
+                    includeMe
+                      ? "border-[#ccecdf] bg-[#f4fbf8]"
+                      : "border-[#e2e7ef] bg-white"
+                  }`}>
+                    <div className={`flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl ${
+                      includeMe
+                        ? "bg-[#18845c] text-white"
+                        : "bg-[#edf1f7] text-[#71809a]"
+                    }`}>
+                      {includeMe ? (
+                        <Check
+                          size={16}
+                        />
+                      ) : currentPerson.photoURL ? (
+                        <img
+                          src={
+                            currentPerson.photoURL
+                          }
+                          alt=""
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        String(
+                          currentPerson.name ||
+                            "?"
+                        )
+                          .charAt(0)
+                          .toUpperCase()
+                      )}
+                    </div>
+
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-extrabold text-[#182442]">
+                        {
+                          currentPerson.name
+                        }
+                      </p>
+
+                      <p className="mt-0.5 text-[11px] text-[#8995aa]">
+                        {includeMe
+                          ? "Included as a participant in this split."
+                          : "Not included as a participant."}
+                      </p>
+                    </div>
+                  </div>
+
+                  {includeMe &&
+                    splitMode ===
+                      "percentage" && (
+                    <div className="mt-3 flex items-center justify-end gap-2 rounded-xl bg-white p-3">
+                      <span className="text-xs font-bold text-[#71809a]">
+                        Your percentage
+                      </span>
+
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          step="0.01"
+                          value={
+                            percentages[
+                              currentPersonKey
+                            ] ??
+                            ""
+                          }
+                          onChange={(
+                            event
+                          ) =>
+                            setPercentages(
+                              (
+                                current
+                              ) => ({
+                                ...current,
+                                [currentPersonKey]:
+                                  event.target
+                                    .value,
+                              })
+                            )
+                          }
+                          className="h-10 w-20 rounded-xl border border-[#dce3ef] bg-white px-2 text-right text-sm font-bold text-[#182442] outline-none"
+                        />
+
+                        <span className="text-xs font-bold text-[#71809a]">
+                          %
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
           <div>
@@ -1370,7 +1891,11 @@ function SplitCalculator({
                   </p>
 
                   <p className="mt-1 text-xs text-[#8995aa]">
-                    {uniqueKeys(selectedKeys).length} selected · {people.length} added
+                    {uniqueKeys(selectedKeys).filter(
+                      (key) =>
+                        key !==
+                        currentPersonKey
+                    ).length} selected · {selectablePeople.length} available
                   </p>
                 </div>
               </div>
@@ -1388,13 +1913,13 @@ function SplitCalculator({
 
             {showSavedPeople && (
               <div className="space-y-2 border-t border-[#e3e8f0] p-4">
-                {people.length ===
+                {selectablePeople.length ===
                 0 ? (
                   <p className="text-sm text-[#8995aa]">
-                    No saved people yet.
+                    No other saved people yet.
                   </p>
                 ) : (
-                  people.map(
+                  selectablePeople.map(
                     (person) => {
                       const key =
                         personKey(

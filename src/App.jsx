@@ -2320,30 +2320,183 @@ function App() {
           true
         );
 
-        await addDoc(
-          collection(
-            db,
-            "servers",
-            activeServer.id,
-            "splits"
-          ),
-          {
-            ...data,
+        const splitRef =
+          await addDoc(
+            collection(
+              db,
+              "servers",
+              activeServer.id,
+              "splits"
+            ),
+            {
+              ...data,
 
-            createdByUid:
-              user.uid,
+              createdByUid:
+                user.uid,
 
-            createdByEmail:
-              user.email ||
-              "",
+              createdByEmail:
+                user.email ||
+                "",
 
-            createdByUsername:
-              profile?.username ||
-              "",
+              createdByUsername:
+                profile?.username ||
+                "",
 
-            createdAt:
-              serverTimestamp(),
-          }
+              createdAt:
+                serverTimestamp(),
+            }
+          );
+
+        // Notify every REGISTERED participant included in this split.
+        // Manual saved people do not have linkedUid, so there is no
+        // account notification destination for them.
+        const registeredParticipants =
+          Array.isArray(
+            data?.participants
+          )
+            ? data.participants.filter(
+                (participant) =>
+                  Boolean(
+                    participant?.linkedUid
+                  ) &&
+                  participant.linkedUid !==
+                    user.uid
+              )
+            : [];
+
+        const uniqueRecipients =
+          [
+            ...new Map(
+              registeredParticipants.map(
+                (participant) => [
+                  participant.linkedUid,
+                  participant,
+                ]
+              )
+            ).values(),
+          ];
+
+        const creatorName =
+          profile?.username ||
+          profile?.displayName ||
+          user?.displayName ||
+          user?.email ||
+          "A workspace member";
+
+        const notificationWrites =
+          uniqueRecipients.map(
+            async (participant) => {
+              const participantAmount =
+                Number(
+                  participant?.amount ||
+                    0
+                );
+
+              try {
+                await addDoc(
+                  collection(
+                    db,
+                    "users",
+                    participant.linkedUid,
+                    "notifications"
+                  ),
+                  {
+                    type:
+                      "split_added",
+
+                    title:
+                      "Added to a split",
+
+                    message:
+                      `${creatorName} added you to “${
+                        data?.description ||
+                        "Shared expense"
+                      }”${
+                        participantAmount >
+                        0
+                          ? ` for ₱${participantAmount.toLocaleString(
+                              "en-PH",
+                              {
+                                minimumFractionDigits:
+                                  2,
+                                maximumFractionDigits:
+                                  2,
+                              }
+                            )}`
+                          : ""
+                      }.`,
+
+                    read:
+                      false,
+
+                    recipientUid:
+                      participant.linkedUid,
+
+                    senderUid:
+                      user.uid,
+
+                    senderName:
+                      creatorName,
+
+                    senderEmail:
+                      user.email ||
+                      "",
+
+                    serverId:
+                      activeServer.id,
+
+                    serverName:
+                      activeServer.name ||
+                      "Splitter workspace",
+
+                    splitId:
+                      splitRef.id,
+
+                    amount:
+                      participantAmount,
+
+                    totalAmount:
+                      Number(
+                        data?.totalAmount ||
+                          0
+                      ),
+
+                    description:
+                      data?.description ||
+                      "Shared expense",
+
+                    category:
+                      data?.category ||
+                      "Other",
+
+                    splitMode:
+                      data?.splitMode ||
+                      "equal",
+
+                    payerName:
+                      data?.payer?.name ||
+                      "",
+
+                    createdAt:
+                      serverTimestamp(),
+                  }
+                );
+              } catch (
+                notificationError
+              ) {
+                // The expense itself is already saved. A notification
+                // failure should not roll back the split.
+                console.error(
+                  "Split notification error:",
+                  participant.linkedUid,
+                  notificationError
+                );
+              }
+            }
+          );
+
+        await Promise.all(
+          notificationWrites
         );
 
         await fetchSplits();
@@ -4854,6 +5007,12 @@ function App() {
           <SplitCalculator
             people={
               serverPeople
+            }
+            currentUser={
+              user
+            }
+            currentServerUsername={
+              serverUsername
             }
             onAddPerson={
               addServerPerson

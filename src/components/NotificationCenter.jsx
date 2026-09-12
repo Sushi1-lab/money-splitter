@@ -46,6 +46,11 @@ const isBalanceReductionRevert =
     item?.type ===
     "balance_reduction_reverted";
 
+const isSplitAddedNotification =
+  (item) =>
+    item?.type ===
+    "split_added";
+
 const formatTime = (value) => {
   const date =
     typeof value?.toDate === "function"
@@ -390,7 +395,11 @@ function NotificationCenter({
                                 item
                               )
                                 ? "bg-[#fff4d9] text-[#b78114]"
-                                : "bg-[#e7f7ef] text-[#18845c]"
+                                : isSplitAddedNotification(
+                                    item
+                                  )
+                                  ? "bg-[#eef3ff] text-[#294aad]"
+                                  : "bg-[#e7f7ef] text-[#18845c]"
                             }`}
                           >
                             <ReceiptText
@@ -450,7 +459,11 @@ function NotificationCenter({
                     selected
                   )
                     ? "Balance Update"
-                    : "Payment Transaction"}
+                    : isSplitAddedNotification(
+                        selected
+                      )
+                      ? "Split Activity"
+                      : "Payment Transaction"}
                 </p>
 
                 <h3 className="mt-1 text-xl font-black">
@@ -494,7 +507,11 @@ function NotificationCenter({
                       )
                       ? "Reduction restored"
                       : "Payment reverted"
-                    : "Amount received"}
+                    : isSplitAddedNotification(
+                        selected
+                      )
+                      ? "Your share"
+                      : "Amount received"}
                 </p>
                 <p className="mt-1 text-3xl font-black text-[#142a76]">
                   ₱
@@ -508,7 +525,11 @@ function NotificationCenter({
                     selected
                   )
                     ? "Changed by"
-                    : "From"}{" "}
+                    : isSplitAddedNotification(
+                        selected
+                      )
+                      ? "Added by"
+                      : "From"}{" "}
                   <span className="text-[#182442]">
                     {selected.senderName ||
                       selected.senderEmail ||
@@ -533,6 +554,43 @@ function NotificationCenter({
                   </div>
                 )}
               </div>
+
+              {isSplitAddedNotification(
+                selected
+              ) && (
+                <div className="mt-4 rounded-2xl border border-[#e2e7ef] bg-[#fafbfe] p-4">
+                  <p className="text-[10px] font-black uppercase tracking-[0.1em] text-[#8995aa]">
+                    Expense
+                  </p>
+
+                  <p className="mt-1 text-sm font-black text-[#182442]">
+                    {selected.description ||
+                      "Shared expense"}
+                  </p>
+
+                  <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
+                    <div>
+                      <p className="text-[#8995aa]">
+                        Category
+                      </p>
+                      <p className="mt-0.5 font-extrabold text-[#52617d]">
+                        {selected.category ||
+                          "Other"}
+                      </p>
+                    </div>
+
+                    <div>
+                      <p className="text-[#8995aa]">
+                        Covered by
+                      </p>
+                      <p className="mt-0.5 font-extrabold text-[#52617d]">
+                        {selected.payerName ||
+                          "Workspace member"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {Array.isArray(
                 selected.splitDetails
