@@ -151,7 +151,7 @@ const getFinancialCardTheme = (
       brand:
         "BDO",
       logo:
-        "/bank-logos/bdo.png",
+        "/bank-logos/bdo.svg",
       background:
         "linear-gradient(135deg, #0b4fb0 0%, #0866dc 48%, #0a2f76 100%)",
       accent:
