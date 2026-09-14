@@ -3254,28 +3254,10 @@ function App() {
         //
         // Replacing settledAmount with only ₱452.50 would make the
         // reduced portion appear active again.
-        // Read the latest settlement directly from Firestore.
-        // Do not rely only on React state here because the user may click
-        // "Paid" immediately after "Reduce Balances" before the local
-        // settlements state has finished refreshing.
-        const settlementRef =
-          doc(
-            db,
-            "servers",
-            activeServer.id,
-            "settlements",
-            id
-          );
-
-        const latestSettlementSnap =
-          await getDoc(
-            settlementRef
-          );
-
         const existingSettlement =
-          latestSettlementSnap.exists()
-            ? latestSettlementSnap.data()
-            : {};
+          settlements[
+            id
+          ] || {};
 
         const previousSettledAmount =
           Number(
@@ -3290,36 +3272,9 @@ function App() {
               0
           );
 
-        const rawDebtTotalFromProof =
-          Array.isArray(
-            paymentProof?.splitDetails
-          )
-            ? paymentProof.splitDetails.reduce(
-                (
-                  sum,
-                  item
-                ) =>
-                  sum +
-                  Number(
-                    item?.amount ||
-                      0
-                  ),
-                0
-              )
-            : 0;
-
-        const uncappedNextSettledAmount =
+        const nextSettledAmount =
           previousSettledAmount +
           realPaymentAmount;
-
-        const nextSettledAmount =
-          rawDebtTotalFromProof >
-          0
-            ? Math.min(
-                uncappedNextSettledAmount,
-                rawDebtTotalFromProof
-              )
-            : uncappedNextSettledAmount;
 
         const previousPaymentAmount =
           Number(
@@ -3331,7 +3286,13 @@ function App() {
           );
 
         await setDoc(
-          settlementRef,
+          doc(
+            db,
+            "servers",
+            activeServer.id,
+            "settlements",
+            id
+          ),
           {
             debtorKey:
               normalizeName(
