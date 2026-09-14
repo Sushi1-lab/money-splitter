@@ -1338,9 +1338,6 @@ function PersonTotals({
 
                             const canOffset =
                               !creditor.simplified &&
-                              isCurrentPerson(
-                                entry.person
-                              ) &&
                               reciprocalDebt &&
                               creditor.outstanding >
                                 0.009 &&
@@ -1467,13 +1464,9 @@ function PersonTotals({
                                     </p>
 
                                     <p className="mt-1 text-xs leading-5 text-[#71809a]">
-                                      Pay ₱{money(
+                                      Reduce the matching ₱{money(
                                         mutualPayAmount
-                                      )} now. Your balance to {creditor.person.name} will become ₱{money(
-                                        myRemainingAfterOffset
-                                      )}, and {creditor.person.name}'s balance to you will become ₱{money(
-                                        offsetRemaining
-                                      )}.
+                                      )} from both sides. No payment proof is needed for this action.
                                     </p>
                                   </div>
                                 )}
@@ -1541,13 +1534,38 @@ function PersonTotals({
                                           amount:
                                             mutualPayAmount,
                                           forwardCurrentSettled:
-                                            creditor.settled,
+                                            Number(
+                                              creditor.settled ||
+                                                0
+                                            ),
                                           reverseCurrentSettled:
-                                            reciprocalDebt.settled,
+                                            Number(
+                                              reciprocalDebt.settled ||
+                                                0
+                                            ),
                                           reciprocalOutstanding:
-                                            reciprocalDebt.outstanding,
-                                          offsetRemaining,
-                                          myRemainingAfterOffset,
+                                            Number(
+                                              reciprocalDebt.outstanding ||
+                                                0
+                                            ),
+                                          offsetRemaining:
+                                            Math.max(
+                                              Number(
+                                                reciprocalDebt.outstanding ||
+                                                  0
+                                              ) -
+                                                mutualPayAmount,
+                                              0
+                                            ),
+                                          myRemainingAfterOffset:
+                                            Math.max(
+                                              Number(
+                                                creditor.outstanding ||
+                                                  0
+                                              ) -
+                                                mutualPayAmount,
+                                              0
+                                            ),
                                           creditorUid:
                                             creditor.person?.linkedUid ||
                                             "",
