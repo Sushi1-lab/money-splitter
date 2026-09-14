@@ -22,8 +22,6 @@ function PersonTotals({
   onMarkNetPaid,
   onOffsetMutualDebt,
   currentUser,
-  currentProfile = null,
-  currentServerUsername = "",
   onViewWallet,
   paymentLoading,
   getSettlementId,
@@ -54,76 +52,445 @@ function PersonTotals({
     setPaymentProofPreview("");
   };
 
-  const compressPaymentProof = async (file) => {
-    if (!file?.type?.startsWith("image/")) {
-      throw new Error("Please choose an image screenshot.");
-    }
+  const readFileAsDataUrl =
+    (file) =>
+      new Promise(
+        (
+          resolve,
+          reject
+        ) => {
+          const reader =
+            new FileReader();
 
-    const dataUrl = await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
+          reader.onload =
+            () =>
+              resolve(
+                reader.result
+              );
 
-    const image = await new Promise((resolve, reject) => {
-      const img = new Image();
-      img.onload = () => resolve(img);
-      img.onerror = reject;
-      img.src = dataUrl;
-    });
+          reader.onerror =
+            () =>
+              reject(
+                new Error(
+                  "Unable to read this image."
+                )
+              );
 
-    const maxDimension = 1280;
-    const ratio = Math.min(
-      1,
-      maxDimension / Math.max(image.width, image.height)
-    );
-
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.max(1, Math.round(image.width * ratio));
-    canvas.height = Math.max(1, Math.round(image.height * ratio));
-
-    const context = canvas.getContext("2d");
-    context.drawImage(image, 0, 0, canvas.width, canvas.height);
-
-    let quality = 0.78;
-    let compressed = canvas.toDataURL("image/jpeg", quality);
-
-    while (compressed.length > 520000 && quality > 0.42) {
-      quality -= 0.08;
-      compressed = canvas.toDataURL("image/jpeg", quality);
-    }
-
-    if (compressed.length > 700000) {
-      throw new Error(
-        "The screenshot is still too large. Please crop it and try again."
+          reader.readAsDataURL(
+            file
+          );
+        }
       );
-    }
 
-    return {
-      dataUrl: compressed,
-      name: file.name || "payment-proof.jpg",
-      type: "image/jpeg",
+  const loadProofImage =
+    async (
+      file,
+      dataUrl
+    ) => {
+      // createImageBitmap is generally more reliable on mobile browsers.
+      if (
+        typeof createImageBitmap ===
+        "function"
+      ) {
+        try {
+          const bitmap =
+            await createImageBitmap(
+              file
+            );
+
+          return {
+            source:
+              bitmap,
+            width:
+              bitmap.width,
+            height:
+              bitmap.height,
+            close:
+              () =>
+                bitmap.close?.(),
+          };
+        } catch {
+          // Fall through to the Image element fallback.
+        }
+      }
+
+      return new Promise(
+        (
+          resolve,
+          reject
+        ) => {
+          const img =
+            new Image();
+
+          img.onload =
+            () =>
+              resolve({
+                source:
+                  img,
+                width:
+                  img.naturalWidth ||
+                  img.width,
+                height:
+                  img.naturalHeight ||
+                  img.height,
+                close:
+                  () => {},
+              });
+
+          img.onerror =
+            () =>
+              reject(
+                new Error(
+                  "This image format could not be opened. On iPhone, please use a screenshot or choose a JPG/PNG image."
+                )
+              );
+
+          img.src =
+            dataUrl;
+        }
+      );
     };
-  };
 
-  const handlePaymentProofFile = async (file) => {
-    if (!file) return;
+  const compressPaymentProof =
+    async (
+      file
+    ) => {
+      if (!file) {
+        throw new Error(
+          "Choose a payment screenshot first."
+        );
+      }
 
-    try {
-      setProofProcessing(true);
-      const compressed = await compressPaymentProof(file);
-      setPaymentProof(compressed);
-      setPaymentProofPreview(compressed.dataUrl);
-    } catch (err) {
-      console.error("Payment proof error:", err);
-      window.alert(
-        err?.message || "Unable to prepare this screenshot."
-      );
-    } finally {
-      setProofProcessing(false);
-    }
-  };
+      const fileName =
+        String(
+          file.name ||
+            ""
+        ).toLowerCase();
+
+      const imageByExtension =
+        /\.(png|jpe?g|webp|heic|heif)$/i.test(
+          fileName
+        );
+
+      const imageByMime =
+        !file.type ||
+        file.type.startsWith(
+          "image/"
+        );
+
+      if (
+        !imageByMime &&
+        !imageByExtension
+      ) {
+        throw new Error(
+          "Please choose an image screenshot."
+        );
+      }
+
+      // Avoid very large phone photos before doing any canvas work.
+      const maxOriginalBytes =
+        15 *
+        1024 *
+        1024;
+
+      if (
+        file.size >
+        maxOriginalBytes
+      ) {
+        throw new Error(
+          "This image is too large. Please use a screenshot or an image smaller than 15 MB."
+        );
+      }
+
+      const originalDataUrl =
+        await readFileAsDataUrl(
+          file
+        );
+
+      let decoded;
+
+      try {
+        decoded =
+          await loadProofImage(
+            file,
+            originalDataUrl
+          );
+      } catch (
+        decodeError
+      ) {
+        // If the browser cannot decode the file but it is already small
+        // enough, keep the original instead of blocking the payment.
+        if (
+          originalDataUrl.length <=
+          650000
+        ) {
+          return {
+            dataUrl:
+              originalDataUrl,
+            name:
+              file.name ||
+              "payment-proof",
+            type:
+              file.type ||
+              "image/*",
+          };
+        }
+
+        throw decodeError;
+      }
+
+      try {
+        const maxDimension =
+          1280;
+
+        const ratio =
+          Math.min(
+            1,
+            maxDimension /
+              Math.max(
+                decoded.width,
+                decoded.height
+              )
+          );
+
+        const canvas =
+          document.createElement(
+            "canvas"
+          );
+
+        canvas.width =
+          Math.max(
+            1,
+            Math.round(
+              decoded.width *
+                ratio
+            )
+          );
+
+        canvas.height =
+          Math.max(
+            1,
+            Math.round(
+              decoded.height *
+                ratio
+            )
+          );
+
+        const context =
+          canvas.getContext(
+            "2d",
+            {
+              alpha:
+                false,
+            }
+          );
+
+        if (!context) {
+          throw new Error(
+            "Unable to prepare the image on this device."
+          );
+        }
+
+        // White background avoids black/transparent PNG results
+        // after conversion to JPEG.
+        context.fillStyle =
+          "#ffffff";
+
+        context.fillRect(
+          0,
+          0,
+          canvas.width,
+          canvas.height
+        );
+
+        context.drawImage(
+          decoded.source,
+          0,
+          0,
+          canvas.width,
+          canvas.height
+        );
+
+        let quality =
+          0.82;
+
+        let compressed =
+          canvas.toDataURL(
+            "image/jpeg",
+            quality
+          );
+
+        while (
+          compressed.length >
+            520000 &&
+          quality >
+            0.38
+        ) {
+          quality -=
+            0.07;
+
+          compressed =
+            canvas.toDataURL(
+              "image/jpeg",
+              quality
+            );
+        }
+
+        // If quality reduction is not enough, reduce dimensions once more.
+        if (
+          compressed.length >
+          650000
+        ) {
+          const secondCanvas =
+            document.createElement(
+              "canvas"
+            );
+
+          secondCanvas.width =
+            Math.max(
+              1,
+              Math.round(
+                canvas.width *
+                  0.72
+              )
+            );
+
+          secondCanvas.height =
+            Math.max(
+              1,
+              Math.round(
+                canvas.height *
+                  0.72
+              )
+            );
+
+          const secondContext =
+            secondCanvas.getContext(
+              "2d",
+              {
+                alpha:
+                  false,
+              }
+            );
+
+          if (
+            secondContext
+          ) {
+            secondContext.fillStyle =
+              "#ffffff";
+
+            secondContext.fillRect(
+              0,
+              0,
+              secondCanvas.width,
+              secondCanvas.height
+            );
+
+            secondContext.drawImage(
+              canvas,
+              0,
+              0,
+              secondCanvas.width,
+              secondCanvas.height
+            );
+
+            compressed =
+              secondCanvas.toDataURL(
+                "image/jpeg",
+                0.62
+              );
+          }
+        }
+
+        if (
+          compressed.length >
+          700000
+        ) {
+          throw new Error(
+            "The screenshot is still too large. Please crop it or take a new screenshot and try again."
+          );
+        }
+
+        return {
+          dataUrl:
+            compressed,
+          name:
+            (
+              file.name ||
+              "payment-proof"
+            ).replace(
+              /\.[^.]+$/,
+              ""
+            ) +
+            ".jpg",
+          type:
+            "image/jpeg",
+        };
+      } finally {
+        decoded.close?.();
+      }
+    };
+
+  const handlePaymentProofFile =
+    async (
+      file,
+      inputElement = null
+    ) => {
+      if (!file) {
+        return;
+      }
+
+      try {
+        setProofProcessing(
+          true
+        );
+
+        // Clear the old preview first so the user can tell
+        // that a new image is being processed.
+        setPaymentProof(
+          null
+        );
+
+        setPaymentProofPreview(
+          ""
+        );
+
+        const compressed =
+          await compressPaymentProof(
+            file
+          );
+
+        setPaymentProof(
+          compressed
+        );
+
+        setPaymentProofPreview(
+          compressed.dataUrl
+        );
+      } catch (err) {
+        console.error(
+          "Payment proof error:",
+          err
+        );
+
+        window.alert(
+          err?.message ||
+            "Unable to prepare this screenshot."
+        );
+      } finally {
+        setProofProcessing(
+          false
+        );
+
+        // Allows selecting the same image again after a failed attempt.
+        if (
+          inputElement
+        ) {
+          inputElement.value =
+            "";
+        }
+      }
+    };
 
   const submitPaymentProof = async () => {
     if (!paymentRequest || !paymentProof) return;
@@ -723,93 +1090,23 @@ function PersonTotals({
         return false;
       }
 
-      const currentUid =
-        currentUser?.uid ||
-        "";
+      if (
+        currentUser?.uid &&
+        person.linkedUid ===
+          currentUser.uid
+      ) {
+        return true;
+      }
 
-      const currentEmail =
+      if (
+        currentUser?.email &&
+        person.linkedEmail &&
         normalizeEmail(
-          currentUser?.email ||
-            ""
-        );
-
-      const currentUsername =
-        normalizeName(
-          currentServerUsername ||
-            currentProfile?.username ||
-            ""
-        );
-
-      const currentDisplayName =
-        normalizeName(
-          currentProfile?.displayName ||
-            currentUser?.displayName ||
-            ""
-        );
-
-      const personUid =
-        person.linkedUid ||
-        "";
-
-      const personEmail =
-        normalizeEmail(
-          person.linkedEmail ||
-            ""
-        );
-
-      const personUsername =
-        normalizeName(
-          person.username ||
-            ""
-        );
-
-      const personName =
-        normalizeName(
-          person.name ||
-            ""
-        );
-
-      if (
-        currentUid &&
-        personUid &&
-        currentUid ===
-          personUid
-      ) {
-        return true;
-      }
-
-      if (
-        currentEmail &&
-        personEmail &&
-        currentEmail ===
-          personEmail
-      ) {
-        return true;
-      }
-
-      if (
-        currentUsername &&
-        personUsername &&
-        currentUsername ===
-          personUsername
-      ) {
-        return true;
-      }
-
-      if (
-        currentUsername &&
-        personName &&
-        currentUsername ===
-          personName
-      ) {
-        return true;
-      }
-
-      if (
-        currentDisplayName &&
-        personName &&
-        currentDisplayName ===
-          personName
+          person.linkedEmail
+        ) ===
+          normalizeEmail(
+            currentUser.email
+          )
       ) {
         return true;
       }
@@ -906,7 +1203,7 @@ function PersonTotals({
             </p>
 
             <p className="mt-1 text-xs leading-5 text-[#71809a]">
-              Example: if A owes B ₱1,000 and B owes A ₱300, the smaller ₱300 can reduce both balances, leaving only A → B ₱700. No money is transferred.
+              Example: if A owes B ₱1,000 and B owes A ₱300, only A → B ₱700 is shown. This is optional and does not change your original expenses.
             </p>
           </div>
         )}
@@ -1025,52 +1322,56 @@ function PersonTotals({
                                   )
                                 : null;
 
-                            const myDebtAmount =
-                              Number(
-                                creditor.outstanding ||
-                                  0
-                              );
-
-                            const theirDebtAmount =
-                              Number(
-                                reciprocalDebt?.outstanding ||
-                                  0
-                              );
-
                             const mutualPayAmount =
                               reciprocalDebt
                                 ? Math.min(
-                                    myDebtAmount,
-                                    theirDebtAmount
+                                    Number(
+                                      creditor.outstanding ||
+                                        0
+                                    ),
+                                    Number(
+                                      reciprocalDebt.outstanding ||
+                                        0
+                                    )
                                   )
                                 : 0;
 
-                            // Only the person who owes the SMALLER amount
-                            // gets the Reduce Balances option.
                             const canOffset =
                               !creditor.simplified &&
+                              isCurrentPerson(
+                                entry.person
+                              ) &&
                               reciprocalDebt &&
-                              myDebtAmount >
+                              creditor.outstanding >
                                 0.009 &&
-                              theirDebtAmount >
+                              reciprocalDebt.outstanding >
                                 0.009 &&
-                              myDebtAmount <
-                                theirDebtAmount -
-                                  0.009;
+                              mutualPayAmount >
+                                0.009;
 
                             const offsetRemaining =
                               canOffset
                                 ? Math.max(
-                                    theirDebtAmount -
-                                      myDebtAmount,
+                                    Number(
+                                      reciprocalDebt.outstanding ||
+                                        0
+                                    ) -
+                                      mutualPayAmount,
                                     0
                                   )
                                 : 0;
 
                             const myRemainingAfterOffset =
                               canOffset
-                                ? 0
-                                : myDebtAmount;
+                                ? Math.max(
+                                    Number(
+                                      creditor.outstanding ||
+                                        0
+                                    ) -
+                                      mutualPayAmount,
+                                    0
+                                  )
+                                : 0;
 
                             return (
                               <div
@@ -1166,11 +1467,13 @@ function PersonTotals({
                                     </p>
 
                                     <p className="mt-1 text-xs leading-5 text-[#71809a]">
-                                      This is the smaller mutual balance. Reduce ₱{money(
-                                        myDebtAmount
-                                      )} from both sides. {entry.person.name}'s balance becomes ₱0.00, and {creditor.person.name}'s balance becomes ₱{money(
+                                      Pay ₱{money(
+                                        mutualPayAmount
+                                      )} now. Your balance to {creditor.person.name} will become ₱{money(
+                                        myRemainingAfterOffset
+                                      )}, and {creditor.person.name}'s balance to you will become ₱{money(
                                         offsetRemaining
-                                      )}. No money is transferred.
+                                      )}.
                                     </p>
                                   </div>
                                 )}
@@ -1236,7 +1539,7 @@ function PersonTotals({
                                           creditorName:
                                             creditor.person.name,
                                           amount:
-                                            myDebtAmount,
+                                            mutualPayAmount,
                                           forwardCurrentSettled:
                                             creditor.settled,
                                           reverseCurrentSettled:
@@ -1286,7 +1589,7 @@ function PersonTotals({
                                       <GitCompareArrows
                                         size={15}
                                       />
-                                      Reduce Both Balances
+                                      Reduce Balances
                                     </button>
                                   )}
 
@@ -1369,7 +1672,7 @@ function PersonTotals({
 
       {paymentRequest &&
         createPortal(
-          <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-[#071333]/60 p-3 backdrop-blur-sm">
+          <div className="fixed inset-0 z-[2147483647] flex items-center justify-center bg-[#071333]/60 p-3 backdrop-blur-sm">
             <div className="flex max-h-[calc(100dvh-24px)] w-full max-w-lg flex-col overflow-hidden rounded-[26px] bg-white shadow-[0_30px_90px_rgba(8,24,70,0.32)]">
               <div className="shrink-0 flex items-start justify-between gap-4 bg-gradient-to-r from-[#10245f] to-[#294aad] p-5 text-white sm:p-6">
                 <div>
@@ -1406,10 +1709,16 @@ function PersonTotals({
                 <label className="mt-4 block cursor-pointer">
                   <input
                     type="file"
-                    accept="image/*"
+                    accept="image/png,image/jpeg,image/webp,image/heic,image/heif,image/*"
                     className="hidden"
-                    onChange={(event) =>
-                      handlePaymentProofFile(event.target.files?.[0])
+                    onChange={(
+                      event
+                    ) =>
+                      handlePaymentProofFile(
+                        event.target
+                          .files?.[0],
+                        event.currentTarget
+                      )
                     }
                   />
 
@@ -1441,7 +1750,7 @@ function PersonTotals({
                           Upload payment screenshot
                         </p>
                         <p className="mt-1 text-xs text-[#8995aa]">
-                          PNG, JPG, or phone screenshot
+                          Phone screenshot, PNG, JPG, WEBP, or iPhone photo
                         </p>
                       </div>
                     )}

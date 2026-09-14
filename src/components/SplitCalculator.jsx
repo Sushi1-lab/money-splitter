@@ -561,6 +561,236 @@ function SplitCalculator({
       setPercentages(next);
     };
 
+
+  const updatePercentageShare =
+    (
+      key,
+      rawValue
+    ) => {
+      const selected =
+        uniqueKeys(
+          selectedKeys
+        );
+
+      if (
+        !selected.includes(
+          key
+        )
+      ) {
+        return;
+      }
+
+      const numericValue =
+        Math.max(
+          0,
+          Math.min(
+            100,
+            Number(
+              rawValue ||
+                0
+            )
+          )
+        );
+
+      setPercentages(
+        (current) => {
+          const next = {
+            ...current,
+          };
+
+          // Keep the value the user is actively editing.
+          next[key] =
+            rawValue === ""
+              ? ""
+              : numericValue;
+
+          const otherKeys =
+            selected.filter(
+              (
+                selectedKey
+              ) =>
+                selectedKey !==
+                key
+            );
+
+          if (
+            otherKeys.length ===
+            0
+          ) {
+            next[key] =
+              100;
+            return next;
+          }
+
+          const remaining =
+            Math.max(
+              0,
+              Number(
+                (
+                  100 -
+                  numericValue
+                ).toFixed(
+                  2
+                )
+              )
+            );
+
+          // When another person is edited, prefer using the current
+          // user's share as the automatic remainder.
+          if (
+            currentPersonKey &&
+            key !==
+              currentPersonKey &&
+            otherKeys.includes(
+              currentPersonKey
+            )
+          ) {
+            const fixedOtherKeys =
+              otherKeys.filter(
+                (
+                  selectedKey
+                ) =>
+                  selectedKey !==
+                  currentPersonKey
+              );
+
+            const fixedOtherTotal =
+              fixedOtherKeys.reduce(
+                (
+                  sum,
+                  selectedKey
+                ) =>
+                  sum +
+                  Number(
+                    next[
+                      selectedKey
+                    ] ||
+                      0
+                  ),
+                0
+              );
+
+            next[
+              currentPersonKey
+            ] =
+              Math.max(
+                0,
+                Number(
+                  (
+                    remaining -
+                    fixedOtherTotal
+                  ).toFixed(
+                    2
+                  )
+                )
+              );
+
+            return next;
+          }
+
+          // If the current user edits their own percentage, redistribute
+          // the remaining share across the other selected people.
+          const currentOtherTotal =
+            otherKeys.reduce(
+              (
+                sum,
+                selectedKey
+              ) =>
+                sum +
+                Math.max(
+                  0,
+                  Number(
+                    next[
+                      selectedKey
+                    ] ||
+                      0
+                  )
+                ),
+              0
+            );
+
+          let assigned =
+            0;
+
+          otherKeys.forEach(
+            (
+              selectedKey,
+              index
+            ) => {
+              let share;
+
+              if (
+                index ===
+                otherKeys.length -
+                  1
+              ) {
+                share =
+                  Number(
+                    (
+                      remaining -
+                      assigned
+                    ).toFixed(
+                      2
+                    )
+                  );
+              } else if (
+                currentOtherTotal >
+                0
+              ) {
+                share =
+                  Number(
+                    (
+                      remaining *
+                      (
+                        Math.max(
+                          0,
+                          Number(
+                            next[
+                              selectedKey
+                            ] ||
+                              0
+                          )
+                        ) /
+                        currentOtherTotal
+                      )
+                    ).toFixed(
+                      2
+                    )
+                  );
+              } else {
+                share =
+                  Number(
+                    (
+                      remaining /
+                      otherKeys.length
+                    ).toFixed(
+                      2
+                    )
+                  );
+              }
+
+              next[
+                selectedKey
+              ] =
+                Math.max(
+                  0,
+                  share
+                );
+
+              assigned +=
+                Math.max(
+                  0,
+                  share
+                );
+            }
+          );
+
+          return next;
+        }
+      );
+    };
+
+
   useEffect(() => {
     setSelectedKeys(
       (current) => {
@@ -1333,16 +1563,12 @@ function SplitCalculator({
               Who Covered?
             </label>
 
-            <div className="rounded-2xl border border-[#dce3ef] bg-[#f8faff] p-4">
+            <div className="rounded-2xl border border-[#dce3ef] bg-[#f8faff] p-3 sm:p-4">
               <p className="text-sm font-extrabold text-[#182442]">
                 Did you cover this expense?
               </p>
 
-              <p className="mt-1 text-xs leading-5 text-[#8995aa]">
-                Choose Yes if you paid for it. Choose No if another person covered it.
-              </p>
-
-              <div className="mt-4 grid grid-cols-2 gap-2">
+              <div className="mt-3 grid grid-cols-2 gap-2">
                 <button
                   type="button"
                   onClick={() => {
@@ -1364,7 +1590,7 @@ function SplitCalculator({
                       : "border-[#dce3ef] bg-white text-[#71809a]"
                   } disabled:cursor-not-allowed disabled:opacity-50`}
                 >
-                  Yes, I covered it
+                  I paid
                 </button>
 
                 <button
@@ -1390,7 +1616,7 @@ function SplitCalculator({
                       : "border-[#dce3ef] bg-white text-[#71809a]"
                   }`}
                 >
-                  No, someone else did
+                  Someone else
                 </button>
               </div>
 
@@ -1422,10 +1648,6 @@ function SplitCalculator({
                       {
                         currentPerson.name
                       }
-                    </p>
-
-                    <p className="mt-0.5 text-[11px] text-[#8995aa]">
-                      You are recorded as the coverer.
                     </p>
                   </div>
                 </div>
@@ -1518,9 +1740,6 @@ function SplitCalculator({
                       </button>
                     </div>
 
-                    <p className="mt-2 text-[11px] leading-5 text-[#8995aa]">
-                      This person will be saved in Saved People for future expenses, but will not automatically be included as a participant.
-                    </p>
                   </div>
                 </div>
               )}
@@ -1531,10 +1750,6 @@ function SplitCalculator({
                 <div className="mt-4 border-t border-[#e1e7f0] pt-4">
                   <p className="text-sm font-extrabold text-[#182442]">
                     Are you included in this split?
-                  </p>
-
-                  <p className="mt-1 text-xs leading-5 text-[#8995aa]">
-                    This is separate from who paid. You can cover the expense without sharing it, or be included even if someone else paid.
                   </p>
 
                   <div className="mt-3 grid grid-cols-2 gap-2">
@@ -1558,7 +1773,7 @@ function SplitCalculator({
                           : "border-[#dce3ef] bg-white text-[#71809a]"
                       }`}
                     >
-                      Yes, include me
+                      Include me
                     </button>
 
                     <button
@@ -1581,55 +1796,8 @@ function SplitCalculator({
                           : "border-[#dce3ef] bg-white text-[#71809a]"
                       }`}
                     >
-                      No, exclude me
+                      Exclude me
                     </button>
-                  </div>
-
-                  <div className={`mt-3 flex items-center gap-3 rounded-xl border p-3 ${
-                    includeMe
-                      ? "border-[#ccecdf] bg-[#f4fbf8]"
-                      : "border-[#e2e7ef] bg-white"
-                  }`}>
-                    <div className={`flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl ${
-                      includeMe
-                        ? "bg-[#18845c] text-white"
-                        : "bg-[#edf1f7] text-[#71809a]"
-                    }`}>
-                      {includeMe ? (
-                        <Check
-                          size={16}
-                        />
-                      ) : currentPerson.photoURL ? (
-                        <img
-                          src={
-                            currentPerson.photoURL
-                          }
-                          alt=""
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        String(
-                          currentPerson.name ||
-                            "?"
-                        )
-                          .charAt(0)
-                          .toUpperCase()
-                      )}
-                    </div>
-
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-extrabold text-[#182442]">
-                        {
-                          currentPerson.name
-                        }
-                      </p>
-
-                      <p className="mt-0.5 text-[11px] text-[#8995aa]">
-                        {includeMe
-                          ? "Included as a participant in this split."
-                          : "Not included as a participant."}
-                      </p>
-                    </div>
                   </div>
 
                   {includeMe &&
@@ -1655,18 +1823,13 @@ function SplitCalculator({
                           onChange={(
                             event
                           ) =>
-                            setPercentages(
-                              (
-                                current
-                              ) => ({
-                                ...current,
-                                [currentPersonKey]:
-                                  event.target
-                                    .value,
-                              })
+                            updatePercentageShare(
+                              currentPersonKey,
+                              event.target
+                                .value
                             )
                           }
-                          className="h-10 w-20 rounded-xl border border-[#dce3ef] bg-white px-2 text-right text-sm font-bold text-[#182442] outline-none"
+                          className="h-10 w-20 rounded-xl border border-[#dce3ef] bg-white px-2 text-right text-sm font-bold text-[#182442] outline-none focus:border-[#294aad]"
                         />
 
                         <span className="text-xs font-bold text-[#71809a]">
@@ -1688,29 +1851,38 @@ function SplitCalculator({
             <div className="grid grid-cols-3 gap-2">
               <button
                 type="button"
+                title="Equal Split"
+                aria-label="Equal Split"
                 onClick={() =>
                   setSplitMode(
                     "equal"
                   )
                 }
-                className={`min-h-12 rounded-xl border text-sm font-extrabold ${
+                className={`flex min-h-12 items-center justify-center gap-2 rounded-xl border px-3 text-sm font-extrabold transition ${
                   splitMode ===
                   "equal"
                     ? "border-[#294aad] bg-[#e4ebff] text-[#142a76]"
                     : "border-[#dce3ef] bg-[#f7f9fd] text-[#71809a]"
                 }`}
               >
-                Equal Split
+                <Users
+                  size={18}
+                />
+                <span className="hidden sm:inline">
+                  Equal Split
+                </span>
               </button>
 
               <button
                 type="button"
+                title="Percentage"
+                aria-label="Percentage"
                 onClick={() =>
                   setSplitMode(
                     "percentage"
                   )
                 }
-                className={`flex min-h-12 items-center justify-center gap-2 rounded-xl border text-sm font-extrabold ${
+                className={`flex min-h-12 items-center justify-center gap-2 rounded-xl border px-3 text-sm font-extrabold transition ${
                   splitMode ===
                   "percentage"
                     ? "border-[#294aad] bg-[#e4ebff] text-[#142a76]"
@@ -1718,19 +1890,23 @@ function SplitCalculator({
                 }`}
               >
                 <Percent
-                  size={16}
+                  size={18}
                 />
-                Percentage
+                <span className="hidden sm:inline">
+                  Percentage
+                </span>
               </button>
 
               <button
                 type="button"
+                title="Detailed Split"
+                aria-label="Detailed Split"
                 onClick={() =>
                   setSplitMode(
                     "detailed"
                   )
                 }
-                className={`flex min-h-12 items-center justify-center gap-1.5 rounded-xl border px-2 text-xs font-extrabold sm:text-sm ${
+                className={`flex min-h-12 items-center justify-center gap-2 rounded-xl border px-3 text-sm font-extrabold transition ${
                   splitMode ===
                   "detailed"
                     ? "border-[#294aad] bg-[#e4ebff] text-[#142a76]"
@@ -1738,9 +1914,11 @@ function SplitCalculator({
                 }`}
               >
                 <ListChecks
-                  size={16}
+                  size={18}
                 />
-                Detailed
+                <span className="hidden sm:inline">
+                  Detailed
+                </span>
               </button>
             </div>
           </div>
@@ -1754,9 +1932,6 @@ function SplitCalculator({
                     Detailed Split
                   </p>
 
-                  <p className="mt-1 text-xs leading-5 text-[#8995aa]">
-                    Enter the exact amount covered for each selected person.
-                  </p>
                 </div>
 
                 <div className="text-left sm:text-right">
@@ -1794,7 +1969,7 @@ function SplitCalculator({
                 ).length ===
                 0 ? (
                   <p className="rounded-xl bg-white p-3 text-xs font-bold text-[#8995aa]">
-                    Select people below first, then enter each person's exact amount.
+                    Select people first.
                   </p>
                 ) : (
                   uniqueKeys(
@@ -1819,9 +1994,6 @@ function SplitCalculator({
                                 "Person"}
                             </p>
 
-                            <p className="mt-0.5 text-[10px] text-[#8995aa]">
-                              Exact share
-                            </p>
                           </div>
 
                           <div className="relative">
@@ -2015,15 +2187,10 @@ function SplitCalculator({
                                   onChange={(
                                     event
                                   ) =>
-                                    setPercentages(
-                                      (
-                                        current
-                                      ) => ({
-                                        ...current,
-                                        [key]:
-                                          event.target
-                                            .value,
-                                      })
+                                    updatePercentageShare(
+                                      key,
+                                      event.target
+                                        .value
                                     )
                                   }
                                   className="h-10 w-20 rounded-xl border border-[#dce3ef] bg-white px-2 text-right text-sm font-bold text-[#182442] outline-none"

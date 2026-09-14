@@ -857,11 +857,11 @@ function Dashboard({
                 <div className="overflow-hidden rounded-[24px] border border-[#dbe4f4] bg-gradient-to-br from-white via-[#fbfcff] to-[#eef3ff] p-3 shadow-[0_12px_30px_rgba(20,42,118,0.07)]">
                   {(() => {
                     const width = 360;
-                    const height = 215;
+                    const height = 198;
                     const left = 13;
                     const right = 13;
-                    const top = 22;
-                    const bottom = 43;
+                    const top = 20;
+                    const bottom = 40;
                     const plotWidth = width - left - right;
                     const plotHeight = height - top - bottom;
                     const count = Math.max(weeklyData.length, 1);
@@ -883,6 +883,54 @@ function Dashboard({
                       item,
                       index,
                     }));
+
+                    const mobileCategoryNames =
+                      topCategoryNames.slice(
+                        0,
+                        2
+                      );
+
+                    const mobileCategoryColors =
+                      [
+                        "#18845c",
+                        "#c47a16",
+                      ];
+
+                    const mobileCategorySeries =
+                      mobileCategoryNames.map(
+                        (
+                          category,
+                          categoryIndex
+                        ) => ({
+                          category,
+                          color:
+                            mobileCategoryColors[
+                              categoryIndex
+                            ],
+                          points:
+                            weeklyData.map(
+                              (
+                                item,
+                                index
+                              ) => ({
+                                x:
+                                  xFor(
+                                    index
+                                  ),
+                                y:
+                                  yFor(
+                                    item
+                                      .categoryAmounts?.[
+                                      category
+                                    ] ||
+                                      0
+                                  ),
+                                item,
+                                index,
+                              })
+                            ),
+                        })
+                      );
 
                     const smoothPath = (rows) => {
                       if (!rows.length) return "";
@@ -909,12 +957,46 @@ function Dashboard({
                         : "";
 
                     return (
-                      <svg
-                        viewBox={`0 0 ${width} ${height}`}
-                        className="block h-auto w-full"
-                        role="img"
-                        aria-label="Weekly spending trend for the last two months"
-                      >
+                      <>
+                        <div className="mb-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 px-1">
+                          <span className="inline-flex items-center gap-1 text-[8px] font-extrabold text-[#52617d]">
+                            <span className="h-[1.5px] w-3.5 rounded-full bg-[#294aad]" />
+                            Total
+                          </span>
+
+                          {mobileCategorySeries.map(
+                            (
+                              series
+                            ) => (
+                              <span
+                                key={
+                                  series.category
+                                }
+                                className="inline-flex min-w-0 items-center gap-1 text-[8px] font-extrabold text-[#71809a]"
+                              >
+                                <span
+                                  className="h-[1.5px] w-3.5 shrink-0 rounded-full"
+                                  style={{
+                                    backgroundColor:
+                                      series.color,
+                                  }}
+                                />
+                                <span className="max-w-[90px] truncate">
+                                  {
+                                    series.category
+                                  }
+                                </span>
+                              </span>
+                            )
+                          )}
+                        </div>
+
+                        <svg
+                          viewBox={`0 0 ${width} ${height}`}
+                          className="block h-auto w-full"
+                          role="img"
+                          aria-label="Weekly total spending and top two category spending trends for the last two months"
+                        >
                         <defs>
                           <linearGradient
                             id="mobileTrendArea"
@@ -969,12 +1051,43 @@ function Dashboard({
 
                         {area && <path d={area} fill="url(#mobileTrendArea)" />}
 
+                        {mobileCategorySeries.map(
+                          (
+                            series
+                          ) => {
+                            const categoryLine =
+                              smoothPath(
+                                series.points
+                              );
+
+                            return categoryLine ? (
+                              <path
+                                key={
+                                  series.category
+                                }
+                                d={
+                                  categoryLine
+                                }
+                                fill="none"
+                                stroke={
+                                  series.color
+                                }
+                                strokeWidth="1.35"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                vectorEffect="non-scaling-stroke"
+                                opacity="0.88"
+                              />
+                            ) : null;
+                          }
+                        )}
+
                         {line && (
                           <path
                             d={line}
                             fill="none"
                             stroke="url(#mobileTrendStroke)"
-                            strokeWidth="4"
+                            strokeWidth="2.25"
                             strokeLinecap="round"
                             strokeLinejoin="round"
                             vectorEffect="non-scaling-stroke"
@@ -987,22 +1100,12 @@ function Dashboard({
 
                           return (
                             <g key={point.item.key}>
-                              <circle
-                                cx={point.x}
-                                cy={point.y}
-                                r={current ? 6.2 : 4.2}
-                                fill={current ? "#142a76" : "#ffffff"}
-                                stroke={current ? "#ffffff" : "#3d63d2"}
-                                strokeWidth={current ? 3 : 2.4}
-                                filter="url(#mobileDotShadow)"
-                              />
-
                               {amount > 0 && (
                                 <text
                                   x={point.x}
                                   y={Math.max(point.y - 13, 12)}
                                   textAnchor="middle"
-                                  fontSize="8.5"
+                                  fontSize="7.5"
                                   fontWeight="800"
                                   fill={current ? "#142a76" : "#52617d"}
                                 >
@@ -1016,7 +1119,7 @@ function Dashboard({
                                 x={point.x}
                                 y={height - 19}
                                 textAnchor="middle"
-                                fontSize="8.3"
+                                fontSize="7.5"
                                 fontWeight={current ? "800" : "700"}
                                 fill={current ? "#294aad" : "#71809a"}
                               >
@@ -1027,7 +1130,7 @@ function Dashboard({
                                 x={point.x}
                                 y={height - 7}
                                 textAnchor="middle"
-                                fontSize="7.2"
+                                fontSize="6.6"
                                 fontWeight="700"
                                 fill="#a1abbb"
                               >
@@ -1036,21 +1139,22 @@ function Dashboard({
                             </g>
                           );
                         })}
-                      </svg>
+                        </svg>
+                      </>
                     );
                   })()}
 
-                  <div className="border-t border-[#e1e7f1] px-1 pt-3">
+                  <div className="border-t border-[#e1e7f1] px-1 pt-2.5">
                     <div className="flex items-center justify-between">
-                      <p className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#8995aa]">
+                      <p className="text-[9px] font-extrabold uppercase tracking-[0.11em] text-[#8995aa]">
                         Top categories
                       </p>
-                      <p className="text-[10px] font-bold text-[#9ba6b8]">
+                      <p className="text-[9px] font-bold text-[#9ba6b8]">
                         2-month total
                       </p>
                     </div>
 
-                    <div className="mt-2 grid grid-cols-3 gap-2">
+                    <div className="mt-1.5 grid grid-cols-3 gap-1.5">
                       {topCategoryNames.slice(0, 3).map((category, index) => {
                         const total = weeklyData.reduce(
                           (sum, item) =>
@@ -1067,16 +1171,16 @@ function Dashboard({
                         return (
                           <div
                             key={category}
-                            className={`min-w-0 rounded-2xl border bg-gradient-to-br p-2.5 ${styles[index]}`}
+                            className={`min-w-0 rounded-xl border bg-gradient-to-br p-2 ${styles[index]}`}
                           >
                             <div className="flex min-w-0 items-center gap-1.5">
                               <span className="h-2 w-2 shrink-0 rounded-full bg-current opacity-70" />
-                              <p className="truncate text-[9px] font-black uppercase tracking-[0.06em]">
+                              <p className="truncate text-[8px] font-black uppercase tracking-[0.05em]">
                                 {category}
                               </p>
                             </div>
 
-                            <p className="mt-1.5 truncate text-xs font-black">
+                            <p className="mt-1 truncate text-[10px] font-black">
                               ₱{total.toLocaleString("en-PH", {
                                 maximumFractionDigits: 0,
                               })}
@@ -1385,7 +1489,7 @@ function Dashboard({
                                       categoryColors.length
                                   ]
                                 }
-                                strokeWidth="0.65"
+                                strokeWidth="1.5"
                                 vectorEffect="non-scaling-stroke"
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
@@ -1400,7 +1504,7 @@ function Dashboard({
                             }
                             fill="none"
                             stroke="#294aad"
-                            strokeWidth="1"
+                            strokeWidth="3.25"
                             vectorEffect="non-scaling-stroke"
                             strokeLinecap="round"
                             strokeLinejoin="round"
