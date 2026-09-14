@@ -1,7 +1,5 @@
 import {
-  AlertTriangle,
   Eye,
-  MessageSquareText,
   RotateCcw,
   Trash2,
   X,
@@ -12,26 +10,92 @@ import { useState } from "react";
 function TrashPanel({
   settlements = {},
   onRestoreFromTrash,
-  onDeleteAllReverted,
-  isServerOwner = false,
   paymentLoading,
 }) {
   const [proofToView, setProofToView] =
     useState(null);
 
-
-  const [viewMode, setViewMode] =
-    useState("paid");
-
-  const [revertTarget, setRevertTarget] =
+  const [restoreTarget, setRestoreTarget] =
     useState(null);
 
-  const [revertNote, setRevertNote] =
+  const [restoreNote, setRestoreNote] =
     useState("");
 
+  const openRestoreModal =
+    (item) => {
+      const normalizedItem =
+        item.displayType ===
+          "payment" &&
+        item.sourceSettlementId
+          ? {
+              ...item,
+              id:
+                item.sourceSettlementId,
+              displayType:
+                "payment",
+            }
+          : item;
 
-  const [deletingReverted, setDeletingReverted] =
-    useState(false);
+      setRestoreTarget(
+        normalizedItem
+      );
+
+      setRestoreNote(
+        ""
+      );
+    };
+
+  const closeRestoreModal =
+    () => {
+      if (
+        paymentLoading
+      ) {
+        return;
+      }
+
+      setRestoreTarget(
+        null
+      );
+
+      setRestoreNote(
+        ""
+      );
+    };
+
+  const confirmRestore =
+    async () => {
+      const cleanNote =
+        String(
+          restoreNote ||
+            ""
+        )
+          .trim()
+          .replace(
+            /\s+/g,
+            " "
+          );
+
+      if (
+        !restoreTarget ||
+        cleanNote.length <
+          3
+      ) {
+        return;
+      }
+
+      await onRestoreFromTrash?.(
+        restoreTarget,
+        cleanNote
+      );
+
+      setRestoreTarget(
+        null
+      );
+
+      setRestoreNote(
+        ""
+      );
+    };
 
   const getMillis =
     (value) => {
@@ -78,14 +142,70 @@ function TrashPanel({
       const normalItems = [];
       const mutualGroups =
         new Map();
+      const paymentItems = [];
 
       rawArchived.forEach(
         (item) => {
-          if (
-            !isMutualReduction(
+          const mutual =
+            isMutualReduction(
               item
+            );
+
+          // A settlement can contain BOTH:
+          // 1) mutual balance reduction metadata
+          // 2) a later real payment + screenshot
+          //
+          // The old TrashPanel classified the whole document only as a
+          // mutual reduction, which hid the later payment card.
+          if (
+            mutual &&
+            (
+              Number(
+                item.paidAmount ||
+                  item.lastPaymentAmount ||
+                  0
+              ) >
+                0 ||
+              Boolean(
+                item.paymentProofDataUrl
+              ) ||
+              item.status ===
+                "paid"
             )
           ) {
+            const paidAmount =
+              Number(
+                item.lastPaymentAmount ||
+                  item.paidAmount ||
+                  0
+              );
+
+            if (
+              paidAmount >
+                0 ||
+              item.paymentProofDataUrl
+            ) {
+              paymentItems.push({
+                ...item,
+                id:
+                  `${item.id}__payment`,
+                sourceSettlementId:
+                  item.id,
+                displayType:
+                  "payment",
+                settledAmount:
+                  paidAmount,
+                paidAmount:
+                  paidAmount,
+                trashedAt:
+                  item.paidAt ||
+                  item.trashedAt ||
+                  item.updatedAt,
+              });
+            }
+          }
+
+          if (!mutual) {
             normalItems.push(
               item
             );
@@ -173,24 +293,22 @@ function TrashPanel({
 
           const existingTime =
             getMillis(
-              existing.trashedAt ||
-                existing.reducedAt ||
-                existing.updatedAt
+              existing.reducedAt ||
+                existing.updatedAt ||
+                existing.trashedAt
             );
 
           const itemTime =
             getMillis(
-              item.trashedAt ||
-                item.reducedAt ||
-                item.updatedAt
+              item.reducedAt ||
+                item.updatedAt ||
+                item.trashedAt
             );
 
           if (
             itemTime >
             existingTime
           ) {
-            existing.trashedAt =
-              item.trashedAt;
             existing.reducedAt =
               item.reducedAt;
             existing.updatedAt =
@@ -201,6 +319,7 @@ function TrashPanel({
 
       return [
         ...normalItems,
+        ...paymentItems,
         ...mutualGroups.values(),
       ].sort(
         (
@@ -209,243 +328,18 @@ function TrashPanel({
         ) =>
           getMillis(
             b.trashedAt ||
+              b.paidAt ||
               b.reducedAt ||
               b.updatedAt
           ) -
           getMillis(
             a.trashedAt ||
+              a.paidAt ||
               a.reducedAt ||
               a.updatedAt
           )
       );
     })();
-
-  const reverted =
-    (() => {
-      const normalItems = [];
-      const mutualGroups =
-        new Map();
-
-      Object.values(
-        settlements
-      )
-        .filter(
-          (item) =>
-            item?.status ===
-            "reverted"
-        )
-        .forEach(
-          (item) => {
-            if (
-              !isMutualReduction(
-                item
-              )
-            ) {
-              normalItems.push({
-                ...item,
-                displayType:
-                  "reverted-payment",
-              });
-              return;
-            }
-
-            const debtorKey =
-              String(
-                item.debtorKey ||
-                  item.debtor ||
-                  ""
-              )
-                .trim()
-                .toLowerCase();
-
-            const creditorKey =
-              String(
-                item.creditorKey ||
-                  item.creditor ||
-                  ""
-              )
-                .trim()
-                .toLowerCase();
-
-            const pairKey =
-              [
-                debtorKey,
-                creditorKey,
-              ]
-                .sort()
-                .join("__");
-
-            const existing =
-              mutualGroups.get(
-                pairKey
-              );
-
-            if (!existing) {
-              mutualGroups.set(
-                pairKey,
-                {
-                  ...item,
-                  displayType:
-                    "reverted-reduction",
-                  pairKey,
-                  revertedAmount:
-                    Number(
-                      item.revertedReductionAmount ??
-                        item.offsetAmount ??
-                        item.netPaymentAmount ??
-                        item.revertedFromAmount ??
-                        0
-                    ),
-                }
-              );
-              return;
-            }
-
-            existing.revertedAmount =
-              Math.max(
-                Number(
-                  existing.revertedAmount ||
-                    0
-                ),
-                Number(
-                  item.revertedReductionAmount ??
-                    item.offsetAmount ??
-                    item.netPaymentAmount ??
-                    item.revertedFromAmount ??
-                    0
-                )
-              );
-
-            const existingTime =
-              getMillis(
-                existing.revertedAt ||
-                  existing.updatedAt
-              );
-
-            const itemTime =
-              getMillis(
-                item.revertedAt ||
-                  item.updatedAt
-              );
-
-            if (
-              itemTime >
-              existingTime
-            ) {
-              existing.revertedAt =
-                item.revertedAt;
-              existing.updatedAt =
-                item.updatedAt;
-              existing.revertedNote =
-                item.revertedNote;
-              existing.revertedByEmail =
-                item.revertedByEmail;
-            }
-          }
-        );
-
-      return [
-        ...normalItems,
-        ...mutualGroups.values(),
-      ].sort(
-        (
-          a,
-          b
-        ) =>
-          getMillis(
-            b.revertedAt ||
-              b.updatedAt
-          ) -
-          getMillis(
-            a.revertedAt ||
-              a.updatedAt
-          )
-      );
-    })();
-
-  const openRevertModal =
-    (item) => {
-      setRevertTarget(
-        item
-      );
-      setRevertNote(
-        ""
-      );
-    };
-
-  const closeRevertModal =
-    () => {
-      if (
-        paymentLoading
-      ) {
-        return;
-      }
-
-      setRevertTarget(
-        null
-      );
-      setRevertNote(
-        ""
-      );
-    };
-
-  const submitRevert =
-    async () => {
-      const cleanNote =
-        revertNote
-          .trim()
-          .replace(
-            /\s+/g,
-            " "
-          );
-
-      if (
-        cleanNote.length <
-        3
-      ) {
-        return;
-      }
-
-      await onRestoreFromTrash?.(
-        revertTarget,
-        cleanNote
-      );
-
-      setRevertTarget(
-        null
-      );
-      setRevertNote(
-        ""
-      );
-
-      setViewMode(
-        "reverted"
-      );
-    };
-
-  const deleteAllReverted =
-    async () => {
-      if (
-        !isServerOwner ||
-        reverted.length ===
-          0 ||
-        deletingReverted
-      ) {
-        return;
-      }
-
-      try {
-        setDeletingReverted(
-          true
-        );
-
-        await onDeleteAllReverted?.();
-      } finally {
-        setDeletingReverted(
-          false
-        );
-      }
-    };
 
   const money = (
     value
@@ -463,129 +357,30 @@ function TrashPanel({
     );
 
   return (
-    <section className="mt-3 w-full min-w-0">
-      <div className="app-card min-w-0 overflow-hidden">
-        <div className="flex items-start gap-3 border-b border-[#e3e8f0] p-4 sm:items-center sm:p-6">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#ffe8e8] text-[#b94343] sm:h-11 sm:w-11">
+    <section className="mt-4">
+      <div className="app-card overflow-hidden">
+        <div className="flex items-center gap-3 border-b border-[#e3e8f0] p-5 sm:p-6">
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#ffe8e8] text-[#b94343]">
             <Trash2
               size={21}
             />
           </div>
 
-          <div className="min-w-0 flex-1">
-            <h2 className="text-[17px] font-extrabold leading-6 text-[#182442] sm:text-base">
+          <div>
+            <h2 className="font-extrabold text-[#182442]">
               Paid Expenses
             </h2>
 
-            <p className="mt-1 text-[12px] leading-5 text-[#8995aa]">
-              Paid balances and mutual reductions appear here. Mutual reductions are shown once, even when both sides are updated.
+            <p className="mt-1 text-xs leading-5 text-[#8995aa]">
+              Paid balances and mutual balance reductions appear here. Mutual reductions are shown once, even though both sides are updated.
             </p>
           </div>
         </div>
 
-        <div className="p-4 pb-28 sm:p-6 sm:pb-6">
-          <div className="mb-5 grid w-full grid-cols-2 gap-1 rounded-[18px] bg-[#eef2f8] p-1.5">
-            <button
-              type="button"
-              onClick={() =>
-                setViewMode(
-                  "paid"
-                )
-              }
-              className={`min-w-0 rounded-[14px] px-2 py-2.5 transition ${
-                viewMode ===
-                "paid"
-                  ? "bg-white text-[#142a76] shadow-[0_3px_10px_rgba(20,42,118,0.10)]"
-                  : "text-[#71809a]"
-              }`}
-            >
-              <div className="flex min-w-0 items-center justify-center gap-2">
-                <span className="truncate text-[13px] font-extrabold sm:hidden">
-                  Completed
-                </span>
-
-                <span className="hidden truncate text-sm font-extrabold sm:inline">
-                  Paid / Reduced
-                </span>
-
-                <span className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-[#e9efff] px-1.5 text-[9px] font-black leading-none text-[#294aad]">
-                  {
-                    archived.length
-                  }
-                </span>
-              </div>
-            </button>
-
-            <button
-              type="button"
-              onClick={() =>
-                setViewMode(
-                  "reverted"
-                )
-              }
-              className={`min-w-0 rounded-[14px] px-2 py-2.5 transition ${
-                viewMode ===
-                "reverted"
-                  ? "bg-white text-[#142a76] shadow-[0_3px_10px_rgba(20,42,118,0.10)]"
-                  : "text-[#71809a]"
-              }`}
-            >
-              <div className="flex min-w-0 items-center justify-center gap-2">
-                <span className="truncate text-[13px] font-extrabold sm:text-sm">
-                  Reverted
-                </span>
-
-                <span className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-[#fff0c9] px-1.5 text-[9px] font-black leading-none text-[#b78114]">
-                  {
-                    reverted.length
-                  }
-                </span>
-              </div>
-            </button>
-          </div>
-
-          {viewMode ===
-            "reverted" &&
-            isServerOwner &&
-            reverted.length >
-              0 && (
-              <div className="mb-5 flex flex-col gap-3 rounded-2xl border border-[#ffd9d9] bg-[#fff7f7] p-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="min-w-0">
-                  <p className="text-sm font-black text-[#a73f3f]">
-                    Reverted history controls
-                  </p>
-
-                  <p className="mt-1 text-xs leading-5 text-[#8e6a6a]">
-                    Only the workspace creator can permanently clear all reverted records. Active expenses will not be deleted.
-                  </p>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={
-                    deleteAllReverted
-                  }
-                  disabled={
-                    deletingReverted
-                  }
-                  className="flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-[#c94b4b] px-4 text-xs font-extrabold text-white transition hover:bg-[#b94343] disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <Trash2
-                    size={15}
-                  />
-
-                  {deletingReverted
-                    ? "Deleting..."
-                    : "Delete All Reverted"}
-                </button>
-              </div>
-            )}
-
-          {viewMode ===
-          "paid" ? (
-          archived.length ===
+        <div className="p-4 sm:p-6">
+          {archived.length ===
           0 ? (
-            <div className="flex min-h-[220px] flex-col items-center justify-center rounded-2xl bg-[#f7f9fc] px-5 py-8 text-center">
+            <div className="rounded-2xl bg-[#f7f9fc] p-6 text-center">
               <Trash2
                 size={28}
                 className="mx-auto text-[#aab4c4]"
@@ -627,7 +422,9 @@ function TrashPanel({
                           {item.displayType ===
                           "mutual-reduction"
                             ? "Balances Reduced"
-                            : "Paid"}
+                            : item.paymentAfterReduction
+                              ? "Paid After Reduction"
+                              : "Paid"}
                         </div>
 
                         <p className="font-extrabold text-[#182442]">
@@ -702,7 +499,7 @@ function TrashPanel({
                             item.id
                           }
                           onClick={() =>
-                            openRevertModal(
+                            openRestoreModal(
                               item
                             )
                           }
@@ -720,250 +517,151 @@ function TrashPanel({
                 )
               )}
             </div>
-          )
-          ) : (
-            reverted.length ===
-            0 ? (
-              <div className="flex min-h-[220px] flex-col items-center justify-center rounded-2xl bg-[#f7f9fc] px-5 py-8 text-center">
-                <RotateCcw
-                  size={28}
-                  className="mx-auto text-[#aab4c4]"
-                />
-
-                <p className="mt-3 text-sm font-extrabold text-[#71809a]">
-                  No reverted records
-                </p>
-
-                <p className="mt-1 text-xs leading-5 text-[#9aa5b6]">
-                  When a paid balance or balance reduction is put back as an expense, it will appear here together with the reason.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {reverted.map(
-                  (item) => (
-                    <div
-                      key={
-                        item.id ||
-                        item.pairKey
-                      }
-                      className="rounded-2xl border border-[#eadfbf] bg-[#fffdf7] p-4"
-                    >
-                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                        <div className="min-w-0 flex-1">
-                          <div className="inline-flex items-center gap-2 rounded-full bg-[#fff4d9] px-3 py-1.5 text-[11px] font-extrabold text-[#b78114]">
-                            <RotateCcw
-                              size={13}
-                            />
-                            Reverted
-                          </div>
-
-                          <p className="mt-3 font-extrabold text-[#182442]">
-                            {
-                              item.debtor ||
-                              "Someone"
-                            }{" "}
-                            {item.displayType ===
-                            "reverted-reduction"
-                              ? "↔"
-                              : "→"}{" "}
-                            {
-                              item.creditor ||
-                              "Someone"
-                            }
-                          </p>
-
-                          <p className="mt-1 text-xs text-[#8995aa]">
-                            {item.displayType ===
-                            "reverted-reduction"
-                              ? "Balance reduction was undone"
-                              : "Paid balance was returned to expenses"}
-                          </p>
-
-                          <p className="mt-1 text-lg font-black text-[#294aad]">
-                            ₱
-                            {money(
-                              item.displayType ===
-                              "reverted-reduction"
-                                ? item.revertedAmount
-                                : item.revertedFromAmount
-                            )}
-                          </p>
-
-                          <div className="mt-4 rounded-xl border border-[#eee4c9] bg-white p-3">
-                            <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.1em] text-[#a37b22]">
-                              <MessageSquareText
-                                size={14}
-                              />
-                              Reason for reverting
-                            </div>
-
-                            <p className="mt-2 text-sm font-semibold leading-6 text-[#52617d]">
-                              {item.revertedNote ||
-                                "No note provided."}
-                            </p>
-                          </div>
-
-                          {item.revertedByEmail && (
-                            <p className="mt-2 text-[11px] text-[#8995aa]">
-                              Reverted by{" "}
-                              <span className="font-bold text-[#52617d]">
-                                {
-                                  item.revertedByEmail
-                                }
-                              </span>
-                            </p>
-                          )}
-                        </div>
-
-                        <div className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-[#fff4d9] px-3 py-2 text-xs font-extrabold text-[#b78114]">
-                          <RotateCcw
-                            size={14}
-                          />
-                          Back as expense
-                        </div>
-                      </div>
-                    </div>
-                  )
-                )}
-              </div>
-            )
           )}
         </div>
       </div>
 
-      {revertTarget && (
-        <div className="fixed inset-0 z-[2147483647] flex items-center justify-center bg-[#071333]/65 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-lg overflow-hidden rounded-[24px] bg-white shadow-[0_30px_90px_rgba(8,24,70,0.30)]">
-            <div className="flex items-start gap-3 border-b border-[#e3e8f0] p-5">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#fff4d9] text-[#b78114]">
-                <AlertTriangle
-                  size={21}
-                />
-              </div>
-
-              <div className="min-w-0 flex-1">
-                <p className="text-xs font-black uppercase tracking-[0.12em] text-[#8995aa]">
-                  Revert record
+      {restoreTarget && (
+        <div
+          className="fixed inset-0 z-[140] flex items-center justify-center bg-[#071333]/55 p-4 backdrop-blur-sm"
+          onMouseDown={(
+            event
+          ) => {
+            if (
+              event.target ===
+                event.currentTarget &&
+              !paymentLoading
+            ) {
+              closeRestoreModal();
+            }
+          }}
+        >
+          <div className="w-full max-w-md overflow-hidden rounded-[24px] border border-[#dfe5ef] bg-white shadow-[0_30px_90px_rgba(8,24,70,0.30)]">
+            <div className="flex items-start justify-between gap-4 border-b border-[#e6ebf2] p-5">
+              <div className="min-w-0">
+                <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#9aa5b6]">
+                  Reason required
                 </p>
 
                 <h3 className="mt-1 text-lg font-black text-[#182442]">
-                  {revertTarget.displayType ===
+                  {restoreTarget.displayType ===
                   "mutual-reduction"
                     ? "Undo Balance Reduction"
-                    : "Put Paid Balance Back as Expense"}
+                    : "Restore Paid Expense"}
                 </h3>
+
+                <p className="mt-1 text-xs leading-5 text-[#7d899c]">
+                  {restoreTarget.debtor ||
+                    "Someone"}{" "}
+                  {restoreTarget.displayType ===
+                  "mutual-reduction"
+                    ? "↔"
+                    : "→"}{" "}
+                  {restoreTarget.creditor ||
+                    "Someone"}
+                </p>
               </div>
 
               <button
                 type="button"
                 onClick={
-                  closeRevertModal
+                  closeRestoreModal
                 }
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#eef2f8] text-[#52617d]"
+                disabled={
+                  Boolean(
+                    paymentLoading
+                  )
+                }
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#f2f5f9] text-[#71809a] disabled:opacity-50"
               >
-                <X
-                  size={18}
-                />
+                <X size={16} />
               </button>
             </div>
 
             <div className="p-5">
-              <div className="rounded-2xl bg-[#eef3ff] p-4">
-                <p className="text-sm font-extrabold text-[#142a76]">
-                  {
-                    revertTarget.debtor
-                  }{" "}
-                  {revertTarget.displayType ===
-                  "mutual-reduction"
-                    ? "↔"
-                    : "→"}{" "}
-                  {
-                    revertTarget.creditor
+              <label className="block">
+                <span className="text-xs font-extrabold text-[#52617d]">
+                  Why are you restoring this?
+                </span>
+
+                <textarea
+                  value={
+                    restoreNote
                   }
-                </p>
-
-                <p className="mt-1 text-xs leading-5 text-[#71809a]">
-                  This will make the balance active in expenses again.
-                </p>
-              </div>
-
-              <label className="mt-5 block text-xs font-black uppercase tracking-[0.1em] text-[#52617d]">
-                Why are you reverting this?
+                  onChange={(
+                    event
+                  ) =>
+                    setRestoreNote(
+                      event.target
+                        .value
+                    )
+                  }
+                  rows={4}
+                  maxLength={240}
+                  autoFocus
+                  placeholder={
+                    restoreTarget.displayType ===
+                    "mutual-reduction"
+                      ? "e.g. The reduction was applied by mistake."
+                      : "e.g. The payment was marked as paid by mistake."
+                  }
+                  className="mt-2 w-full resize-none rounded-2xl border border-[#dce3ef] bg-[#f9fbfe] px-4 py-3 text-sm font-medium text-[#182442] outline-none transition placeholder:text-[#a8b1c0] focus:border-[#294aad] focus:bg-white"
+                />
               </label>
 
-              <textarea
-                value={
-                  revertNote
-                }
-                onChange={(
-                  event
-                ) =>
-                  setRevertNote(
-                    event.target
-                      .value
-                  )
-                }
-                rows={4}
-                maxLength={300}
-                placeholder="Example: Marked as paid by mistake, payment was cancelled, wrong person selected..."
-                className="mt-2 w-full resize-none rounded-2xl border border-[#dce3ef] bg-[#f8faff] px-4 py-3 text-sm font-semibold text-[#182442] outline-none transition placeholder:text-[#a7b1c1] focus:border-[#8fa7de] focus:ring-4 focus:ring-[#294aad]/10"
-              />
-
               <div className="mt-2 flex items-center justify-between gap-3">
-                <p className={`text-xs font-bold ${
-                  revertNote
-                    .trim()
-                    .length >=
-                  3
-                    ? "text-[#18845c]"
-                    : "text-[#b94343]"
+                <p className={`text-[11px] ${
+                  restoreNote.trim()
+                    .length >= 3
+                    ? "text-[#7d899c]"
+                    : "text-[#b35b5b]"
                 }`}>
-                  A note is required before reverting.
+                  Minimum 3 characters
                 </p>
 
-                <span className="text-[10px] font-bold text-[#8995aa]">
-                  {
-                    revertNote.length
-                  }
-                  /300
-                </span>
+                <p className="text-[11px] text-[#9aa5b6]">
+                  {restoreNote.length}/240
+                </p>
               </div>
             </div>
 
-            <div className="grid gap-2 border-t border-[#e3e8f0] p-4 sm:grid-cols-2">
+            <div className="grid grid-cols-2 gap-2 border-t border-[#e6ebf2] bg-[#fbfcfe] p-4">
               <button
                 type="button"
                 onClick={
-                  closeRevertModal
+                  closeRestoreModal
                 }
-                className="min-h-12 rounded-xl bg-[#eef2f8] px-4 text-sm font-extrabold text-[#52617d]"
+                disabled={
+                  Boolean(
+                    paymentLoading
+                  )
+                }
+                className="min-h-11 rounded-xl border border-[#dce3ef] bg-white px-4 text-sm font-extrabold text-[#52617d] disabled:opacity-50"
               >
                 Cancel
               </button>
 
               <button
                 type="button"
+                onClick={
+                  confirmRestore
+                }
                 disabled={
-                  revertNote
-                    .trim()
+                  restoreNote.trim()
                     .length <
                     3 ||
                   Boolean(
                     paymentLoading
                   )
                 }
-                onClick={
-                  submitRevert
-                }
-                className="min-h-12 rounded-xl bg-[#b78114] px-4 text-sm font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-40"
+                className="min-h-11 rounded-xl bg-[#142a76] px-4 text-sm font-extrabold text-white shadow-[0_8px_20px_rgba(20,42,118,0.16)] disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {paymentLoading
-                  ? "Reverting..."
-                  : revertTarget.displayType ===
-                      "mutual-reduction"
-                    ? "Undo & Save Note"
-                    : "Revert & Save Note"}
+                  ? "Restoring..."
+                  : restoreTarget.displayType ===
+                    "mutual-reduction"
+                    ? "Undo Reduction"
+                    : "Restore Expense"}
               </button>
             </div>
           </div>
