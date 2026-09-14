@@ -32,6 +32,7 @@ import {
   LogOut,
   MessageSquareText,
   PlusCircle,
+  ReceiptText,
   Send,
   Server,
   Settings,
@@ -62,6 +63,7 @@ import SplitCalculator from "./components/SplitCalculator.jsx";
 import SplitHistory from "./components/SplitHistory.jsx";
 import TrashPanel from "./components/TrashPanel.jsx";
 import WalletViewer from "./components/WalletViewer.jsx";
+import BillsToPay from "./components/BillsToPay.jsx";
 
 import useAppDialog from "./hooks/useAppDialog.jsx";
 
@@ -263,6 +265,20 @@ function App() {
   );
 
   const [
+    bills,
+    setBills,
+  ] = useState(
+    []
+  );
+
+  const [
+    billSaving,
+    setBillSaving,
+  ] = useState(
+    false
+  );
+
+  const [
     settlements,
     setSettlements,
   ] = useState(
@@ -431,6 +447,10 @@ function App() {
             );
 
             setSavedSplits(
+              []
+            );
+
+            setBills(
               []
             );
 
@@ -2763,6 +2783,505 @@ function App() {
     };
 
   // =========================================
+  // BILLS TO PAY
+  // Long-term workspaces only.
+  // Stored separately from splits so these DO NOT affect
+  // total expenses, balances, or "who covered" calculations.
+  // =========================================
+
+  const isLongTermWorkspace =
+    [
+      "long-term",
+      "longterm",
+    ].includes(
+      String(
+        activeServer?.serverType ||
+          activeServer?.workspaceType ||
+          ""
+      ).toLowerCase()
+    );
+
+  const fetchBills =
+    async () => {
+      if (
+        !activeServer?.id ||
+        !isLongTermWorkspace
+      ) {
+        setBills(
+          []
+        );
+        return;
+      }
+
+      try {
+        const snapshot =
+          await getDocs(
+            query(
+              collection(
+                db,
+                "servers",
+                activeServer.id,
+                "bills"
+              ),
+              orderBy(
+                "createdAt",
+                "desc"
+              )
+            )
+          );
+
+        const now =
+          new Date();
+
+        const currentCycle =
+          `${now.getFullYear()}-${String(
+            now.getMonth() + 1
+          ).padStart(
+            2,
+            "0"
+          )}`;
+
+        const loadedBills =
+          snapshot.docs.map(
+            (item) => ({
+              id:
+                item.id,
+              ...item.data(),
+            })
+          );
+
+        const resetWrites =
+          [];
+
+        const nextBills =
+          loadedBills.map(
+            (bill) => {
+              const isMonthly =
+                bill.billingSchedule ===
+                  "monthly" ||
+                bill.isRecurring ===
+                  true;
+
+              if (
+                !isMonthly ||
+                bill.billingCycle ===
+                  currentCycle
+              ) {
+                return bill;
+              }
+
+              const savedDueDay =
+                Number(
+                  bill.dueDay ||
+                    String(
+                      bill.dueDate ||
+                        ""
+                    ).slice(
+                      8,
+                      10
+                    )
+                ) || 1;
+
+              const daysInMonth =
+                new Date(
+                  now.getFullYear(),
+                  now.getMonth() + 1,
+                  0
+                ).getDate();
+
+              const dueDay =
+                Math.min(
+                  Math.max(
+                    savedDueDay,
+                    1
+                  ),
+                  daysInMonth
+                );
+
+              const nextDueDate =
+                `${currentCycle}-${String(
+                  dueDay
+                ).padStart(
+                  2,
+                  "0"
+                )}`;
+
+              const resetData = {
+                status:
+                  "unpaid",
+
+                billingCycle:
+                  currentCycle,
+
+                dueDate:
+                  nextDueDate,
+
+                dueDay,
+
+                paymentProofDataUrl:
+                  null,
+
+                paymentProofName:
+                  "",
+
+                paymentProofType:
+                  "",
+
+                paidByUid:
+                  "",
+
+                paidByEmail:
+                  "",
+
+                paidByUsername:
+                  "",
+
+                paidByDisplayName:
+                  "",
+
+                paidByPhotoURL:
+                  null,
+
+                paidAt:
+                  null,
+
+                monthlyResetAt:
+                  serverTimestamp(),
+
+                updatedAt:
+                  serverTimestamp(),
+              };
+
+              resetWrites.push(
+                updateDoc(
+                  doc(
+                    db,
+                    "servers",
+                    activeServer.id,
+                    "bills",
+                    bill.id
+                  ),
+                  resetData
+                )
+              );
+
+              return {
+                ...bill,
+                ...resetData,
+              };
+            }
+          );
+
+        if (
+          resetWrites.length >
+          0
+        ) {
+          await Promise.all(
+            resetWrites
+          );
+        }
+
+        setBills(
+          nextBills
+        );
+      } catch (err) {
+        console.error(
+          "Bills loading error:",
+          err
+        );
+
+        setBills(
+          []
+        );
+      }
+    };
+
+  const addBill =
+    async (
+      billData
+    ) => {
+      if (
+        !activeServer?.id ||
+        !isLongTermWorkspace
+      ) {
+        await error(
+          "Long-term Workspace Required",
+          "Bills to Pay are available only in long-term workspaces."
+        );
+        return false;
+      }
+
+      try {
+        setBillSaving(
+          true
+        );
+
+        await addDoc(
+          collection(
+            db,
+            "servers",
+            activeServer.id,
+            "bills"
+          ),
+          {
+            ...billData,
+
+            status:
+              "unpaid",
+
+            billingCycle:
+              `${new Date().getFullYear()}-${String(
+                new Date().getMonth() + 1
+              ).padStart(
+                2,
+                "0"
+              )}`,
+
+            createdByUid:
+              user.uid,
+
+            createdByEmail:
+              user.email ||
+              "",
+
+            createdByUsername:
+              serverUsername ||
+              profile?.username ||
+              "",
+
+            createdByDisplayName:
+              profile?.displayName ||
+              user?.displayName ||
+              "",
+
+            createdByPhotoURL:
+              profile?.photoURL ||
+              user?.photoURL ||
+              null,
+
+            createdAt:
+              serverTimestamp(),
+
+            updatedAt:
+              serverTimestamp(),
+          }
+        );
+
+        await fetchBills();
+
+        await success(
+          "Bill Added",
+          "The bill was added to Bills to Pay. It was not included in workspace expenses."
+        );
+
+        return true;
+      } catch (err) {
+        console.error(
+          "Add bill error:",
+          err
+        );
+
+        await error(
+          "Unable to Add Bill",
+          "Please try again."
+        );
+
+        return false;
+      } finally {
+        setBillSaving(
+          false
+        );
+      }
+    };
+
+  const markBillPaid =
+    async (
+      bill,
+      paymentProof
+    ) => {
+      if (
+        !activeServer?.id ||
+        !bill?.id
+      ) {
+        return false;
+      }
+
+      if (
+        !paymentProof?.dataUrl
+      ) {
+        await error(
+          "Payment Proof Required",
+          "Attach a screenshot of the paid bill before marking it as paid."
+        );
+        return false;
+      }
+
+      try {
+        setBillSaving(
+          true
+        );
+
+        await updateDoc(
+          doc(
+            db,
+            "servers",
+            activeServer.id,
+            "bills",
+            bill.id
+          ),
+          {
+            status:
+              "paid",
+
+            paymentProofDataUrl:
+              paymentProof.dataUrl,
+
+            paymentProofName:
+              paymentProof.name ||
+              "bill-payment.jpg",
+
+            paymentProofType:
+              paymentProof.type ||
+              "image/jpeg",
+
+            paidByUid:
+              user.uid,
+
+            paidByEmail:
+              user.email ||
+              "",
+
+            paidByUsername:
+              serverUsername ||
+              profile?.username ||
+              "",
+
+            paidByDisplayName:
+              profile?.displayName ||
+              user?.displayName ||
+              "",
+
+            paidByPhotoURL:
+              profile?.photoURL ||
+              user?.photoURL ||
+              null,
+
+            paidAt:
+              serverTimestamp(),
+
+            updatedAt:
+              serverTimestamp(),
+          }
+        );
+
+        await fetchBills();
+
+        await success(
+          "Bill Marked Paid",
+          "The bill was marked as paid and the payment screenshot was attached."
+        );
+
+        return true;
+      } catch (err) {
+        console.error(
+          "Mark bill paid error:",
+          err
+        );
+
+        await error(
+          "Unable to Mark Bill Paid",
+          "Please try again."
+        );
+
+        return false;
+      } finally {
+        setBillSaving(
+          false
+        );
+      }
+    };
+
+  const deleteBill =
+    async (
+      bill
+    ) => {
+      if (
+        !activeServer?.id ||
+        !bill?.id
+      ) {
+        return;
+      }
+
+      const approved =
+        await confirm({
+          type:
+            "danger",
+
+          title:
+            `Delete ${bill.title || "this bill"}?`,
+
+          message:
+            bill.status ===
+            "paid"
+              ? "The bill and its payment proof will be removed."
+              : "The unpaid bill will be removed from this workspace.",
+
+          confirmText:
+            "Delete Bill",
+        });
+
+      if (
+        !approved
+      ) {
+        return;
+      }
+
+      try {
+        setBillSaving(
+          true
+        );
+
+        await deleteDoc(
+          doc(
+            db,
+            "servers",
+            activeServer.id,
+            "bills",
+            bill.id
+          )
+        );
+
+        await fetchBills();
+
+        await success(
+          "Bill Deleted",
+          "The bill was removed."
+        );
+      } catch (err) {
+        console.error(
+          "Delete bill error:",
+          err
+        );
+
+        await error(
+          "Unable to Delete Bill",
+          "Please try again."
+        );
+      } finally {
+        setBillSaving(
+          false
+        );
+      }
+    };
+
+  const unpaidBillsCount =
+    bills.filter(
+      (bill) =>
+        bill.status !==
+        "paid"
+    ).length;
+
+  // =========================================
   // LOAD ACTIVE SERVER
   // =========================================
 
@@ -2784,6 +3303,7 @@ function App() {
             fetchServerPeople(),
             fetchSplits(),
             fetchSettlements(),
+            fetchBills(),
           ]);
         } finally {
           setLoading(
@@ -2808,6 +3328,104 @@ function App() {
   }, [
     activeServer?.id,
   ]);
+
+  // =========================================
+  // MONTHLY BILL RESET TIMER
+  // =========================================
+  // If the app stays open across the end of a month,
+  // refresh bills shortly after midnight on the 1st.
+  // fetchBills() performs the actual reset.
+
+  useEffect(() => {
+    if (
+      !activeServer?.id ||
+      !isLongTermWorkspace
+    ) {
+      return;
+    }
+
+    let timerId = null;
+    let cancelled = false;
+
+    const MAX_TIMEOUT =
+      2147480000;
+
+    const scheduleNextMonth =
+      () => {
+        if (
+          cancelled
+        ) {
+          return;
+        }
+
+        const now =
+          new Date();
+
+        const nextMonth =
+          new Date(
+            now.getFullYear(),
+            now.getMonth() + 1,
+            1,
+            0,
+            0,
+            2
+          );
+
+        const delay =
+          nextMonth.getTime() -
+          now.getTime();
+
+        if (
+          delay >
+          MAX_TIMEOUT
+        ) {
+          timerId =
+            window.setTimeout(
+              scheduleNextMonth,
+              MAX_TIMEOUT
+            );
+
+          return;
+        }
+
+        timerId =
+          window.setTimeout(
+            async () => {
+              if (
+                cancelled
+              ) {
+                return;
+              }
+
+              await fetchBills();
+
+              scheduleNextMonth();
+            },
+            Math.max(
+              delay,
+              1000
+            )
+          );
+      };
+
+    scheduleNextMonth();
+
+    return () => {
+      cancelled = true;
+
+      if (
+        timerId
+      ) {
+        window.clearTimeout(
+          timerId
+        );
+      }
+    };
+  }, [
+    activeServer?.id,
+    isLongTermWorkspace,
+  ]);
+
 
   // =========================================
   // PROFILE CHANGE
@@ -5788,6 +6406,24 @@ function App() {
           PlusCircle,
       },
 
+      ...(isLongTermWorkspace
+        ? [
+            {
+              id:
+                "bills",
+
+              mobile:
+                "Bills",
+
+              desktop:
+                "Bills to Pay",
+
+              icon:
+                ReceiptText,
+            },
+          ]
+        : []),
+
       {
         id:
           "balances",
@@ -5844,6 +6480,9 @@ function App() {
             serverPeople={
               serverPeople
             }
+            bills={
+              bills
+            }
             onNavigate={
               setPage
             }
@@ -5888,6 +6527,58 @@ function App() {
             }
             saving={
               saving
+            }
+          />
+        );
+      }
+
+      if (
+        page ===
+        "bills" &&
+        isLongTermWorkspace
+      ) {
+        return (
+          <BillsToPay
+            bills={
+              bills
+            }
+            activeServer={
+              activeServer
+            }
+            savedPeople={
+              serverPeople
+            }
+            currentUser={{
+              uid:
+                user?.uid ||
+                "",
+              email:
+                user?.email ||
+                "",
+              username:
+                serverUsername ||
+                profile?.username ||
+                "",
+              displayName:
+                profile?.displayName ||
+                user?.displayName ||
+                "",
+              photoURL:
+                profile?.photoURL ||
+                user?.photoURL ||
+                null,
+            }}
+            onAddBill={
+              addBill
+            }
+            onMarkPaid={
+              markBillPaid
+            }
+            onDeleteBill={
+              deleteBill
+            }
+            saving={
+              billSaving
             }
           />
         );
@@ -6140,9 +6831,22 @@ function App() {
                   size={19}
                 />
 
-                {
-                  desktop
-                }
+                <span className="min-w-0 flex-1">
+                  {
+                    desktop
+                  }
+                </span>
+
+                {id ===
+                  "bills" &&
+                  unpaidBillsCount >
+                    0 && (
+                  <span className="ml-auto flex min-w-5 items-center justify-center rounded-full bg-[#cf4646] px-1.5 py-0.5 text-[10px] font-black text-white">
+                    {
+                      unpaidBillsCount
+                    }
+                  </span>
+                )}
               </button>
             )
           )}
@@ -6323,7 +7027,13 @@ function App() {
       ====================================== */}
 
       <nav className="fixed bottom-[max(env(safe-area-inset-bottom),12px)] left-3 right-3 z-50 rounded-[24px] border border-white/70 bg-[#f7f9fd]/92 px-2 py-2 shadow-[0_18px_50px_rgba(20,42,118,0.20)] backdrop-blur-xl lg:hidden">
-        <div className="mx-auto grid max-w-xl grid-cols-4 gap-1">
+        <div
+          className="mx-auto grid max-w-xl gap-1"
+          style={{
+            gridTemplateColumns:
+              `repeat(${navItems.length}, minmax(0, 1fr))`,
+          }}
+        >
           {navItems.map(
             ({
               id,
@@ -6349,7 +7059,7 @@ function App() {
                 }`}
               >
                 <div
-                  className={`flex h-8 w-10 items-center justify-center rounded-xl ${
+                  className={`relative flex h-8 w-10 items-center justify-center rounded-xl ${
                     page ===
                     id
                       ? "bg-[#dfe7ff]"
@@ -6359,6 +7069,17 @@ function App() {
                   <Icon
                     size={19}
                   />
+
+                  {id ===
+                    "bills" &&
+                    unpaidBillsCount >
+                      0 && (
+                    <span className="absolute -right-1 -top-1 flex min-h-4 min-w-4 items-center justify-center rounded-full bg-[#cf4646] px-1 text-[9px] font-black text-white">
+                      {
+                        unpaidBillsCount
+                      }
+                    </span>
+                  )}
                 </div>
 
                 {

@@ -3,6 +3,7 @@ import {
   ChartNoAxesCombined,
   CalendarDays,
   ChevronDown,
+  ChevronLeft,
   ChevronRight,
   CircleDollarSign,
   Sparkles,
@@ -34,6 +35,7 @@ function Dashboard({
   activeServer,
   savedSplits = [],
   serverPeople = [],
+  bills = [],
   user,
 }) {
   const {
@@ -57,6 +59,10 @@ function Dashboard({
 
   const [sending, setSending] =
     useState(false);
+
+  // 0 = current month, 1 = previous month, 2 = two months ago, etc.
+  const [chartMonthOffset, setChartMonthOffset] =
+    useState(0);
 
   const money = (value) =>
     Number(value || 0).toLocaleString(
@@ -167,6 +173,118 @@ function Dashboard({
     return null;
   };
 
+  const billSettlerLabel =
+    (bill) =>
+      bill?.paidByDisplayName ||
+      (bill?.paidByUsername
+        ? `@${bill.paidByUsername}`
+        : bill?.paidByEmail ||
+          "Workspace member");
+
+  const getBillShareInfo =
+    (bill) => {
+      const count =
+        Array.isArray(
+          bill?.assignedPeople
+        )
+          ? bill.assignedPeople.length
+          : Number(
+              bill?.peopleCount ||
+                0
+            );
+
+      const total =
+        Number(
+          bill?.amount ||
+            0
+        );
+
+      return {
+        count,
+        amountPerPerson:
+          count > 0
+            ? total / count
+            : 0,
+      };
+    };
+
+  const billSettlementStats =
+    useMemo(() => {
+      const paid =
+        bills.filter(
+          (bill) =>
+            bill.status ===
+            "paid"
+        );
+
+      const unpaid =
+        bills.filter(
+          (bill) =>
+            bill.status !==
+            "paid"
+        );
+
+      const settledAmount =
+        paid.reduce(
+          (sum, bill) =>
+            sum +
+            Number(
+              bill.amount ||
+                0
+            ),
+          0
+        );
+
+      const outstandingAmount =
+        unpaid.reduce(
+          (sum, bill) =>
+            sum +
+            Number(
+              bill.amount ||
+                0
+            ),
+          0
+        );
+
+      const recentSettled =
+        [...paid]
+          .sort(
+            (a, b) => {
+              const aDate =
+                getDate(
+                  a.paidAt
+                );
+              const bDate =
+                getDate(
+                  b.paidAt
+                );
+
+              return (
+                (bDate?.getTime() ||
+                  0) -
+                (aDate?.getTime() ||
+                  0)
+              );
+            }
+          )
+          .slice(
+            0,
+            5
+          );
+
+      return {
+        paidCount:
+          paid.length,
+        unpaidCount:
+          unpaid.length,
+        settledAmount,
+        outstandingAmount,
+        recentSettled,
+      };
+    }, [
+      bills,
+    ]);
+
   const stats =
     useMemo(() => {
       const now =
@@ -212,26 +330,36 @@ function Dashboard({
           0
         );
 
-      const people =
+      // Current workspace members only.
+      // Historical people from old splits/bills are intentionally
+      // NOT counted here.
+      const currentWorkspacePeople =
         new Set();
 
-      savedSplits.forEach(
-        (split) => {
-          (
-            split.participants ||
-            []
-          ).forEach(
-            (person) =>
-              people.add(
-                person.name
-              )
-          );
+      serverPeople.forEach(
+        (person) => {
+          const key =
+            person?.linkedUid
+              ? `uid:${person.linkedUid}`
+              : person?.linkedEmail
+              ? `email:${normalizeEmail(
+                  person.linkedEmail
+                )}`
+              : person?.username
+              ? `username:${String(
+                  person.username
+                )
+                  .trim()
+                  .toLowerCase()}`
+              : person?.name
+              ? `name:${normalizeName(
+                  person.name
+                )}`
+              : "";
 
-          if (
-            split.payer?.name
-          ) {
-            people.add(
-              split.payer.name
+          if (key) {
+            currentWorkspacePeople.add(
+              key
             );
           }
         }
@@ -243,10 +371,11 @@ function Dashboard({
         count:
           savedSplits.length,
         people:
-          people.size,
+          currentWorkspacePeople.size,
       };
     }, [
       savedSplits,
+      serverPeople,
     ]);
 
   const categoryData =
@@ -396,151 +525,292 @@ function Dashboard({
       serverPeople,
     ]);
 
-  const weeklyData =
+  const chartMonthDate =
     useMemo(() => {
       const now = new Date();
+
+      return new Date(
+        now.getFullYear(),
+        now.getMonth() - chartMonthOffset,
+        1
+      );
+    }, [chartMonthOffset]);
+
+  const chartMonthLabel =
+    chartMonthDate.toLocaleString(
+      "en-PH",
+      {
+        month: "long",
+        year: "numeric",
+      }
+    );
+
+  // =========================================
+  // MONTHLY WEEKLY CHART
+  // =========================================
+  // Uses Monday-based calendar weeks, but caps
+  // the month at 5 displayed buckets. If a
+  // month technically touches a 6th calendar
+  // week (for example Aug 2026), the last tiny
+  // partial week is merged into W5.
+  //
+  // Example for September 2026:
+  // W1 = Sep 1-6
+  // W2 = Sep 7-13
+  // W3 = Sep 14-20
+  // W4 = Sep 21-27
+  // W5 = Sep 28-30
+  // =========================================
+
+  const weeklyData =
+    useMemo(() => {
       const rows = [];
 
-      for (
-        let monthOffset = 1;
-        monthOffset >= 0;
-        monthOffset -= 1
-      ) {
-        const monthDate = new Date(
-          now.getFullYear(),
-          now.getMonth() - monthOffset,
-          1
-        );
+      const year =
+        chartMonthDate.getFullYear();
+      const month =
+        chartMonthDate.getMonth();
 
-        const year = monthDate.getFullYear();
-        const month = monthDate.getMonth();
-        const daysInMonth = new Date(
+      const daysInMonth =
+        new Date(
           year,
           month + 1,
           0
         ).getDate();
 
-        const weekCount = Math.ceil(
-          daysInMonth / 7
+      // Convert JS Sunday=0 into Monday=0.
+      const firstDayMondayOffset =
+        (
+          new Date(
+            year,
+            month,
+            1
+          ).getDay() + 6
+        ) % 7;
+
+      const rawWeekCount =
+        Math.ceil(
+          (
+            firstDayMondayOffset +
+            daysInMonth
+          ) / 7
         );
 
-        for (
-          let weekIndex = 0;
-          weekIndex < weekCount;
-          weekIndex += 1
-        ) {
-          const startDay =
-            weekIndex * 7 + 1;
+      // Keep the chart clean: W1-W5 only.
+      // A possible sixth partial calendar week
+      // is merged into W5.
+      const weekCount =
+        Math.min(
+          rawWeekCount,
+          5
+        );
 
-          const endDay = Math.min(
-            startDay + 6,
-            daysInMonth
-          );
+      const firstWeekEnd =
+        Math.min(
+          daysInMonth,
+          7 - firstDayMondayOffset
+        );
 
-          const categoryAmounts = {};
+      for (
+        let weekIndex = 0;
+        weekIndex < weekCount;
+        weekIndex += 1
+      ) {
+        const startDay =
+          weekIndex === 0
+            ? 1
+            : firstWeekEnd +
+              1 +
+              (weekIndex - 1) * 7;
 
-          topCategoryNames.forEach(
-            (category) => {
-              categoryAmounts[
-                category
-              ] = 0;
+        const endDay =
+          weekIndex ===
+          weekCount - 1
+            ? daysInMonth
+            : Math.min(
+                startDay + 6,
+                daysInMonth
+              );
+
+        const categoryAmounts = {};
+
+        topCategoryNames.forEach(
+          (category) => {
+            categoryAmounts[
+              category
+            ] = 0;
+          }
+        );
+
+        const monthLabel =
+          chartMonthDate.toLocaleString(
+            "en-PH",
+            {
+              month: "short",
             }
           );
 
-          const monthLabel =
-            monthDate.toLocaleString(
-              "en-PH",
-              {
-                month: "short",
-              }
-            );
-
-          rows.push({
-            key:
-              `${year}-${month}-${weekIndex}`,
-            year,
-            month,
-            weekIndex,
-            weekNumber:
-              weekIndex + 1,
-            weekLabel:
-              `W${weekIndex + 1}`,
-            monthLabel,
-            label:
-              `W${weekIndex + 1}`,
-            rangeLabel:
-              `${startDay}-${endDay}`,
-            amount: 0,
-            categoryAmounts,
-          });
-        }
+        rows.push({
+          key:
+            `${year}-${month}-${weekIndex}`,
+          year,
+          month,
+          weekIndex,
+          weekNumber:
+            weekIndex + 1,
+          weekLabel:
+            `W${weekIndex + 1}`,
+          monthLabel,
+          label:
+            `W${weekIndex + 1}`,
+          rangeLabel:
+            `${startDay}-${endDay}`,
+          amount: 0,
+          categoryAmounts,
+        });
       }
 
-      savedSplits.forEach((split) => {
-        const date =
-          getDate(split.createdAt);
+      savedSplits.forEach(
+        (split) => {
+          const date =
+            getDate(
+              split.createdAt
+            );
 
-        if (!date) return;
+          if (!date) {
+            return;
+          }
 
-        const weekIndex =
-          Math.floor(
-            (date.getDate() - 1) /
-              7
-          );
+          if (
+            date.getFullYear() !==
+              year ||
+            date.getMonth() !==
+              month
+          ) {
+            return;
+          }
 
-        const key =
-          `${date.getFullYear()}-${date.getMonth()}-${weekIndex}`;
+          const rawWeekIndex =
+            Math.floor(
+              (
+                date.getDate() +
+                firstDayMondayOffset -
+                1
+              ) / 7
+            );
 
-        const row = rows.find(
-          (item) =>
-            item.key === key
-        );
+          // Merge a technical sixth calendar
+          // week into W5.
+          const weekIndex =
+            Math.min(
+              rawWeekIndex,
+              4
+            );
 
-        if (!row) return;
+          const key =
+            `${year}-${month}-${weekIndex}`;
 
-        const amount = Number(
-          split.totalAmount || 0
-        );
+          const row =
+            rows.find(
+              (item) =>
+                item.key === key
+            );
 
-        row.amount += amount;
+          if (!row) {
+            return;
+          }
 
-        const category =
-          split.category || "Other";
+          const amount =
+            Number(
+              split.totalAmount ||
+                0
+            );
 
-        if (
-          topCategoryNames.includes(
-            category
-          )
-        ) {
-          row.categoryAmounts[
-            category
-          ] += amount;
+          row.amount += amount;
+
+          const category =
+            split.category ||
+            "Other";
+
+          if (
+            topCategoryNames.includes(
+              category
+            )
+          ) {
+            row.categoryAmounts[
+              category
+            ] += amount;
+          }
         }
-      });
+      );
 
       return rows;
-    }, [savedSplits, topCategoryNames]);
+    }, [
+      savedSplits,
+      topCategoryNames,
+      chartMonthDate,
+    ]);
 
-  const maxWeekly = Math.max(
-    ...weeklyData.map(
-      (item) => item.amount
-    ),
-    1
-  );
+  const maxWeekly =
+    Math.max(
+      ...weeklyData.map(
+        (item) =>
+          item.amount
+      ),
+      1
+    );
+
+  const selectedMonthTotal =
+    weeklyData.reduce(
+      (sum, item) =>
+        sum +
+        Number(
+          item.amount ||
+            0
+        ),
+      0
+    );
 
   const currentWeekIndex =
-    Math.floor(
-      (new Date().getDate() - 1) /
-        7
-    );
+    (() => {
+      const now = new Date();
+
+      if (
+        chartMonthOffset !== 0
+      ) {
+        return Math.max(
+          weeklyData.length - 1,
+          0
+        );
+      }
+
+      const firstDayMondayOffset =
+        (
+          new Date(
+            now.getFullYear(),
+            now.getMonth(),
+            1
+          ).getDay() + 6
+        ) % 7;
+
+      const rawWeekIndex =
+        Math.floor(
+          (
+            now.getDate() +
+            firstDayMondayOffset -
+            1
+          ) / 7
+        );
+
+      return Math.min(
+        rawWeekIndex,
+        4
+      );
+    })();
 
   const currentWeekData =
     weeklyData.find(
       (item) =>
-        item.year ===
-          new Date().getFullYear() &&
-        item.month ===
-          new Date().getMonth() &&
         item.weekIndex ===
           currentWeekIndex
     ) ||
@@ -550,27 +820,23 @@ function Dashboard({
     null;
 
   const twoMonthTotal =
-    weeklyData.reduce(
-      (sum, item) =>
-        sum +
-        Number(item.amount || 0),
-      0
-    );
+    selectedMonthTotal;
 
   const twoMonthCategoryTotals =
     topCategoryNames.map(
       (category) => ({
         name: category,
-        amount: weeklyData.reduce(
-          (sum, item) =>
-            sum +
-            Number(
-              item.categoryAmounts?.[
-                category
-              ] || 0
-            ),
-          0
-        ),
+        amount:
+          weeklyData.reduce(
+            (sum, item) =>
+              sum +
+              Number(
+                item.categoryAmounts?.[
+                  category
+                ] || 0
+              ),
+            0
+          ),
       })
     );
 
@@ -781,7 +1047,7 @@ function Dashboard({
                 </h2>
 
                 <p className="mt-1 text-xs text-[#8995aa]">
-                  Weekly spending plus your top categories across the last 2 months
+                  Weekly spending and top categories for the selected month
                 </p>
               </div>
             </div>
@@ -808,13 +1074,72 @@ function Dashboard({
                   </p>
 
                   <p className="mt-1 text-xs font-bold text-[#71809a]">
-                    Current week · {currentWeekData?.label || ""}
+                    {chartMonthOffset === 0
+                      ? "Current week"
+                      : "Last week"} · {currentWeekData?.label || ""}
                   </p>
                 </div>
 
-                <div className="rounded-2xl bg-[#eef3ff] px-4 py-3 text-right">
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setChartMonthOffset(
+                        (current) =>
+                          current + 1
+                      )
+                    }
+                    className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-[#dbe4f4] bg-white px-3 text-xs font-extrabold text-[#294aad] shadow-sm transition hover:bg-[#f5f8ff]"
+                  >
+                    <ChevronLeft
+                      size={16}
+                    />
+                    Previous month
+                  </button>
+
+                  {chartMonthOffset > 0 && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setChartMonthOffset(
+                          (current) =>
+                            Math.max(
+                              current - 1,
+                              0
+                            )
+                        )
+                      }
+                      className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-[#dbe4f4] bg-white px-3 text-xs font-extrabold text-[#52617d] shadow-sm transition hover:bg-[#f5f8ff]"
+                    >
+                      Next month
+                      <ChevronRight
+                        size={16}
+                      />
+                    </button>
+                  )}
+
+                  <div className="rounded-2xl bg-[#eef3ff] px-4 py-3 text-right">
+                    <p className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#71809a]">
+                      {chartMonthLabel}
+                    </p>
+
+                    <p className="mt-1 text-sm font-black text-[#294aad]">
+                      ₱
+                      {selectedMonthTotal.toLocaleString(
+                        "en-PH",
+                        {
+                          maximumFractionDigits:
+                            0,
+                        }
+                      )}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Legacy total block hidden: monthly total is shown above. */}
+                <div className="hidden rounded-2xl bg-[#eef3ff] px-4 py-3 text-right">
                   <p className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#71809a]">
-                    2-month total
+                    Month total
                   </p>
 
                   <p className="mt-1 text-sm font-black text-[#294aad]">
@@ -835,7 +1160,7 @@ function Dashboard({
                 <div className="mb-4 flex items-center justify-between gap-3">
                   <div>
                     <p className="text-[11px] font-extrabold uppercase tracking-[0.13em] text-[#8995aa]">
-                      8-week spending
+                      Monthly weekly spending
                     </p>
                     <p className="mt-1 text-xs font-bold text-[#52617d]">
                       Weekly movement at a glance
@@ -995,7 +1320,7 @@ function Dashboard({
                           viewBox={`0 0 ${width} ${height}`}
                           className="block h-auto w-full"
                           role="img"
-                          aria-label="Weekly total spending and top two category spending trends for the last two months"
+                          aria-label="Weekly total spending and top two category spending trends for the selected month"
                         >
                         <defs>
                           <linearGradient
@@ -1150,7 +1475,7 @@ function Dashboard({
                         Top categories
                       </p>
                       <p className="text-[9px] font-bold text-[#9ba6b8]">
-                        2-month total
+                        Month total
                       </p>
                     </div>
 
@@ -1823,6 +2148,175 @@ function Dashboard({
             <p className="mt-1 text-xs leading-5 text-[#71809a]">
               Create or use a long-term workspace when you want month-to-month spending comparisons.
             </p>
+          </div>
+        )}
+
+        {isLongTerm && (
+          <div className="app-card overflow-hidden">
+            <div className="border-b border-[#e3e8f0] p-5 sm:p-6">
+              <div className="flex items-center gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#e7f6ef] text-[#18845c]">
+                  <CalendarDays
+                    size={20}
+                  />
+                </div>
+
+                <div>
+                  <h2 className="font-extrabold text-[#182442]">
+                    Bill Settlement Overview
+                  </h2>
+
+                  <p className="mt-1 text-xs text-[#8995aa]">
+                    See which bills are already settled and who completed the payment.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4 sm:p-6">
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <div className="rounded-2xl bg-[#e7f6ef] p-4">
+                  <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#5a947c]">
+                    Settled bills
+                  </p>
+                  <p className="mt-2 text-2xl font-black text-[#18845c]">
+                    {billSettlementStats.paidCount}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl bg-[#fff3df] p-4">
+                  <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#a9782a]">
+                    Unpaid bills
+                  </p>
+                  <p className="mt-2 text-2xl font-black text-[#a76510]">
+                    {billSettlementStats.unpaidCount}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl bg-[#eef3ff] p-4">
+                  <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#71809a]">
+                    Amount settled
+                  </p>
+                  <p className="mt-2 text-lg font-black text-[#294aad]">
+                    ₱{money(
+                      billSettlementStats.settledAmount
+                    )}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl bg-[#fff0f0] p-4">
+                  <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#a56b6b]">
+                    Still due
+                  </p>
+                  <p className="mt-2 text-lg font-black text-[#c85353]">
+                    ₱{money(
+                      billSettlementStats.outstandingAmount
+                    )}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-5">
+                <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#8995aa]">
+                  Recently settled
+                </p>
+
+                {billSettlementStats.recentSettled.length === 0 ? (
+                  <div className="mt-3 rounded-2xl bg-[#f7f9fd] p-5 text-center">
+                    <p className="text-sm font-bold text-[#8995aa]">
+                      No bills have been settled yet.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="mt-3 space-y-2">
+                    {billSettlementStats.recentSettled.map(
+                      (bill) => {
+                        const paidDate =
+                          getDate(
+                            bill.paidAt
+                          );
+
+                        return (
+                          <div
+                            key={
+                              bill.id
+                            }
+                            className="flex flex-col gap-3 rounded-2xl border border-[#e0e6ef] bg-[#f8faff] p-4 sm:flex-row sm:items-center"
+                          >
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className="truncate font-extrabold text-[#182442]">
+                                  {bill.title ||
+                                    "Bill"}
+                                </p>
+
+                                <span className="rounded-full bg-[#e7f6ef] px-2 py-1 text-[10px] font-black uppercase text-[#18845c]">
+                                  Settled
+                                </span>
+                              </div>
+
+                              <p className="mt-1 text-xs font-bold text-[#52617d]">
+                                Settled by{" "}
+                                <span className="text-[#18845c]">
+                                  {billSettlerLabel(
+                                    bill
+                                  )}
+                                </span>
+                              </p>
+
+                              {(() => {
+                                const share =
+                                  getBillShareInfo(
+                                    bill
+                                  );
+
+                                return share.count >
+                                  0 ? (
+                                  <p className="mt-1 text-xs font-extrabold text-[#294aad]">
+                                    {share.count}{" "}
+                                    {share.count === 1
+                                      ? "person"
+                                      : "people"}{" "}
+                                    included · ₱{money(
+                                      share.amountPerPerson
+                                    )} each
+                                  </p>
+                                ) : null;
+                              })()}
+
+                              <p className="mt-1 text-[11px] text-[#8995aa]">
+                                {paidDate
+                                  ? paidDate.toLocaleDateString(
+                                      "en-PH",
+                                      {
+                                        month:
+                                          "short",
+                                        day:
+                                          "numeric",
+                                        year:
+                                          "numeric",
+                                      }
+                                    )
+                                  : "Payment date unavailable"}
+                                {bill.paidByEmail
+                                  ? ` · ${bill.paidByEmail}`
+                                  : ""}
+                              </p>
+                            </div>
+
+                            <p className="shrink-0 text-lg font-black text-[#18845c]">
+                              ₱{money(
+                                bill.amount
+                              )}
+                            </p>
+                          </div>
+                        );
+                      }
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         )}
 

@@ -3,6 +3,7 @@ import {
   ChevronDown,
   ChevronRight,
   ImagePlus,
+  Equal,
   ListChecks,
   LoaderCircle,
   Percent,
@@ -1865,7 +1866,7 @@ function SplitCalculator({
                     : "border-[#dce3ef] bg-[#f7f9fd] text-[#71809a]"
                 }`}
               >
-                <Users
+                <Equal
                   size={18}
                 />
                 <span className="hidden sm:inline">

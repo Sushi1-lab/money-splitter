@@ -4579,7 +4579,7 @@ function Budgeter({
           </div>
         </section>
 
-        <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <section className="grid grid-cols-4 gap-1.5 sm:gap-3">
           {[
             {
               label:
@@ -4629,24 +4629,42 @@ function Budgeter({
               const Icon =
                 card.icon;
 
+              const valueText =
+                String(
+                  card.value ??
+                    ""
+                );
+
+              const amountSize =
+                valueText.length >= 16
+                  ? "text-[7px] sm:text-lg"
+                  : valueText.length >= 13
+                  ? "text-[8px] sm:text-lg"
+                  : valueText.length >= 10
+                  ? "text-[9px] sm:text-xl"
+                  : "text-[10px] sm:text-xl";
+
               return (
                 <div
                   key={
                     card.label
                   }
-                  className="app-card p-4 sm:p-5"
+                  className="app-card min-w-0 overflow-hidden p-2 sm:p-5"
                 >
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#eef3ff] text-[#294aad]">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#eef3ff] text-[#294aad] sm:h-10 sm:w-10 sm:rounded-xl">
                     <Icon
-                      size={20}
+                      size={15}
+                      className="sm:h-5 sm:w-5"
                     />
                   </div>
 
-                  <p className="mt-4 text-xs font-bold text-[#8995aa]">
+                  <p className="mt-2 min-h-[22px] text-[8px] font-bold leading-[1.15] text-[#8995aa] sm:mt-4 sm:min-h-0 sm:text-xs">
                     {card.label}
                   </p>
 
-                  <p className="mt-1 break-words text-xl font-black text-[#182442]">
+                  <p
+                    className={`mt-1 min-w-0 whitespace-nowrap font-black tracking-[-0.04em] text-[#182442] sm:tracking-tight ${amountSize}`}
+                  >
                     {card.value}
                   </p>
                 </div>
