@@ -3242,14 +3242,96 @@ function App() {
           id
         );
 
-        await setDoc(
+        // IMPORTANT:
+        // A mutual balance reduction already increases settledAmount.
+        // When the remaining balance is later paid, we must ADD the
+        // real payment to the amount that was already reduced.
+        //
+        // Example:
+        // Original debt: ₱905
+        // Reduced mutually: ₱452.50  -> settledAmount = ₱452.50
+        // Remaining paid: ₱452.50    -> settledAmount must become ₱905
+        //
+        // Replacing settledAmount with only ₱452.50 would make the
+        // reduced portion appear active again.
+        // Read the latest settlement directly from Firestore.
+        // Do not rely only on React state here because the user may click
+        // "Paid" immediately after "Reduce Balances" before the local
+        // settlements state has finished refreshing.
+        const settlementRef =
           doc(
             db,
             "servers",
             activeServer.id,
             "settlements",
             id
-          ),
+          );
+
+        const latestSettlementSnap =
+          await getDoc(
+            settlementRef
+          );
+
+        const existingSettlement =
+          latestSettlementSnap.exists()
+            ? latestSettlementSnap.data()
+            : {};
+
+        const previousSettledAmount =
+          Number(
+            existingSettlement
+              .settledAmount ||
+              0
+          );
+
+        const realPaymentAmount =
+          Number(
+            amount ||
+              0
+          );
+
+        const rawDebtTotalFromProof =
+          Array.isArray(
+            paymentProof?.splitDetails
+          )
+            ? paymentProof.splitDetails.reduce(
+                (
+                  sum,
+                  item
+                ) =>
+                  sum +
+                  Number(
+                    item?.amount ||
+                      0
+                  ),
+                0
+              )
+            : 0;
+
+        const uncappedNextSettledAmount =
+          previousSettledAmount +
+          realPaymentAmount;
+
+        const nextSettledAmount =
+          rawDebtTotalFromProof >
+          0
+            ? Math.min(
+                uncappedNextSettledAmount,
+                rawDebtTotalFromProof
+              )
+            : uncappedNextSettledAmount;
+
+        const previousPaymentAmount =
+          Number(
+            existingSettlement
+              .paidAmount ||
+              existingSettlement
+                .paymentAmount ||
+              0
+          );
+
+        await setDoc(
+          settlementRef,
           {
             debtorKey:
               normalizeName(
@@ -3267,10 +3349,38 @@ function App() {
             creditor:
               creditorName,
 
+            // CUMULATIVE settlement amount.
+            // This preserves any previous mutual reduction.
             settledAmount:
+              nextSettledAmount,
+
+            // Track actual money paid separately from balance reductions.
+            paidAmount:
+              previousPaymentAmount +
+              realPaymentAmount,
+
+            lastPaymentAmount:
+              realPaymentAmount,
+
+            status:
+              "paid",
+
+            // Keep a hint that this payment happened after a reduction,
+            // without deleting the existing reduction metadata.
+            paymentAfterReduction:
+              [
+                "mutual-reduction",
+                "mutual-offset",
+              ].includes(
+                existingSettlement
+                  .settlementType
+              ) ||
               Number(
-                amount
-              ),
+                existingSettlement
+                  .offsetAmount ||
+                  0
+              ) >
+                0,
 
             updatedByUid:
               user.uid,
@@ -3278,7 +3388,6 @@ function App() {
             updatedByEmail:
               user.email ||
               "",
-
 
             paymentProofDataUrl:
               paymentProof?.paymentProofDataUrl || "",
@@ -3315,6 +3424,11 @@ function App() {
 
             updatedAt:
               serverTimestamp(),
+          },
+          {
+            // Do NOT overwrite the previous mutual-reduction fields.
+            merge:
+              true,
           }
         );
 
